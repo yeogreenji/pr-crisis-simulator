@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  BookOpen,
   ClipboardCheck,
   Download,
   FilePenLine,
@@ -12,8 +13,9 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
-import type { Analysis, ChannelId, IssueCategoryId, LlmConfig, Preset, RiskSpan, RunRecord } from "./types";
+import type { Analysis, ChannelId, IndustryId, IssueCategoryId, LlmConfig, Preset, RiskSpan, RunRecord } from "./types";
 import { PRESETS } from "./lib/presets";
+import { getIndustry } from "./lib/industries";
 import { analyze } from "./lib/engine";
 import { buildMarkdown, downloadText, slugForFile } from "./lib/report";
 import { addRun, clearRuns, loadApiConfig, loadRuns, persistApiConfig, removeRun } from "./lib/storage";
@@ -30,6 +32,7 @@ import { PrintReport } from "./components/PrintReport";
 import { EmptyState } from "./components/EmptyState";
 import { Sidebar, type AppView } from "./components/Sidebar";
 import { TopBar } from "./components/TopBar";
+import { LibraryView } from "./components/LibraryView";
 import { Card, ScoreBadge, cx } from "./components/ui";
 
 type TabId = "press" | "sentiment" | "xray" | "response";
@@ -43,6 +46,7 @@ export default function App() {
   const [draft, setDraft] = useState(PRESETS[0].draft);
   const [brand, setBrand] = useState(PRESETS[0].brand);
   const [issue, setIssue] = useState<IssueCategoryId>(PRESETS[0].issue);
+  const [industry, setIndustry] = useState<IndustryId>(PRESETS[0].industry);
   const [channels, setChannels] = useState<ChannelId[]>(PRESETS[0].channels);
   const [activePreset, setActivePreset] = useState<string | null>(PRESETS[0].id);
 
@@ -75,10 +79,21 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [mobilePanel, view]);
 
-  const stale = analysis !== null && draft.replace(/\r\n/g, "\n") !== analysis.text;
+  const stale =
+    analysis !== null &&
+    (draft.replace(/\r\n/g, "\n") !== analysis.text ||
+      analysis.industry !== industry ||
+      analysis.issue !== issue);
 
   const runAnalysis = useCallback(
-    async (override?: { text?: string; brand?: string; issue?: IssueCategoryId; channels?: ChannelId[]; tab?: TabId }) => {
+    async (override?: {
+      text?: string;
+      brand?: string;
+      issue?: IssueCategoryId;
+      industry?: IndustryId;
+      channels?: ChannelId[];
+      tab?: TabId;
+    }) => {
       const text = (override?.text ?? draft).replace(/\r\n/g, "\n");
       if (text.trim().length < 20) {
         notify("초안이 너무 짧습니다. 최소 20자 이상 입력하세요.", "warn");
@@ -86,6 +101,7 @@ export default function App() {
       }
       const cfgBrand = (override?.brand ?? brand).trim() || "당사";
       const cfgIssue = override?.issue ?? issue;
+      const cfgIndustry = override?.industry ?? industry;
       const cfgChannels = override?.channels ?? channels;
 
       setRunning(true);
@@ -96,7 +112,7 @@ export default function App() {
         await sleep(i === 0 ? 180 : 200);
       }
 
-      let result = analyze({ text, brand: cfgBrand, issue: cfgIssue, channels: cfgChannels });
+      let result = analyze({ text, brand: cfgBrand, issue: cfgIssue, industry: cfgIndustry, channels: cfgChannels });
 
       if (apiConfig.enabled && apiConfig.apiKey.trim()) {
         try {
@@ -123,16 +139,30 @@ export default function App() {
       setActivePreset(null);
       setRunning(false);
     },
-    [apiConfig, brand, channels, draft, issue, notify, runs],
+    [apiConfig, brand, channels, draft, industry, issue, notify, runs],
   );
 
   const handlePreset = (preset: Preset) => {
     setBrand(preset.brand);
     setIssue(preset.issue);
+    setIndustry(preset.industry);
     setChannels(preset.channels);
     setDraft(preset.draft);
     setActivePreset(preset.id);
-    void runAnalysis({ text: preset.draft, brand: preset.brand, issue: preset.issue, channels: preset.channels });
+    void runAnalysis({
+      text: preset.draft,
+      brand: preset.brand,
+      issue: preset.issue,
+      industry: preset.industry,
+      channels: preset.channels,
+    });
+  };
+
+  const simulateIndustry = (id: IndustryId) => {
+    const preset = PRESETS.find((p) => p.industry === id) ?? PRESETS[0];
+    setView("simulator");
+    setMobilePanel("analysis");
+    handlePreset(preset);
   };
 
   const toggleChannel = (id: ChannelId) => {
@@ -177,10 +207,18 @@ export default function App() {
     setView("simulator");
     setBrand(run.brand);
     setIssue(run.issue);
+    const runIndustry = run.industry ?? "tech";
+    setIndustry(runIndustry);
     setChannels(run.channels);
     setDraft(run.text);
     setActivePreset(null);
-    void runAnalysis({ text: run.text, brand: run.brand, issue: run.issue, channels: run.channels });
+    void runAnalysis({
+      text: run.text,
+      brand: run.brand,
+      issue: run.issue,
+      industry: runIndustry,
+      channels: run.channels,
+    });
   };
 
   const togglePick = (id: string) => {
@@ -248,12 +286,17 @@ export default function App() {
           view={view}
           apiEnabled={apiConfig.enabled && Boolean(apiConfig.apiKey)}
           onOpenApi={() => setApiOpen(true)}
-          onOpenHistory={() => setView(view === "history" ? "simulator" : "history")}
+          onChangeView={(v) => {
+            setView(v);
+            if (v !== "simulator") setMobilePanel("analysis");
+          }}
         />
 
         <main className="lg:pl-[68px]">
           <div className="mx-auto w-full max-w-[1600px] px-3 pb-24 pt-3 sm:px-5 sm:pt-4 xl:pb-6">
-            {view === "history" ? (
+            {view === "library" ? (
+              <LibraryView industry={industry} onIndustry={setIndustry} onSimulate={simulateIndustry} />
+            ) : view === "history" ? (
               <HistoryView
                 runs={runs}
                 picked={picked}
@@ -279,6 +322,8 @@ export default function App() {
                         onBrand={setBrand}
                         issue={issue}
                         onIssue={setIssue}
+                        industry={industry}
+                        onIndustry={setIndustry}
                         channels={channels}
                         onToggleChannel={toggleChannel}
                         onPreset={handlePreset}
@@ -289,6 +334,10 @@ export default function App() {
                         apiEnabled={apiConfig.enabled && Boolean(apiConfig.apiKey)}
                         onOpenApi={() => setApiOpen(true)}
                         activePresetId={activePreset}
+                        onOpenPlaybook={(id) => {
+                          setIndustry(id);
+                          setView("library");
+                        }}
                       />
                     </div>
                   </div>
@@ -304,9 +353,19 @@ export default function App() {
                           <div className="min-w-0 flex-1">
                             <div className="flex flex-wrap items-center gap-1.5">
                               <h1 className="truncate text-[15px] font-semibold tracking-[-0.025em]">{analysis.brand}</h1>
+                              <span
+                                className="chip"
+                                style={{
+                                  background: `${getIndustry(analysis.industry).accent}12`,
+                                  color: getIndustry(analysis.industry).accent,
+                                  border: `1px solid ${getIndustry(analysis.industry).accent}26`,
+                                }}
+                              >
+                                {analysis.industryLabel}
+                              </span>
                               <span className="chip border border-line bg-surface text-ink-2">{analysis.issueLabel}</span>
                               <span className="chip bg-paper-deep text-muted">
-                                {analysis.engine === "llm" ? "LLM 정밀 분석" : "휴리스틱 v2.4"}
+                                {analysis.engine === "llm" ? "LLM 정밀 분석" : "휴리스틱 v2.5 · 업종 매뉴얼"}
                               </span>
                               {baseline && <span className="chip bg-ok-soft text-ok">2차</span>}
                             </div>
@@ -358,7 +417,9 @@ export default function App() {
 
                       {stale && (
                         <div className="flex flex-wrap items-center gap-2 rounded-xl border border-warn/25 bg-warn-soft px-3.5 py-2.5">
-                          <span className="text-[11px] font-medium text-warn">초안이 수정되었습니다. 결과는 마지막 분석 기준입니다.</span>
+                          <span className="text-[11px] font-medium text-warn">
+                            초안·업종·이슈 유형이 변경되었습니다. 결과는 마지막 분석 기준입니다.
+                          </span>
                           <button
                             type="button"
                             onClick={() => void runAnalysis()}
@@ -413,20 +474,26 @@ export default function App() {
         </main>
 
         <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md lg:hidden">
-          <div className="grid grid-cols-3">
+          <div className="grid grid-cols-4">
             {[
               { id: "input" as MobilePanel, label: "초안", icon: FilePenLine },
               { id: "analysis" as MobilePanel, label: "분석", icon: Newspaper },
               { id: "risk" as MobilePanel, label: "리스크", icon: GaugeIcon },
+              { id: "library" as const, label: "사례", icon: BookOpen },
             ].map((item) => {
-              const active = mobilePanel === item.id && view === "simulator";
+              const isLibrary = item.id === "library";
+              const active = isLibrary ? view === "library" : mobilePanel === item.id && view === "simulator";
               return (
                 <button
                   key={item.id}
                   type="button"
                   onClick={() => {
+                    if (isLibrary) {
+                      setView("library");
+                      return;
+                    }
                     setView("simulator");
-                    setMobilePanel(item.id);
+                    setMobilePanel(item.id as MobilePanel);
                   }}
                   className={cx("flex flex-col items-center gap-1 py-2.5", active ? "text-ink" : "text-faint")}
                 >
@@ -462,10 +529,11 @@ export default function App() {
               </div>
               <ol className="mt-4 space-y-2.5">
                 {[
-                  "이슈 유형과 타깃 채널을 고르고 초안을 붙여넣습니다.",
-                  "시뮬레이션을 실행하면 기자 시각·여론·리스크가 동시에 생성됩니다.",
-                  "문장 X-ray에서 위험 구절을 눌러 교체안을 적용하고 다시 점수를 확인합니다.",
+                  "업종(식품·유통·소비재·IT·제조·엔터)과 이슈 유형, 타깃 채널을 고르고 초안을 붙여넣습니다.",
+                  "시뮬레이션을 실행하면 기자 시각·여론·리스크가 업종 기준으로 동시에 생성됩니다.",
+                  "문장 X-ray에서 위험 구절을 눌러 교체안을 적용하고, 업종 필수 항목이 비었는지 확인합니다.",
                   "응답 팩에서 Q&A와 수정 1차안을 복사하거나 Markdown·인쇄로 내보냅니다.",
+                  "상단 '사례·매뉴얼'에서 실제 위기 사례와 업종별 골든타임 타임라인을 볼 수 있습니다.",
                 ].map((t, i) => (
                   <li key={i} className="flex gap-2.5">
                     <span className="num mt-[1px] grid h-5 w-5 shrink-0 place-items-center rounded-md bg-paper-deep text-[9.5px] font-semibold text-muted">
@@ -503,7 +571,7 @@ export default function App() {
         )}
       </div>
 
-      {analysis && <PrintReport analysis={analysis} />}
+      {analysis && view !== "library" && <PrintReport analysis={analysis} />}
     </>
   );
 }

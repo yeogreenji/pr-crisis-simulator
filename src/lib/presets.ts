@@ -67,16 +67,29 @@ export const ISSUE_CATEGORIES: IssueCategory[] = [
     ],
   },
   {
-    id: "executive-speech",
-    label: "임원 발언·SNS 논란",
-    short: "임원 발언 논란",
-    baseline: 7,
-    description: "발언·게시물 파문. 원문 맥락과 공식 입장 여부가 쟁점입니다.",
+    id: "safety-accident",
+    label: "산업재해·안전사고",
+    short: "안전사고",
+    baseline: 13,
+    description: "사망·중상 재해. 작업 중지, 유가족 지원, 원청 책임이 첫 문장입니다.",
     factChecks: [
-      "해당 발언의 원문과 전체 맥락은?",
+      "사망·부상자는 몇 명이며 원청·협력사 소속은 어떻게 되나?",
+      "사고 설비와 동일 공정의 작업 중지 범위는?",
+      "고용노동부에 언제 보고하고 어떤 자료를 제출했나?",
+      "동일 공정의 재발 방지 대책과 이행 일정은?",
+    ],
+  },
+  {
+    id: "executive-speech",
+    label: "인물 발언·행동 논란",
+    short: "인물 논란",
+    baseline: 7,
+    description: "임원·아티스트의 발언·행동 파문. 원문 맥락과 공식 입장 여부가 쟁점입니다.",
+    factChecks: [
+      "해당 발언·행동의 원문과 전체 맥락은?",
       "공식 입장인가, 개인 의견인가?",
-      "발언자에 대한 후속 조치·징계 여부는?",
-      "당사자·이해관계자에게 사과 전달 방식은?",
+      "당사자에 대한 후속 조치·징계·활동 계획은?",
+      "이해관계자에게 사과를 전달하는 방식은?",
     ],
   },
 ];
@@ -179,10 +192,68 @@ export const GRADE_LABELS = [
 
 export const PRESETS: Preset[] = [
   {
+    id: "hangyeol-dumpling",
+    brand: "한결푸드",
+    product: "한결 얇은피 만두",
+    issue: "product-safety",
+    industry: "food",
+    label: "이물질 회수 입장문",
+    tagline: "냉동만두 금속 이물 · 1차 해명",
+    channels: ["econ-press", "consumer-cafe", "sns-x", "youtube"],
+    draft: `한결푸드입니다.
+
+최근 일부 온라인 커뮤니티에서 당사 냉동만두 제품에서 이물질이 발견되었다는 글과 사진이 확산되고 있습니다.
+해당 제품은 단순한 포장 과정의 문제로, 제조 공정과는 무관한 것으로 파악하고 있습니다.
+현재 정확한 원인과 영향받은 제품 범위는 확인 중입니다.
+일부 제품에 한해 판매를 중단했으며, 전량 회수 여부는 내부 검토 후 안내드리겠습니다.
+이용자 여러분께 불편을 드려 죄송합니다.
+안전성에는 문제가 없으며, 다른 제품은 정상 판매 중입니다.
+재발 방지에 최선을 다하겠습니다. 감사합니다.`,
+  },
+  {
+    id: "maru-market",
+    brand: "마루마켓",
+    product: "마루마켓 11월 쇼핑페스타",
+    issue: "service-outage",
+    industry: "retail",
+    label: "배송·환불 지연 공지",
+    tagline: "행사 폭주 · 정산 지연 초안",
+    channels: ["econ-press", "consumer-cafe", "sns-x", "office-community"],
+    draft: `안녕하세요, 마루마켓입니다.
+
+11월 11일 행사 이후 주문량이 폭증하면서 일부 고객의 배송과 환불 처리가 지연되고 있습니다.
+현재 시스템 오류로 인해 순차적으로 처리 중이며, 정확한 영향 범위는 파악 중입니다.
+일부 이용자에게는 안내 없이 주문이 취소될 수 있습니다.
+환불은 추후 안내드리겠습니다.
+입점 판매자 정산 역시 상황이 정리되는 대로 진행될 예정입니다.
+불편을 드려 죄송합니다.
+마루마켓은 고객을 최우선으로 생각합니다.`,
+  },
+  {
+    id: "luna-ingredient",
+    brand: "루나뷰티",
+    product: "글로우 세럼",
+    issue: "product-safety",
+    industry: "consumer",
+    label: "성분 논란 해명 보도자료",
+    tagline: "전성분 표기 의혹 · 1차 해명",
+    channels: ["econ-press", "consumer-cafe", "sns-x", "youtube"],
+    draft: `루나뷰티는 자사 신제품 '글로우 세럼'의 전성분 표기와 관련한 논란에 대해 설명드립니다.
+
+최근 일부 커뮤니티에서 해당 제품에 논란이 되는 성분이 포함된 것 아니냐는 의혹이 제기되었습니다.
+당사는 해당 성분을 사용하지 않았으며, 이는 사실이 아닙니다.
+다만 표기 과정에서 오해의 소지가 있었던 점은 인정합니다.
+제품은 업계 최고 수준의 안전성 기준에 따라 제조되었습니다.
+전 제품에 대한 전수 조사를 진행할 예정이며, 결과는 추후 안내하겠습니다.
+소비자 여러분의 과도한 우려에 대해 안타깝게 생각합니다.
+문의는 고객센터로 부탁드립니다.`,
+  },
+  {
     id: "orbital-outage",
     brand: "오비탈모빌리티",
     product: "오비탈 라이드",
     issue: "service-outage",
+    industry: "tech",
     label: "서비스 장애 입장문",
     tagline: "결제 연동 오류 · 복구 공지 초안",
     channels: ["econ-press", "it-press", "office-community", "sns-x"],
@@ -197,28 +268,47 @@ export const PRESETS: Preset[] = [
 곧 자세한 내용을 공지하겠습니다. 감사합니다.`,
   },
   {
-    id: "luna-ingredient",
-    brand: "루나뷰티",
-    product: "글로우 세럼",
-    issue: "product-safety",
-    label: "성분 논란 해명 보도자료",
-    tagline: "전성분 표기 의혹 · 1차 해명",
-    channels: ["it-press", "consumer-cafe", "sns-x", "youtube"],
-    draft: `루나뷰티는 자사 신제품 '글로우 세럼'의 전성분 표기와 관련한 논란에 대해 설명드립니다.
+    id: "hanbit-accident",
+    brand: "한빛중공업",
+    product: "제2제강공장",
+    issue: "safety-accident",
+    industry: "steel",
+    label: "산업재해 사고 입장문",
+    tagline: "협력업체 사망사고 · 1차 입장",
+    channels: ["econ-press", "office-community", "youtube"],
+    draft: `한빛중공업 입장문
 
-최근 일부 커뮤니티에서 해당 제품에 논란이 되는 성분이 포함된 것 아니냐는 의혹이 제기되었습니다.
-당사는 해당 성분을 사용하지 않았으며, 이는 사실이 아닙니다.
-다만 표기 과정에서 오해의 소지가 있었던 점은 인정합니다.
-제품은 업계 최고 수준의 안전성 기준에 따라 제조되었습니다.
-전 제품에 대한 전수 조사를 진행할 예정이며, 결과는 추후 안내하겠습니다.
-소비자 여러분의 과도한 우려에 대해 안타깝게 생각합니다.
-문의는 고객센터로 부탁드립니다.`,
+11월 12일 오전, 당사 제2제강공장에서 협력업체 소속 근로자 1명이 설비 점검 중 사고로 사망하는 일이 발생했습니다.
+고인에게 깊은 애도를 표하며 유가족께 위로의 말씀을 드립니다.
+사고는 작업자의 부주의로 발생한 것으로 보고 있으며, 현재 정확한 경위를 확인 중입니다.
+해당 설비는 잠시 가동을 멈췄다가 안전 점검 후 재가동할 예정입니다.
+협력업체와 함께 재발 방지를 위해 최선을 다하겠습니다.
+소속 근로자와 유가족에게 필요한 지원을 논의하겠습니다.`,
+  },
+  {
+    id: "starlight-artist",
+    brand: "스타라이트엔터테인먼트",
+    product: "아티스트 리아",
+    issue: "executive-speech",
+    industry: "entertainment",
+    label: "아티스트 논란 공식 입장",
+    tagline: "온라인 의혹 · 1차 입장문",
+    channels: ["sns-x", "youtube", "econ-press", "consumer-cafe"],
+    draft: `스타라이트엔터테인먼트입니다.
+
+최근 온라인에 게재된 당사 아티스트 관련 내용은 사실이 아닙니다.
+해당 게시물은 악의적인 루머로, 법적 조치를 검토하고 있습니다.
+아티스트의 사생활은 공적 영역이 아니며, 추측성 보도는 자제해 주시기 바랍니다.
+예정된 활동은 차질 없이 진행됩니다.
+팬 여러분께 심려를 끼쳐 죄송합니다.
+추후 입장이 정리되는 대로 다시 알려드리겠습니다.`,
   },
   {
     id: "technova-pricing",
     brand: "테크노바",
     product: "테크노바 AI 어시스턴트",
     issue: "pricing-change",
+    industry: "tech",
     label: "AI 요금제 개편 공지",
     tagline: "프로 플랜 인상 · 고객 공지",
     channels: ["it-press", "office-community", "sns-x", "consumer-cafe"],
@@ -232,6 +322,8 @@ export const PRESETS: Preset[] = [
 세부 내용은 추후 공지하겠습니다.`,
   },
 ];
+
+export const PRESETS_BY_INDUSTRY = (industry: Preset["industry"]) => PRESETS.filter((p) => p.industry === industry);
 
 export const getIssue = (id: IssueCategoryId): IssueCategory =>
   ISSUE_CATEGORIES.find((i) => i.id === id) ?? ISSUE_CATEGORIES[0];

@@ -4,7 +4,88 @@ export type IssueCategoryId =
   | "pricing-change"
   | "data-privacy"
   | "people-org"
+  | "safety-accident"
   | "executive-speech";
+
+export type IndustryId = "food" | "retail" | "consumer" | "tech" | "steel" | "entertainment";
+
+export interface IndustryCheck {
+  id: string;
+  /** 점검 항목 이름 (예: 회수 범위·제조번호) */
+  label: string;
+  patterns: RegExp[];
+  severity: Severity;
+  /** 이 항목이 비었을 때 기자가 던지는 질문 */
+  question: string;
+  why: string;
+  detail: string;
+}
+
+export interface CrisisTrigger {
+  label: string;
+  desc: string;
+  severity: Severity;
+}
+
+export interface PlaybookStakeholder {
+  who: string;
+  tone: string;
+  dos: string[];
+  donts: string[];
+}
+
+export interface IndustryPlaybook {
+  stance: string;
+  triggers: CrisisTrigger[];
+  regulators: { name: string; role: string }[];
+  laws: { name: string; note: string }[];
+  timeline: { window: string; title: string; items: string[] }[];
+  banned: { phrase: string; why: string; instead: string }[];
+  required: { label: string; desc: string }[];
+  stakeholders: PlaybookStakeholder[];
+  evidence: string[];
+  watchouts: string[];
+}
+
+export interface Industry {
+  id: IndustryId;
+  label: string;
+  short: string;
+  tagline: string;
+  description: string;
+  accent: string;
+  /** 이 업종에서 기본으로 켜 두면 좋은 채널 */
+  recommended: ChannelId[];
+  /** 이 업종의 점수 가중치 보정 (근거/책임/감정/톤) */
+  weights: Partial<Record<RiskCategoryId, number>>;
+  baseline: number;
+  channelsBias: Partial<Record<ChannelId, number>>;
+  themes: string[];
+  checks: IndustryCheck[];
+  qa: { q: string; a: string }[];
+  closing: string;
+  apologyTarget: string;
+  playbook: IndustryPlaybook;
+}
+
+export type CaseVerdict = "exemplary" | "mixed" | "failure";
+
+export interface CrisisCase {
+  id: string;
+  industry: IndustryId;
+  company: string;
+  country: "KR" | "US" | "GLOBAL";
+  date: string;
+  title: string;
+  trigger: string;
+  scale: string[];
+  timeline: { when: string; what: string }[];
+  response: string[];
+  outcome: string;
+  lesson: string;
+  verdict: CaseVerdict;
+  sources: { label: string; url: string }[];
+}
 
 export type ChannelId =
   | "econ-press"
@@ -50,6 +131,7 @@ export interface Preset {
   brand: string;
   product: string;
   issue: IssueCategoryId;
+  industry: IndustryId;
   label: string;
   tagline: string;
   channels: ChannelId[];
@@ -153,6 +235,13 @@ export interface ViralRisk {
   halfLife: string;
 }
 
+export interface StructureCheck {
+  label: string;
+  ok: boolean;
+  group: RiskCategoryId;
+  hint?: string;
+}
+
 export interface AnalysisStats {
   chars: number;
   sentences: number;
@@ -160,6 +249,8 @@ export interface AnalysisStats {
   criticalSpans: number;
   suggestedGain: number;
   projectedScore: number;
+  industryChecksPassed: number;
+  industryChecksTotal: number;
 }
 
 export interface Analysis {
@@ -168,6 +259,9 @@ export interface Analysis {
   brand: string;
   issue: IssueCategoryId;
   issueLabel: string;
+  industry: IndustryId;
+  industryLabel: string;
+  structureChecks: StructureCheck[];
   channels: ChannelId[];
   text: string;
   score: number;
@@ -201,6 +295,8 @@ export interface RunRecord {
   brand: string;
   issue: IssueCategoryId;
   issueLabel: string;
+  industry?: IndustryId;
+  industryLabel?: string;
   channels: ChannelId[];
   score: number;
   gradeLabel: string;

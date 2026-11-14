@@ -1,5 +1,6 @@
 import type { Analysis } from "../types";
 import { getChannel } from "./presets";
+import { getIndustry } from "./industries";
 
 const sevLabel = (s: number) => (s === 3 ? "심각" : s === 2 ? "주의" : "참고");
 
@@ -9,10 +10,11 @@ export function buildMarkdown(a: Analysis, previous?: { score: number; createdAt
 
   lines.push(`# ${a.brand} — PR 리스크 시뮬레이션 리포트`);
   lines.push("");
+  lines.push(`- 업종: ${a.industryLabel}`);
   lines.push(`- 이슈 유형: ${a.issueLabel}`);
   lines.push(`- 타깃 채널: ${a.channels.map((c) => getChannel(c).label).join(", ")}`);
   lines.push(`- 분석 시각: ${when}`);
-  lines.push(`- 엔진: ${a.engine === "llm" ? "내장 엔진 + LLM 정밀 분석" : "내장 휴리스틱 엔진 v2.4"}`);
+  lines.push(`- 엔진: ${a.engine === "llm" ? "내장 엔진 + LLM 정밀 분석" : "내장 휴리스틱 엔진 v2.5 · 업종 매뉴얼"}`);
   lines.push("");
   lines.push("## 1. 리스크 요약");
   lines.push("");
@@ -31,6 +33,15 @@ export function buildMarkdown(a: Analysis, previous?: { score: number; createdAt
   lines.push("");
   lines.push(`- ${a.summaryLine}`);
   lines.push(`- 교체안 적용 시 예상 점수: **${a.stats.projectedScore}점** (${a.stats.suggestedGain}점 감소)`);
+  lines.push(
+    `- 업종 필수 항목: ${a.stats.industryChecksPassed}/${a.stats.industryChecksTotal} 충족`,
+  );
+  lines.push("");
+  lines.push("### 업종 필수 항목 점검");
+  lines.push("");
+  for (const c of a.structureChecks) {
+    lines.push(`- ${c.ok ? "✓" : "✗"} ${c.label}${c.hint && !c.ok ? ` — ${c.hint}` : ""}`);
+  }
   lines.push("");
   lines.push("## 2. 기자 시각");
   lines.push("");
@@ -103,6 +114,14 @@ export function buildMarkdown(a: Analysis, previous?: { score: number; createdAt
   lines.push("```");
   lines.push("");
   lines.push(`> [확인 필요]로 표시된 값은 실제 수치·일정으로 교체한 뒤 배포하세요.`);
+  lines.push("");
+  lines.push(`## 7. ${a.industryLabel} 매뉴얼 — 배포 전 체크`);
+  lines.push("");
+  const industry = getIndustry(a.industry);
+  for (const r of industry.playbook.required) lines.push(`- **${r.label}** — ${r.desc}`);
+  lines.push("");
+  lines.push("주의 표현:");
+  for (const b of industry.playbook.banned.slice(0, 4)) lines.push(`- “${b.phrase}” → ${b.instead} (${b.why})`);
   lines.push("");
   lines.push("---");
   lines.push("PRISM · PR 위기관리 시뮬레이터 · 모든 시나리오는 가상의 기업을 기준으로 생성됩니다.");

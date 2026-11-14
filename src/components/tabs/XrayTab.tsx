@@ -57,15 +57,9 @@ export function XrayTab({
   });
   nodes.push(analysis.text.slice(cursor));
 
-  const missingLabels = new Set(analysis.missing.map((m) => m.label));
-  const checks = [
-    { label: "사과 주체", ok: !missingLabels.has("사과 주체") },
-    { label: "규모 수치", ok: !missingLabels.has("규모 수치") },
-    { label: "시점·일정", ok: !missingLabels.has("시점·일정") },
-    { label: "검증 근거", ok: !missingLabels.has("검증 근거") },
-    { label: "문의 채널", ok: !missingLabels.has("문의 채널") },
-    { label: "문서 제목", ok: !missingLabels.has("문서 제목") },
-  ];
+  const checks = analysis.structureChecks;
+  const industryChecks = checks.slice(6);
+  const industryPassed = industryChecks.filter((c) => c.ok).length;
   const placeholders = Array.from(new Set(analysis.revisedDraft.match(/\[[^\]]+\]/g) ?? []));
 
   return (
@@ -142,22 +136,42 @@ export function XrayTab({
           </Card>
 
           <Card className="p-4">
-            <SectionHead eyebrow="Structure" title="문서 골격 점검" desc="위험 표현을 지워도 이 항목이 비면 기사화됩니다." />
-            <div className="mt-3 grid grid-cols-2 gap-1.5 sm:grid-cols-3">
-              {checks.map((c) => (
+            <SectionHead
+              eyebrow="Structure"
+              title="문서 골격 점검"
+              desc={`기본 6항목 + ${analysis.industryLabel} 필수 항목 ${industryChecks.length}개. 비어 있으면 기사화됩니다.`}
+              action={
+                <span className="num chip bg-paper-deep text-muted">
+                  {checks.filter((c) => c.ok).length}/{checks.length}
+                </span>
+              }
+            />
+            <div className="mt-3 grid grid-cols-2 gap-1.5">
+              {checks.map((c, idx) => (
                 <div
                   key={c.label}
                   className={cx(
-                    "flex items-center gap-1.5 rounded-lg border px-2 py-1.5 text-[10.5px] font-medium",
-                    c.ok ? "border-ok/20 bg-ok-soft text-ok" : "border-line bg-[#fcfcfa] text-muted",
+                    "flex items-center gap-1.5 rounded-lg border px-2 py-1.5 text-[10.5px] font-medium leading-tight",
+                    c.ok
+                      ? idx >= 6
+                        ? "border-accent/25 bg-accent-soft text-accent-deep"
+                        : "border-ok/20 bg-ok-soft text-ok"
+                      : "border-line bg-[#fcfcfa] text-muted",
                   )}
+                  title={c.hint ?? undefined}
                 >
-                  {c.ok ? <Check size={11} /> : <X size={11} className="text-risk/70" />}
-                  {c.label}
-                  <span className="ml-auto text-[9px] opacity-70">{c.ok ? "확인" : "빠짐"}</span>
+                  {c.ok ? <Check size={11} className="shrink-0" /> : <X size={11} className="shrink-0 text-risk/70" />}
+                  <span className="min-w-0 flex-1">{c.label}</span>
+                  <span className="shrink-0 text-[9px] opacity-70">{c.ok ? "확인" : "빠짐"}</span>
                 </div>
               ))}
             </div>
+            {industryChecks.length > 0 && (
+              <p className="mt-2 text-[10px] leading-relaxed text-muted">
+                <span className="font-semibold text-accent-deep">{analysis.industryLabel}</span> 필수 항목{" "}
+                {industryPassed}/{industryChecks.length} 충족 · 파란 칸이 업종 매뉴얼에서 요구하는 항목입니다.
+              </p>
+            )}
             {placeholders.length > 0 && (
               <div className="mt-3 rounded-lg border border-warn/20 bg-warn-soft/70 p-2.5">
                 <div className="mb-1.5 text-[10px] font-semibold text-warn">수정안에서 직접 채워야 할 값</div>

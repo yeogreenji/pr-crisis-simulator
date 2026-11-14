@@ -10,6 +10,8 @@ export const toRecord = (a: Analysis): RunRecord => ({
   brand: a.brand,
   issue: a.issue,
   issueLabel: a.issueLabel,
+  industry: a.industry,
+  industryLabel: a.industryLabel,
   channels: a.channels,
   score: a.score,
   gradeLabel: a.grade.label,

@@ -349,3 +349,9 @@
     background: #fff;
   }
 }
+
+@media print {
+  body.printing-playbook .print-report {
+    display: none !important;
+  }
+}

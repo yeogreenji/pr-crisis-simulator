@@ -6,7 +6,7 @@ const sevLabel = (s: number) => (s === 3 ? "심각" : s === 2 ? "주의" : "참�
 export function PrintReport({ analysis }: { analysis: Analysis }) {
   return (
     <div
-      className="hidden bg-white text-ink print:block"
+      className="print-report hidden bg-white text-ink print:block"
       style={{ WebkitPrintColorAdjust: "exact", printColorAdjust: "exact" }}
     >
       <div className="mx-auto max-w-[760px] px-2 py-2">
@@ -22,7 +22,9 @@ export function PrintReport({ analysis }: { analysis: Analysis }) {
         </header>
 
         <div className="mt-6">
-          <div className="text-[7.5pt] font-semibold tracking-[0.14em] text-[#777]">{analysis.issueLabel}</div>
+          <div className="text-[7.5pt] font-semibold tracking-[0.14em] text-[#777]">
+            {analysis.industryLabel} · {analysis.issueLabel}
+          </div>
           <h1 className="mt-1 text-[21pt] font-bold leading-tight tracking-[-0.02em]">{analysis.brand}</h1>
           <p className="mt-2 text-[9pt] leading-relaxed text-[#444]">{analysis.summaryLine}</p>
         </div>

@@ -1,10 +1,14 @@
 import { AlertCircle, FileWarning, Quote } from "lucide-react";
 import type { Analysis } from "../../types";
+import { getIndustry } from "../../lib/industries";
 import { Card, Eyebrow, SectionHead, SeverityTag, cx } from "../ui";
 
 export function PressTab({ analysis }: { analysis: Analysis }) {
   const critical = analysis.headlines.filter((h) => h.tone === "critical");
   const positive = analysis.headlines.filter((h) => h.tone === "positive");
+  const industry = getIndustry(analysis.industry);
+  const industryChecks = analysis.structureChecks.slice(6);
+  const passed = industryChecks.filter((c) => c.ok).length;
 
   return (
     <div className="grid gap-3 sm:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
@@ -124,6 +128,36 @@ export function PressTab({ analysis }: { analysis: Analysis }) {
               ))
             )}
           </div>
+        </Card>
+
+        <Card className="p-4">
+          <div className="flex items-center justify-between gap-2">
+            <Eyebrow>{industry.short} playbook</Eyebrow>
+            <span
+              className="num chip"
+              style={{
+                background: `${industry.accent}12`,
+                color: industry.accent,
+                border: `1px solid ${industry.accent}26`,
+              }}
+            >
+              {passed}/{industryChecks.length}
+            </span>
+          </div>
+          <p className="mt-2 text-[11px] leading-[1.7] text-ink-2">
+            {industry.playbook.stance.split(". ")[0]}.
+          </p>
+          <ul className="mt-2.5 space-y-1.5 border-t border-line pt-2.5">
+            {industryChecks.map((c) => (
+              <li key={c.label} className="flex items-center gap-1.5 text-[10.5px]">
+                <span
+                  className={cx("h-1.5 w-1.5 shrink-0 rounded-full", c.ok ? "bg-ok" : "bg-risk/70")}
+                />
+                <span className={c.ok ? "text-ink-2" : "font-medium text-ink"}>{c.label}</span>
+                <span className="ml-auto text-[9px] text-faint">{c.ok ? "포함" : "빠짐"}</span>
+              </li>
+            ))}
+          </ul>
         </Card>
 
         <Card className="p-4">

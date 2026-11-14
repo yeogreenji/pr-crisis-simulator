@@ -5,6 +5,7 @@ import type {
   FactCheck,
   Grade,
   Headline,
+  IndustryId,
   IssueCategoryId,
   MissingEvidence,
   QaItem,
@@ -13,6 +14,7 @@ import type {
   RiskCategoryId,
   RiskSpan,
   Severity,
+  StructureCheck,
   ViralRisk,
 } from "../types";
 import {
@@ -21,6 +23,7 @@ import {
   getChannel,
   getIssue,
 } from "./presets";
+import { getIndustry } from "./industries";
 import { RISK_RULES } from "./rules";
 import { josaEun, josaRo } from "./korean";
 import {
@@ -28,6 +31,7 @@ import {
   CHANNEL_THEMES,
   COMMENT_TEMPLATES,
   HANDLES,
+  INDUSTRY_COMMENTS,
   ISSUE_THEMES,
 } from "./sentiment";
 
@@ -199,6 +203,33 @@ function detectHits(text: string, sentences: Sentence[]): Detected {
 interface ScoreConfig {
   issue: IssueCategoryId;
   channels: ChannelId[];
+  industry: IndustryId;
+}
+
+export interface IndustryEvaluation {
+  checks: StructureCheck[];
+  missing: MissingEvidence[];
+  passed: number;
+  total: number;
+}
+
+/** 업종 필수 항목이 초안에 들어 있는지 판정합니다. */
+export function evaluateIndustry(industryId: IndustryId, text: string): IndustryEvaluation {
+  const industry = getIndustry(industryId);
+  const checks: StructureCheck[] = [];
+  const missing: MissingEvidence[] = [];
+  let passed = 0;
+
+  for (const check of industry.checks) {
+    const ok = check.patterns.some((re) => re.test(text));
+    if (ok) passed += 1;
+    checks.push({ label: check.label, ok, group: "evidence", hint: check.detail });
+    if (!ok) {
+      missing.push({ label: `${industry.short} · ${check.label}`, detail: check.detail, severity: check.severity });
+    }
+  }
+
+  return { checks, missing, passed, total: industry.checks.length };
 }
 
 function computeScore(
@@ -208,11 +239,18 @@ function computeScore(
   cfg: ScoreConfig,
 ): { score: number; breakdown: RiskBreakdown[] } {
   const issue = getIssue(cfg.issue);
-  const breakdown: RiskBreakdown[] = RISK_CATEGORIES.map((c) => ({
+  const industry = getIndustry(cfg.industry);
+  const base = RISK_CATEGORIES.map((c) => {
+    const raw = c.weight + (industry.weights[c.id] ?? 0);
+    return { category: c, raw };
+  });
+  const totalWeight = base.reduce((acc, b) => acc + b.raw, 0);
+
+  const breakdown: RiskBreakdown[] = base.map(({ category: c, raw }) => ({
     id: c.id,
     label: c.label,
     short: c.short,
-    weight: c.weight,
+    weight: raw / totalWeight,
     hint: c.hint,
     score: Math.round(clamp(6 + detected.points[c.id] * 7, 0, 100)),
   }));
@@ -222,7 +260,18 @@ function computeScore(
     ? Math.max(...cfg.channels.map((id) => getChannel(id).negativityOffset)) * 0.55
     : 0;
 
-  let adj = issue.baseline * 0.8 + channelPull + detected.criticalCount * 1.5;
+  const evaluation = evaluateIndustry(cfg.industry, text);
+  const industryPenalty = evaluation.missing.reduce(
+    (acc, m) => acc + (m.severity === 3 ? 4.5 : m.severity === 2 ? 2.5 : 1),
+    0,
+  );
+
+  let adj =
+    issue.baseline * 0.8 +
+    industry.baseline +
+    channelPull +
+    detected.criticalCount * 1.5 +
+    industryPenalty * 0.85;
 
   if (!structural.apology) adj += 7;
   if (!structural.numbers) adj += 4;
@@ -235,6 +284,7 @@ function computeScore(
   if (structural.timeRef) adj -= 2;
   if (structural.apology) adj -= 2;
   if (structural.verification) adj -= 2;
+  if (evaluation.total > 0 && evaluation.passed === evaluation.total) adj -= 4;
 
   const score = Math.round(clamp(weighted + adj, 4, 97));
   return { score, breakdown };
@@ -269,25 +319,8 @@ const PRESS_ANGLE: Record<IssueCategoryId, string> = {
   "pricing-change": "기자는 '사전 고지'와 '기존 고객 보호'를 법적 쟁점으로 먼저 봅니다.",
   "data-privacy": "기자는 신고 기한과 2차 피해 안내를 첫 질문으로 던집니다.",
   "people-org": "기자는 결정 절차와 대상자 통보 방식을 확인합니다.",
+  "safety-accident": "기자는 '작업 중지 범위'와 '원청 책임 인정'을 첫 문장에서 찾습니다.",
   "executive-speech": "기자는 발언 원문과 공식 입장 여부를 먼저 확인합니다.",
-};
-
-const ISSUE_HEADLINE_GAP_SHORT: Record<IssueCategoryId, string> = {
-  "service-outage": "규모·복구 시점",
-  "product-safety": "검사·회수 범위",
-  "pricing-change": "사전 고지·보호 조치",
-  "data-privacy": "유출 규모·신고 시점",
-  "people-org": "절차·보상",
-  "executive-speech": "원문·공식 입장",
-};
-
-const ISSUE_HEADLINE_GAP: Record<IssueCategoryId, string> = {
-  "service-outage": "규모·복구 시점 답은 없었다",
-  "product-safety": "검사·회수 범위 답은 없었다",
-  "pricing-change": "고지·보호 조치 답은 없었다",
-  "data-privacy": "유출 규모·신고 시점 답은 없었다",
-  "people-org": "절차·보상 답은 없었다",
-  "executive-speech": "원문·공식 입장 답은 없었다",
 };
 
 const ISSUE_HEADLINE_SLUG: Record<IssueCategoryId, string> = {
@@ -296,17 +329,30 @@ const ISSUE_HEADLINE_SLUG: Record<IssueCategoryId, string> = {
   "pricing-change": "요금 인상",
   "data-privacy": "개인정보 사고",
   "people-org": "인사 논란",
-  "executive-speech": "임원 발언 파문",
+  "safety-accident": "안전사고",
+  "executive-speech": "인물 논란",
+};
+
+/** 업종별 헤드라인 각도·취재 데스크 */
+const INDUSTRY_HEADLINE: Record<IndustryId, { outlet: string; gap: string; slug: string }> = {
+  food: { outlet: "식품 전문지", gap: "회수 범위·로트 번호", slug: "이물질" },
+  retail: { outlet: "유통 전문지", gap: "환불·정산 기한", slug: "정산 지연" },
+  consumer: { outlet: "소비재·뷰티지", gap: "성분 검사·회수 기준", slug: "성분 논란" },
+  tech: { outlet: "IT 전문지", gap: "복구 ETA·영향 범위", slug: "서비스 장애" },
+  steel: { outlet: "산업·노동 데스크", gap: "작업중지·유가족 대책", slug: "안전사고" },
+  entertainment: { outlet: "연예·문화부", gap: "원문·활동 계획", slug: "아티스트 논란" },
 };
 
 function buildHeadlines(
   brand: string,
   issueId: IssueCategoryId,
+  industryId: IndustryId,
   spans: RiskSpan[],
   structural: StructuralGaps,
-  outlets: string,
 ): Headline[] {
+  const ind = INDUSTRY_HEADLINE[industryId];
   const slug = ISSUE_HEADLINE_SLUG[issueId];
+  const outlets = ind.outlet;
   const top = spans.find((s) => s.severity === 3) ?? spans[0];
   const second = spans.filter((s) => s.id !== top?.id).find((s) => s.severity >= 2);
   const quoteA = top ? `“${top.text}”` : "“확인 중”";
@@ -317,8 +363,8 @@ function buildHeadlines(
         {
           tone: "critical" as const,
           outlet: outlets,
-          text: `${brand}, ${slug} 해명… 남은 질문은 '${ISSUE_HEADLINE_GAP_SHORT[issueId]}'`,
-          note: "문장 리스크는 낮아졌지만, 수치와 일정이 비면 이 각도가 남습니다.",
+          text: `${brand}, ${slug} 해명… 남은 질문은 '${ind.gap}'`,
+          note: `문장 리스크는 낮아졌지만, ${ind.gap}이 비면 이 각도가 남습니다.`,
         },
         {
           tone: "critical" as const,
@@ -331,7 +377,7 @@ function buildHeadlines(
     {
       tone: "critical",
       outlet: outlets,
-      text: `${brand} ${slug} 해명에 ${quoteA}… ${ISSUE_HEADLINE_GAP[issueId]}`,
+      text: `${brand} ${slug} 해명에 ${quoteA}… ${ind.gap} 답은 없었다`,
       note: "가장 인용되기 쉬운 문장을 제목 앞에 배치한 유형입니다.",
     },
     {
@@ -347,7 +393,7 @@ function buildHeadlines(
     {
       tone: "critical",
       outlet: outlets,
-      text: `${brand} ${slug} 대응, 사과보다 해명… “책임 소재부터 밝혀라”`,
+      text: `${brand} ${slug} 대응, 사과보다 해명… “${ind.gap.split("·")[0]}부터 밝혀라”`,
       note: structural.apology
         ? "사과 표현은 있으나 주체·대상이 약하면 이 각도가 살아납니다."
         : "사과 표현이 없어 책임 공방 프레임이 기본값이 됩니다.",
@@ -374,20 +420,36 @@ function buildHeadlines(
 
 function buildFactChecks(
   issueId: IssueCategoryId,
+  industryId: IndustryId,
   structural: StructuralGaps,
   spans: RiskSpan[],
+  text: string,
 ): FactCheck[] {
+  const industry = getIndustry(industryId);
+  const evaluation = evaluateIndustry(industryId, text);
   const base = getIssue(issueId).factChecks;
-  const checks: FactCheck[] = base.map((q, i) => ({
-    question: q,
-    why:
-      i === 0
-        ? "첫 질문에서 답이 없으면 기사는 '답변 회피'로 씁니다."
-        : i === 1
-          ? "규모를 특정하지 않으면 추측치가 먼저 나갑니다."
-          : "범위가 불명확하면 보상 분쟁으로 이어집니다.",
-    severity: (i === 0 ? 3 : i === 1 ? 3 : 2) as Severity,
-  }));
+  const checks: FactCheck[] = [];
+
+  // 1) 업종 고유 질문 — 빠진 항목을 먼저
+  for (const check of industry.checks) {
+    const ok = evaluation.checks.find((c) => c.label === check.label)?.ok;
+    if (ok) continue;
+    checks.push({ question: check.question, why: check.why, severity: check.severity });
+  }
+
+  // 2) 이슈 유형 기본 질문
+  base.forEach((q, i) => {
+    checks.push({
+      question: q,
+      why:
+        i === 0
+          ? "첫 질문에서 답이 없으면 기사는 '답변 회피'로 씁니다."
+          : i === 1
+            ? "규모를 특정하지 않으면 추측치가 먼저 나갑니다."
+            : "범위가 불명확하면 보상 분쟁으로 이어집니다.",
+      severity: (i === 0 ? 3 : i === 1 ? 3 : 2) as Severity,
+    });
+  });
 
   if (!structural.numbers) {
     checks.unshift({
@@ -412,17 +474,29 @@ function buildFactChecks(
   }
   if (spans.some((s) => s.category === "liability" && s.severity === 3)) {
     checks.push({
-      question: "법무 검토를 거친 표현인가, 현장 판단으로 작성됐나?",
+      question: `법무 검토를 거친 표현인가, 현장 판단으로 작성됐나? (${industry.short} 기준)`,
       why: "보상·책임 관련 고위험 문장이 포함돼 있습니다.",
       severity: 3,
     });
   }
 
-  return checks.slice(0, 6);
+  const seen = new Set<string>();
+  return checks
+    .filter((c) => {
+      if (seen.has(c.question)) return false;
+      seen.add(c.question);
+      return true;
+    })
+    .sort((a, b) => b.severity - a.severity)
+    .slice(0, 8);
 }
 
-function buildMissing(structural: StructuralGaps, text: string): MissingEvidence[] {
-  const out: MissingEvidence[] = [];
+function buildMissing(
+  structural: StructuralGaps,
+  text: string,
+  industryId: IndustryId,
+): MissingEvidence[] {
+  const out: MissingEvidence[] = [...evaluateIndustry(industryId, text).missing];
   if (!structural.numbers) {
     out.push({
       label: "규모 수치",
@@ -479,17 +553,20 @@ function buildChannels(
   channels: ChannelId[],
   score: number,
   issueId: IssueCategoryId,
+  industryId: IndustryId,
   brand: string,
   product: string,
   phrase: string,
   emotionPoints: number,
   structural: StructuralGaps,
 ): ChannelForecast[] {
+  const industry = getIndustry(industryId);
   return channels.map((id) => {
     const ch = getChannel(id);
+    const bias = industry.channelsBias[id] ?? 0;
     const negativity = Math.round(
       clamp(
-        score * 0.72 + ch.negativityOffset * 1.6 + emotionPoints * 0.7 + (structural.numbers ? -4 : 4),
+        score * 0.72 + ch.negativityOffset * 1.6 + emotionPoints * 0.7 + (structural.numbers ? -4 : 4) + bias,
         12,
         97,
       ),
@@ -508,11 +585,16 @@ function buildChannels(
             : "보통";
 
     const templates = COMMENT_TEMPLATES[id];
+    const industryTemplates = INDUSTRY_COMMENTS[industryId];
     const start = hashString(`${brand}-${id}`) % templates.length;
     const count = ch.kind === "press" ? 3 : 3;
     const reactions: Reaction[] = [];
     for (let i = 0; i < count; i += 1) {
-      const tpl = templates[(start + i) % templates.length];
+      const useIndustry = industryTemplates.length > 0 && (i === 1 || ch.kind === "community");
+      const pool = useIndustry ? industryTemplates : templates;
+      const tpl = useIndustry
+        ? pool[hashString(`${industryId}-${id}-${i}`) % pool.length]
+        : pool[(start + i) % pool.length];
       const handle = pick(HANDLES[id], `${brand}-${id}-h-${i}`, i);
       const seed = hashString(`${brand}-${id}-${tpl.tone}-${i}`);
       reactions.push({
@@ -530,7 +612,8 @@ function buildChannels(
     }
 
     const themes = [
-      ...ISSUE_THEMES[issueId].slice(0, 2),
+      ...ISSUE_THEMES[issueId].slice(0, 1),
+      ...industry.themes.slice(0, 1),
       ...CHANNEL_THEMES[id].slice(0, 1),
     ];
 
@@ -715,6 +798,32 @@ const QA_BANK: Record<IssueCategoryId, { q: string; a: string }[]> = {
       a: "[협의 여부]이며, 필요한 절차는 [일정]에 따라 진행합니다.",
     },
   ],
+  "safety-accident": [
+    {
+      q: "사고는 왜 발생했나?",
+      a: "[시각] [설비]에서 [원인]으로 발생했습니다. 동일 공정의 작업을 중지하고 [외부 전문가]와 원인을 조사하고 있습니다.",
+    },
+    {
+      q: "사망·부상자는 몇 명이며 소속은?",
+      a: "사망 [N]명, 부상 [N]명입니다. 원청 소속 [N]명, 협력사 소속 [N]명이며, 모든 분의 치료·장례를 당사가 지원합니다.",
+    },
+    {
+      q: "작업 중지 범위는?",
+      a: "사고 설비와 동일 공정 [범위]의 작업을 중지했습니다. 안전 점검과 원인 조사가 끝날 때까지 재가동하지 않습니다.",
+    },
+    {
+      q: "고용노동부 조사에는 어떻게 협조하나?",
+      a: "[시각]에 보고했고, 작업허가서·교육 기록·CCTV 등 자료를 제출했습니다. 조사 결과에 따른 조치를 이행하겠습니다.",
+    },
+    {
+      q: "원청 책임은 인정하나?",
+      a: "원청으로서 안전 확보 의무를 다하지 못한 책임을 통감합니다. 협력사와 함께 작업 절차·교육·설비를 전면 재점검하겠습니다.",
+    },
+    {
+      q: "유가족·부상자 지원은?",
+      a: "유가족 전담 담당자를 지정해 장례·치료·보상 절차를 안내하고 있으며, 비용은 당사가 부담합니다.",
+    },
+  ],
   "executive-speech": [
     {
       q: "발언 원문과 맥락은?",
@@ -739,10 +848,25 @@ const QA_BANK: Record<IssueCategoryId, { q: string; a: string }[]> = {
   ],
 };
 
-function buildQa(issueId: IssueCategoryId, text: string): QaItem[] {
+function buildQa(issueId: IssueCategoryId, industryId: IndustryId, text: string): QaItem[] {
   const dateMatch = text.match(/(\d{1,2}월\s?\d{1,2}일)/);
   const date = dateMatch?.[1];
-  return QA_BANK[issueId].map((item, i) => {
+  const industry = getIndustry(industryId);
+  const normalized = (q: string) => q.replace(/[\s?？.·]/g, "");
+  const merged: { q: string; a: string }[] = [];
+  const index = new Map<string, number>();
+  for (const item of [...QA_BANK[issueId], ...industry.qa]) {
+    const key = normalized(item.q);
+    const found = index.get(key);
+    if (found === undefined) {
+      index.set(key, merged.length);
+      merged.push(item);
+    } else {
+      // 업종 매뉴얼 답변이 더 구체적이므로 같은 질문은 업종 답변으로 대체합니다.
+      merged[found] = item;
+    }
+  }
+  return merged.map((item, i) => {
     let answer = item.a;
     if (date) answer = answer.replace(/\[최초 발생 시각\]/g, date).replace(/\[인지 시각\]/g, date);
     const remaining = /\[[^\]]+\]/.test(answer);
@@ -751,7 +875,9 @@ function buildQa(issueId: IssueCategoryId, text: string): QaItem[] {
       question: item.q,
       answer,
       status: remaining ? "confirm" : "ready",
-      source: remaining ? "추가 확인 필요 값이 남아 있습니다." : "초안에서 확인된 값으로 작성했습니다.",
+      source: remaining
+        ? `${industry.short} 매뉴얼 기준 · 추가 확인 필요 값이 남아 있습니다.`
+        : `${industry.short} 매뉴얼 기준 · 초안에서 확인된 값으로 작성했습니다.`,
     };
   });
 }
@@ -760,6 +886,7 @@ function buildRevisedDraft(
   text: string,
   brand: string,
   issueId: IssueCategoryId,
+  industryId: IndustryId,
   spans: RiskSpan[],
 ): string {
   let body = text;
@@ -769,10 +896,11 @@ function buildRevisedDraft(
   }
 
   const issue = getIssue(issueId);
+  const industry = getIndustry(industryId);
   const structural = detectStructural(body);
   const title = `${brand} ${issue.short} 관련 입장문`;
-  const apology = `${brand}${josaEun(brand)} 이번 ${issue.short}${josaRo(issue.short)} 불편과 불안을 드린 점, 고객 여러분께 고개 숙여 사과드립니다.`;
-  const closing = `확인된 피해 규모와 보상 기준, 재발 방지 조치의 이행 일정은 [확정 일시]까지 추가로 안내드리겠습니다.\n문의: [고객센터·담당 채널]\n\n${brand} 드림`;
+  const apology = `${brand}${josaEun(brand)} 이번 ${issue.short}${josaRo(issue.short)} ${industry.apologyTarget}께 불편과 불안을 드린 점, 고개 숙여 사과드립니다.`;
+  const closing = `${industry.closing}\n\n문의: [고객센터·담당 채널]\n\n${brand} 드림`;
 
   const parts: string[] = [];
   if (!structural.title) parts.push(title);
@@ -787,6 +915,7 @@ export interface AnalyzeInput {
   text: string;
   brand: string;
   issue: IssueCategoryId;
+  industry: IndustryId;
   channels: ChannelId[];
 }
 
@@ -794,9 +923,10 @@ export function analyze(input: AnalyzeInput): Analysis {
   const text = input.text.replace(/\r\n/g, "\n");
   const brand = input.brand.trim() || "당사";
   const issue = getIssue(input.issue);
+  const industry = getIndustry(input.industry);
   const channels: ChannelId[] = input.channels.length
     ? input.channels
-    : [issue.id === "product-safety" ? "consumer-cafe" : "econ-press"];
+    : industry.recommended.slice(0, 4);
 
   const sentences = splitSentences(text);
   const detected = detectHits(text, sentences);
@@ -804,11 +934,12 @@ export function analyze(input: AnalyzeInput): Analysis {
   const { score, breakdown } = computeScore(text, detected, structural, {
     issue: input.issue,
     channels,
+    industry: input.industry,
   });
 
   const spans: RiskSpan[] = detected.hits.map((hit, i) => {
     const modified = replaceRange(text, hit.index, hit.index + hit.matched.length, hit.replacement);
-    const newScore = scoreOnly(modified, { issue: input.issue, channels });
+    const newScore = scoreOnly(modified, { issue: input.issue, channels, industry: input.industry });
     return {
       id: `span-${i}`,
       start: hit.index,
@@ -825,24 +956,19 @@ export function analyze(input: AnalyzeInput): Analysis {
     };
   });
 
-  const revisedDraft = buildRevisedDraft(text, brand, input.issue, spans);
-  const projectedScore = scoreOnly(revisedDraft, { issue: input.issue, channels });
+  const revisedDraft = buildRevisedDraft(text, brand, input.issue, input.industry, spans);
+  const projectedScore = scoreOnly(revisedDraft, { issue: input.issue, channels, industry: input.industry });
   const suggestedGain = Math.max(0, score - projectedScore);
 
-  const outlets = channels.includes("econ-press")
-    ? "경제지 산업부"
-    : channels.includes("it-press")
-      ? "IT 전문지"
-      : "산업부";
-
   const phrase = spans.find((s) => s.severity === 3)?.text ?? spans[0]?.text ?? "확인 중";
-  const headlines = buildHeadlines(brand, input.issue, spans, structural, outlets);
-  const factChecks = buildFactChecks(input.issue, structural, spans);
-  const missing = buildMissing(structural, text);
+  const headlines = buildHeadlines(brand, input.issue, input.industry, spans, structural);
+  const factChecks = buildFactChecks(input.issue, input.industry, structural, spans, text);
+  const missing = buildMissing(structural, text, input.industry);
   const channelForecasts = buildChannels(
     channels,
     score,
     input.issue,
+    input.industry,
     brand,
     input.brand.trim() || "해당 제품",
     phrase,
@@ -857,14 +983,24 @@ export function analyze(input: AnalyzeInput): Analysis {
     detected.points.emotion,
     input.issue,
   );
-  const qa = buildQa(input.issue, text);
+  const qa = buildQa(input.issue, input.industry, text);
+
+  const evaluation = evaluateIndustry(input.industry, text);
+  const genericChecks: StructureCheck[] = [
+    { label: "사과 주체", ok: structural.apology, group: "emotion" },
+    { label: "규모 수치", ok: structural.numbers, group: "evidence" },
+    { label: "시점·일정", ok: structural.timeRef, group: "evidence" },
+    { label: "검증 근거", ok: structural.verification, group: "evidence" },
+    { label: "문의 채널", ok: structural.contact, group: "tone" },
+    { label: "문서 제목", ok: structural.title, group: "tone" },
+  ];
 
   const criticalSpans = spans.filter((s) => s.severity === 3).length;
-  const summaryLine = `고위험 문장 ${criticalSpans}개 · ${
+  const summaryLine = `${industry.label} · 고위험 문장 ${criticalSpans}개 · ${
     structural.numbers ? "규모 수치 있음" : "규모 수치 없음"
   } · ${structural.timeRef ? "시점 명시" : "시점 없음"} · ${
     structural.apology ? "사과 표현 있음" : "사과 표현 없음"
-  }`;
+  } · 업종 필수항목 ${evaluation.passed}/${evaluation.total}`;
 
   return {
     id: `${Date.now().toString(36)}-${hashString(text).toString(36).slice(0, 6)}`,
@@ -872,6 +1008,9 @@ export function analyze(input: AnalyzeInput): Analysis {
     brand,
     issue: input.issue,
     issueLabel: issue.label,
+    industry: input.industry,
+    industryLabel: industry.label,
+    structureChecks: [...genericChecks, ...evaluation.checks],
     channels,
     text,
     score,
@@ -886,7 +1025,7 @@ export function analyze(input: AnalyzeInput): Analysis {
     qa,
     revisedDraft,
     summaryLine,
-    pressAngle: PRESS_ANGLE[input.issue],
+    pressAngle: `${industry.short} 매뉴얼 기준 — ${PRESS_ANGLE[input.issue]}`,
     stats: {
       chars: text.length,
       sentences: sentences.length,
@@ -894,6 +1033,8 @@ export function analyze(input: AnalyzeInput): Analysis {
       criticalSpans,
       suggestedGain,
       projectedScore,
+      industryChecksPassed: evaluation.passed,
+      industryChecksTotal: evaluation.total,
     },
     engine: "heuristic",
     source: "heuristic",
@@ -901,6 +1042,11 @@ export function analyze(input: AnalyzeInput): Analysis {
 }
 
 /** 교체안을 실제로 적용한 뒤의 점수 (미리보기용) */
-export function previewScore(text: string, issue: IssueCategoryId, channels: ChannelId[]): number {
-  return scoreOnly(text, { issue, channels });
+export function previewScore(
+  text: string,
+  issue: IssueCategoryId,
+  industry: IndustryId,
+  channels: ChannelId[],
+): number {
+  return scoreOnly(text, { issue, channels, industry });
 }

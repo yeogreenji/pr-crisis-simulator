@@ -1,7 +1,7 @@
-import { History, LifeBuoy, Radar, Settings2, ShieldCheck } from "lucide-react";
+import { BookOpen, History, LifeBuoy, Radar, Settings2, ShieldCheck } from "lucide-react";
 import { cx } from "./ui";
 
-export type AppView = "simulator" | "history";
+export type AppView = "simulator" | "history" | "library";
 
 function NavButton({
   active,
@@ -58,6 +58,9 @@ export function Sidebar({
       <nav className="flex flex-col items-center gap-1.5">
         <NavButton active={view === "simulator"} label="시뮬레이터" onClick={() => onChangeView("simulator")}>
           <Radar size={18} strokeWidth={1.9} />
+        </NavButton>
+        <NavButton active={view === "library"} label="위기 사례·업종 매뉴얼" onClick={() => onChangeView("library")}>
+          <BookOpen size={18} strokeWidth={1.9} />
         </NavButton>
         <NavButton active={view === "history"} label="시뮬레이션 히스토리" onClick={() => onChangeView("history")}>
           <History size={18} strokeWidth={1.9} />

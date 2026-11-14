@@ -1,6 +1,8 @@
 import { ArrowUpRight, Check, ChevronDown, Loader2, RotateCcw, Sparkles, Wand2 } from "lucide-react";
-import type { ChannelId, IssueCategoryId, Preset } from "../types";
+import type { ChannelId, IndustryId, IssueCategoryId, Preset } from "../types";
 import { CHANNELS, ISSUE_CATEGORIES, PRESETS } from "../lib/presets";
+import { getIndustry } from "../lib/industries";
+import { IndustrySelector } from "./IndustrySelector";
 import { Card, Eyebrow, cx } from "./ui";
 
 const RUN_STEPS = ["초안 문장 분해", "기자 시각 생성", "채널 톤 추정", "리스크 스코어 산정"];
@@ -12,6 +14,8 @@ export function InputPanel({
   onBrand,
   issue,
   onIssue,
+  industry,
+  onIndustry,
   channels,
   onToggleChannel,
   onPreset,
@@ -22,6 +26,7 @@ export function InputPanel({
   apiEnabled,
   onOpenApi,
   activePresetId,
+  onOpenPlaybook,
 }: {
   draft: string;
   onDraft: (v: string) => void;
@@ -29,6 +34,8 @@ export function InputPanel({
   onBrand: (v: string) => void;
   issue: IssueCategoryId;
   onIssue: (v: IssueCategoryId) => void;
+  industry: IndustryId;
+  onIndustry: (v: IndustryId) => void;
   channels: ChannelId[];
   onToggleChannel: (id: ChannelId) => void;
   onPreset: (p: Preset) => void;
@@ -39,8 +46,14 @@ export function InputPanel({
   apiEnabled: boolean;
   onOpenApi: () => void;
   activePresetId: string | null;
+  onOpenPlaybook?: (id: IndustryId) => void;
 }) {
   const chars = draft.trim().length;
+  const sortedPresets = [...PRESETS].sort((a, b) => {
+    const ai = a.industry === industry ? 0 : 1;
+    const bi = b.industry === industry ? 0 : 1;
+    return ai - bi;
+  });
 
   return (
     <Card className="flex h-full flex-col overflow-hidden">
@@ -66,6 +79,8 @@ export function InputPanel({
       </div>
 
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4">
+        <IndustrySelector value={industry} onChange={onIndustry} onOpenPlaybook={onOpenPlaybook} />
+
         <div className="grid grid-cols-2 gap-2.5">
           <label className="block">
             <span className="mb-1.5 block text-[11px] font-semibold text-ink-2">브랜드</span>
@@ -133,8 +148,9 @@ export function InputPanel({
             <span className="text-[10px] text-faint">클릭하면 바로 분석</span>
           </div>
           <div className="space-y-1.5">
-            {PRESETS.map((p, i) => {
+            {sortedPresets.map((p, i) => {
               const active = activePresetId === p.id;
+              const presetIndustry = getIndustry(p.industry);
               return (
                 <button
                   key={p.id}
@@ -156,7 +172,15 @@ export function InputPanel({
                     {String(i + 1).padStart(2, "0")}
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[11.5px] font-semibold text-ink">{p.label}</span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="truncate text-[11.5px] font-semibold text-ink">{p.label}</span>
+                      <span
+                        className="shrink-0 rounded px-1 py-[1px] text-[8.5px] font-semibold"
+                        style={{ background: `${presetIndustry.accent}14`, color: presetIndustry.accent }}
+                      >
+                        {presetIndustry.short}
+                      </span>
+                    </span>
                     <span className="block truncate text-[10px] text-muted">
                       {p.brand} · {p.tagline}
                     </span>

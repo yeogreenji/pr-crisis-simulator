@@ -1,4 +1,4 @@
-import { ArrowRight, ScanText, ShieldAlert, Sparkles } from "lucide-react";
+import { ArrowRight, BookOpen, ScanText, ShieldAlert, Sparkles } from "lucide-react";
 import type { Preset } from "../types";
 import { PRESETS } from "../lib/presets";
 import { Card, Eyebrow } from "./ui";
@@ -32,11 +32,12 @@ export function EmptyState({ onPreset }: { onPreset: (p: Preset) => void }) {
           바로 시작할 수 있습니다.
         </p>
 
-        <div className="mx-auto mt-6 grid max-w-[540px] gap-2 sm:grid-cols-3">
+        <div className="mx-auto mt-6 grid max-w-[540px] gap-2 sm:grid-cols-2">
           {[
             { icon: ShieldAlert, title: "기자 시각", desc: "비판·긍정 헤드라인과 팩트체크" },
             { icon: Sparkles, title: "채널 여론", desc: "6개 채널 톤과 바이럴 리스크" },
             { icon: ScanText, title: "문장 X-ray", desc: "위험 구절과 점수 감소 교체안" },
+            { icon: BookOpen, title: "업종 매뉴얼", desc: "6개 업종 골든타임·금기 표현" },
           ].map((f) => (
             <div key={f.title} className="rounded-xl border border-line bg-surface/80 px-3 py-3 text-left">
               <f.icon size={14} className="text-accent" />
@@ -64,7 +65,7 @@ export function EmptyState({ onPreset }: { onPreset: (p: Preset) => void }) {
         </div>
 
         <p className="mt-5 text-[9.5px] text-faint">
-          API 키 없이 내장 엔진으로 동작 · 등장하는 기업·인물은 모두 가상입니다
+          식품·유통·소비재·IT·제조·엔터 6개 업종 매뉴얼 내장 · API 키 없이 동작 · 샘플 기업은 모두 가상입니다
         </p>
       </div>
     </Card>

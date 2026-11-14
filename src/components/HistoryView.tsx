@@ -120,6 +120,9 @@ export function HistoryView({
                       </div>
                       <p className="mt-1 truncate text-[10.5px] text-muted">{r.summaryLine}</p>
                       <div className="mt-2 flex flex-wrap items-center gap-1">
+                        {r.industryLabel && (
+                          <span className="chip border border-line bg-surface text-[9.5px] text-ink-2">{r.industryLabel}</span>
+                        )}
                         <span className="chip border border-line bg-surface text-[9.5px] text-ink-2">{r.issueLabel}</span>
                         <span className="chip border border-line bg-surface text-[9.5px] text-muted">채널 {r.channels.length}개</span>
                         {r.topIssues.slice(0, 2).map((issue) => (
@@ -244,6 +247,9 @@ export function HistoryView({
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-1.5">
                         <span className="truncate text-[12px] font-semibold text-ink">{r.brand}</span>
+                        {r.industryLabel && (
+                          <span className="chip bg-paper-deep text-[9.5px] text-muted">{r.industryLabel}</span>
+                        )}
                         <span className="chip bg-paper-deep text-[9.5px] text-muted">{r.issueLabel}</span>
                         {r.engine === "llm" && <span className="chip bg-accent-soft text-[9px] text-accent-deep">LLM</span>}
                       </div>

@@ -1,4 +1,4 @@
-import type { ChannelId, IssueCategoryId, ToneKind } from "../types";
+import type { ChannelId, IndustryId, IssueCategoryId, ToneKind } from "../types";
 
 export interface TemplateVars {
   brand: string;
@@ -170,6 +170,7 @@ export const ISSUE_THEMES: Record<IssueCategoryId, string[]> = {
   "pricing-change": ["인상 폭", "사전 고지", "약정 보호", "해지 조건"],
   "data-privacy": ["유출 규모", "신고 시점", "2차 피해", "접근 통제"],
   "people-org": ["절차 공정성", "대상자 통보", "보상 수준", "노사 협의"],
+  "safety-accident": ["작업 중지", "원청 책임", "유가족 지원", "재발 방지"],
   "executive-speech": ["발언 원문", "공식 입장", "징계 여부", "사과 방식"],
 };
 
@@ -183,3 +184,95 @@ export const CHANNEL_THEMES: Record<ChannelId, string[]> = {
 };
 
 export const VOLUME_LABEL = ["낮음", "보통", "높음", "매우 높음"] as const;
+
+/** 업종별로 채널 반응에 섞이는 문장. 해당 업종을 고르면 채널마다 1~2개가 섞입니다. */
+export const INDUSTRY_COMMENTS: Record<IndustryId, CommentTemplate[]> = {
+  food: [
+    {
+      text: () => "이물 나온 제품 로트 번호가 뭔지 안 알려줌. 우리 냉동실에 있는 것도 그건가?",
+      tone: "질문",
+      badge: "소비자 카페",
+    },
+    {
+      text: () => "가공품으로 만들어졌으면 빵·만두 같은 2차 제품은 어디까지 회수된 건지.",
+      tone: "우려",
+      badge: "소비자 카페",
+    },
+    {
+      text: () => "'단순한 이물'이라니. 내가 씹은 게 뭐였는지부터 알려줘.",
+      tone: "분노",
+    },
+  ],
+  retail: [
+    {
+      text: () => "환불은 언제? 카드 취소 문자도 안 옴. 전화는 계속 대기.",
+      tone: "분노",
+    },
+    {
+      text: () => "셀러는 정산 못 받으면 그냥 끝인가요? 이번 달 매출이 전부인데.",
+      tone: "우려",
+      badge: "판매자 커뮤니티",
+    },
+    {
+      text: () => "안내 없이 주문 취소라니. 그럼 11월 행사는 뭐였냐.",
+      tone: "냉소",
+    },
+  ],
+  consumer: [
+    {
+      text: () => "전성분 표기가 바뀐 것만 봐도 신뢰가 흔들림. 검사 성적서부터 보여줘.",
+      tone: "우려",
+    },
+    {
+      text: () => "검사 기관만 밝히면 납득할 텐데 왜 말을 아끼는지.",
+      tone: "질문",
+    },
+    {
+      text: () => "사용 중단하라면서 환불 창구는 안 알려줌. 그게 제일 답답함.",
+      tone: "분노",
+    },
+  ],
+  tech: [
+    {
+      text: () => "복구 ETA만 계속 바뀜. 상태 페이지가 더 불안정해 보인다.",
+      tone: "냉소",
+    },
+    {
+      text: () => "영향 범위 숫자는 언제 공개함? '일부'가 몇 명인지가 핵심인데.",
+      tone: "질문",
+    },
+    {
+      text: () => "보상은 추후 안내래. 그 추후가 언제인지가 제일 궁금함.",
+      tone: "분노",
+    },
+  ],
+  steel: [
+    {
+      text: () => "또 '협력업체 소속'이라네. 그럼 원청은 뭘 하나.",
+      tone: "분노",
+    },
+    {
+      text: () => "작업 중지한 공정이 어디까지인지 알아야 같은 일 안 당한다.",
+      tone: "질문",
+      badge: "직장인 커뮤니티",
+    },
+    {
+      text: () => "유가족 지원은 누가 맡는지, 이름이라도 나와야 신뢰가 생김.",
+      tone: "우려",
+    },
+  ],
+  entertainment: [
+    {
+      text: () => "원문 없이 '사실 아니다'만 하면 뭘 믿으라는 건지.",
+      tone: "냉소",
+    },
+    {
+      text: () => "예정된 활동 그대로라니. 팬 입장에서는 설명이 먼저다.",
+      tone: "우려",
+    },
+    {
+      text: () => "법적 조치부터 꺼내는 게 제일 불안함. 확인된 게 뭔지부터.",
+      tone: "분노",
+    },
+  ],
+};
