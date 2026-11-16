@@ -3,20 +3,9 @@
  * OPENAI_BASE_URL=http://127.0.0.1:4191/v1 로 두면 api/analyze.ts가 이 서버를 봅니다.
  */
 import http from "node:http";
-import { RESULT } from "./mock-result.mjs";
+import { buildPackageResult, REVIEW_RESULT } from "./mock-result.mjs";
 
 const port = Number(process.env.PORT || 4191);
-
-const sample = {
-  choices: [
-    {
-      message: {
-        content: JSON.stringify(RESULT),
-      },
-    },
-  ],
-  usage: { prompt_tokens: 1200, completion_tokens: 900, total_tokens: 2100 },
-};
 
 const server = http.createServer((req, res) => {
   if (req.method !== "POST") {
@@ -48,8 +37,19 @@ const server = http.createServer((req, res) => {
       res.end(JSON.stringify({ error: { message: "mock upstream failure" } }));
       return;
     }
+    const messages = parsed.messages || [];
+    const system = messages.filter((m) => m.role === "system").map((m) => m.content).join("\n");
+    const user = messages.filter((m) => m.role !== "system").map((m) => m.content).join("\n");
+    const result = system.includes("입장문을 감수") ? REVIEW_RESULT : buildPackageResult(user);
+
     res.setHeader("Content-Type", "application/json");
-    res.end(JSON.stringify({ ...sample, model: parsed.model || "gpt-4o-mini" }));
+    res.end(
+      JSON.stringify({
+        model: parsed.model || "gpt-4o-mini",
+        choices: [{ message: { content: JSON.stringify(result) } }],
+        usage: { prompt_tokens: 1800, completion_tokens: 1400, total_tokens: 3200 },
+      }),
+    );
   });
 });
 

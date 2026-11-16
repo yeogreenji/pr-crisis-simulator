@@ -348,6 +348,13 @@
   body {
     background: #fff;
   }
+  .card {
+    box-shadow: none;
+    break-inside: avoid;
+  }
+  .btn {
+    display: none;
+  }
 }
 
 @media print {
