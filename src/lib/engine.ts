@@ -912,6 +912,8 @@ function buildRevisedDraft(
 }
 
 export interface AnalyzeInput {
+  scenario?: string;
+  mediaDesk?: Analysis["mediaDesk"];
   text: string;
   brand: string;
   issue: IssueCategoryId;
@@ -962,7 +964,7 @@ export function analyze(input: AnalyzeInput): Analysis {
 
   const phrase = spans.find((s) => s.severity === 3)?.text ?? spans[0]?.text ?? "확인 중";
   const headlines = buildHeadlines(brand, input.issue, input.industry, spans, structural);
-  const factChecks = buildFactChecks(input.issue, input.industry, structural, spans, text);
+  const factChecks = buildFactChecks(input.issue, input.industry, structural, spans, text || input.scenario || "");
   const missing = buildMissing(structural, text, input.industry);
   const channelForecasts = buildChannels(
     channels,
@@ -1005,6 +1007,8 @@ export function analyze(input: AnalyzeInput): Analysis {
   return {
     id: `${Date.now().toString(36)}-${hashString(text).toString(36).slice(0, 6)}`,
     createdAt: new Date().toISOString(),
+    scenario: input.scenario,
+    mediaDesk: input.mediaDesk,
     brand,
     issue: input.issue,
     issueLabel: issue.label,

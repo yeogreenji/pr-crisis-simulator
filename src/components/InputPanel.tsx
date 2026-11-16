@@ -1,3 +1,4 @@
+import { MEDIA_DESKS, type MediaDesk } from "../lib/mediaDesks";
 import { ArrowUpRight, Check, ChevronDown, Loader2, RotateCcw, Sparkles, Wand2 } from "lucide-react";
 import type { ChannelId, IndustryId, IssueCategoryId, Preset } from "../types";
 import { CHANNELS, ISSUE_CATEGORIES, PRESETS } from "../lib/presets";
@@ -8,6 +9,10 @@ import { Card, Eyebrow, cx } from "./ui";
 const RUN_STEPS = ["초안 문장 분해", "기자 시각 생성", "채널 톤 추정", "리스크 스코어 산정"];
 
 export function InputPanel({
+  desk,
+  onDesk,
+  scenario,
+  onScenario,
   draft,
   onDraft,
   brand,
@@ -28,6 +33,10 @@ export function InputPanel({
   activePresetId,
   onOpenPlaybook,
 }: {
+  desk: MediaDesk | "";
+  onDesk: (value: MediaDesk | "") => void;
+  scenario: string;
+  onScenario: (value: string) => void;
   draft: string;
   onDraft: (v: string) => void;
   brand: string;
@@ -60,8 +69,8 @@ export function InputPanel({
       <div className="relative border-b border-line px-4 py-3.5">
         <div className="flex items-center justify-between">
           <div>
-            <Eyebrow>01 · Draft</Eyebrow>
-            <h2 className="mt-1 text-[14px] font-semibold tracking-[-0.02em]">입장문 에디터</h2>
+            <Eyebrow>시뮬레이터</Eyebrow>
+            <h2 className="mt-1 text-[14px] font-semibold tracking-[-0.02em]">사건과 대응 문안</h2>
           </div>
           <div className="num text-right text-[10.5px] leading-tight text-faint">
             <div>{chars.toLocaleString()}자</div>
@@ -79,6 +88,8 @@ export function InputPanel({
       </div>
 
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4">
+        <label className="block text-xs font-semibold">어떤 사건인가요?<textarea className="field mt-1 p-2 text-sm" rows={3} maxLength={2000} value={scenario} onChange={(event) => onScenario(event.target.value)} placeholder="발생 경위, 피해 범위, 확인된 사실, 들어온 문의를 적으세요." /></label>
+        <p className="text-xs text-muted">사건만 입력하면 예상 질문을 확인할 수 있습니다. 입장문을 추가하면 문장 위험도도 검토합니다.</p>
         <IndustrySelector value={industry} onChange={onIndustry} onOpenPlaybook={onOpenPlaybook} />
 
         <div className="grid grid-cols-2 gap-2.5">
@@ -111,9 +122,15 @@ export function InputPanel({
           </label>
         </div>
 
+        <label className="block text-xs font-semibold">기자 담당 데스크 (선택)
+          <select className="field mt-1 p-2 text-sm" value={desk} onChange={(event) => onDesk(event.target.value as MediaDesk | "")}>
+            <option value="">공통 질문</option>
+            {Object.keys(MEDIA_DESKS).map((name) => <option key={name}>{name}</option>)}
+          </select>
+        </label>
         <div>
           <div className="mb-1.5 flex items-center justify-between">
-            <span className="text-[11px] font-semibold text-ink-2">타깃 채널</span>
+            <span className="text-[11px] font-semibold text-ink-2">예상 반응을 볼 매체·채널</span>
             <span className="text-[10px] text-faint">{channels.length}개 선택</span>
           </div>
           <div className="flex flex-wrap gap-1.5">
@@ -197,13 +214,14 @@ export function InputPanel({
 
         <div>
           <div className="mb-1.5 flex items-center justify-between">
-            <span className="text-[11px] font-semibold text-ink-2">초안 본문</span>
+            <span className="text-[11px] font-semibold text-ink-2">검토할 입장문 (선택)</span>
             {stale && draft.trim() !== "" && (
               <span className="chip bg-warn-soft text-warn">수정됨 · 재분석 필요</span>
             )}
           </div>
           <div>
             <textarea
+              maxLength={4000}
               value={draft}
               onChange={(e) => onDraft(e.target.value)}
               onKeyDown={(e) => {
@@ -228,7 +246,7 @@ export function InputPanel({
         <button
           type="button"
           onClick={onRun}
-          disabled={running || chars < 20}
+          disabled={running || (chars > 0 ? chars < 20 : !scenario.trim())}
           className="btn btn-accent h-10 w-full text-[13px]"
         >
           {running ? (

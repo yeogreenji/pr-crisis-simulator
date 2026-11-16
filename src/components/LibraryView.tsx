@@ -1,3 +1,4 @@
+import { ISSUE_CATEGORIES } from "../lib/presets";
 import { useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import {
@@ -355,11 +356,18 @@ export function LibraryView({
   onSimulate: (id: IndustryId) => void;
 }) {
   const [filter, setFilter] = useState<IndustryId | null>(null);
+  const [query, setQuery] = useState("");
+  const [region, setRegion] = useState("");
   const [pane, setPane] = useState<"cases" | "playbook">("cases");
 
   const cases = useMemo(
-    () => (filter ? CRISIS_CASES.filter((c) => c.industry === filter) : CRISIS_CASES),
-    [filter],
+    () => CRISIS_CASES.filter((c) =>
+      (!filter || c.industry === filter) && (!region || c.country === region) &&
+      query.trim().toLowerCase().split(/\s+/).every((term) =>
+        [c.title, c.company, c.trigger, c.date, ...c.response].join(" ").toLowerCase().includes(term),
+      ),
+    ),
+    [filter, query, region],
   );
 
   const counts = useMemo(() => {
@@ -394,6 +402,12 @@ export function LibraryView({
             </div>
           </div>
 
+          <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_10rem]">
+            <input className="field p-2 text-sm" aria-label="사례 키워드 검색" placeholder="회사·사건·대응 키워드로 검색" value={query} onChange={(event) => setQuery(event.target.value)} />
+            <select className="field p-2 text-sm" aria-label="사례 지역" value={region} onChange={(event) => setRegion(event.target.value)}>
+              <option value="">전체 지역</option><option value="KR">국내</option><option value="US">미국</option><option value="GLOBAL">글로벌</option>
+            </select>
+          </div>
           <div className="mt-3 flex flex-wrap items-center gap-1.5">
             <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-faint">
               <Filter size={10} /> 업종
@@ -452,6 +466,19 @@ export function LibraryView({
         </div>
       </Card>
 
+      <Card className="space-y-2 p-4">
+        <h2 className="font-semibold">사건 유형별 초동 체크리스트</h2>
+        <p className="text-xs text-muted">업종 매뉴얼과 함께 쓰는 기자 문의·사실 확인용 체크리스트입니다.</p>
+        <div className="grid gap-2 md:grid-cols-2">
+          {ISSUE_CATEGORIES.map((item) => <details key={item.id} className="rounded-lg border border-line p-2 text-sm">
+            <summary className="cursor-pointer font-medium">{item.label}</summary>
+            <ol className="list-decimal space-y-1 py-2 pl-5">
+              {item.factChecks.map((question) => <li key={question}>{question}</li>)}
+            </ol>
+            <p className="text-xs text-muted">질문별 확인 담당과 회신 마감을 정하고, 확인된 내용으로 1차 답변을 준비하세요.</p>
+          </details>)}
+        </div>
+      </Card>
       <div className="grid gap-3 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
         <div className={cx(pane === "cases" ? "block" : "hidden", "space-y-2.5 lg:block")}>
           <div className="flex items-center justify-between px-0.5">
@@ -464,7 +491,7 @@ export function LibraryView({
             <CaseCard key={c.id} item={c} />
           ))}
           {cases.length === 0 && (
-            <Card className="p-6 text-center text-[11.5px] text-muted">이 업종의 사례가 아직 없습니다.</Card>
+            <Card className="p-6 text-center text-[11.5px] text-muted">검색 조건과 일치하는 사례가 없습니다.</Card>
           )}
         </div>
 

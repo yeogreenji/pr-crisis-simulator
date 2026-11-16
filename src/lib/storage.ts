@@ -16,6 +16,8 @@ export const toRecord = (a: Analysis): RunRecord => ({
   score: a.score,
   gradeLabel: a.grade.label,
   text: a.text,
+  scenario: a.scenario,
+  mediaDesk: a.mediaDesk,
   stats: a.stats,
   breakdown: a.breakdown,
   channelTones: a.channelForecasts.map((c) => ({ id: c.id, label: c.label, negativity: c.negativity })),

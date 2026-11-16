@@ -29,6 +29,7 @@ export function IncidentDesk() {
   const [desk, setDesk] = useState(load);
   const [clientName, setClientName] = useState("");
   const [caseQuery, setCaseQuery] = useState("");
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const [message, setMessage] = useState("");
   const [saveFailed, setSaveFailed] = useState(false);
   const incident = desk.incidents.find((item) => item.id === desk.active) ?? desk.incidents[0];
@@ -102,7 +103,7 @@ export function IncidentDesk() {
         <section className="space-y-3 rounded-xl border border-line bg-surface p-4">
           <div className="flex gap-2">
             <select aria-label="저장된 사건" className={field} value={incident.id} onChange={(event) => { setDesk({ ...desk, active: event.target.value }); setMessage(""); }}>
-              {desk.incidents.map((item) => <option key={item.id} value={item.id}>{item.title || "제목 없는 사건"}</option>)}
+              {desk.incidents.map((item) => <option key={item.id} value={item.id}>{item.title || item.memo.trim().slice(0, 35) || "제목 없는 사건"}</option>)}
             </select>
             <button className="btn btn-outline shrink-0" onClick={() => {
               const next = emptyIncident();
@@ -110,8 +111,11 @@ export function IncidentDesk() {
               setMessage("");
             }}>새 사건</button>
           </div>
+          <label className="block text-sm font-semibold">지금 어떤 일이 있었나요?<textarea className={field} rows={5} value={incident.memo} onChange={(event) => update({ memo: event.target.value })} placeholder="예: 일부 이용자가 로그인 오류를 신고했고 기자가 복구 시점을 물었습니다." /></label>
+          <p className="text-sm text-muted">이 한 칸만 작성해도 내부 확인 요청과 기자 1차 회신을 바로 복사할 수 있습니다.</p>
+          <button type="button" onClick={() => setDetailsOpen(!detailsOpen)} aria-expanded={detailsOpen} className="btn btn-outline">{detailsOpen ? "추가 설정 닫기" : "고객사·공개 사실 추가"}</button>
+          {detailsOpen && <div className="space-y-3">
           <label className="block text-sm">사건명<input className={field} value={incident.title} onChange={(event) => update({ title: event.target.value })} /></label>
-          <label className="block text-sm">상황 메모<textarea className={field} rows={4} value={incident.memo} onChange={(event) => update({ memo: event.target.value })} placeholder="발생한 일과 들어온 문의를 적으세요." /></label>
           <label className="block text-sm">기자 회신 마감<input type="datetime-local" className={field} value={incident.deadline} onChange={(event) => update({ deadline: event.target.value })} /></label>
           <label className="block text-sm">고객사<select className={field} value={incident.client} onChange={(event) => update({ client: event.target.value })}>
             <option value="">공통 대응</option>
@@ -139,6 +143,7 @@ export function IncidentDesk() {
               </div>
             </fieldset>
           ))}
+          </div>}
         </section>
         <section className="space-y-3">
           {sections.map((section, index) => {
@@ -148,12 +153,12 @@ export function IncidentDesk() {
             const context = JSON.stringify([client?.id, rule]);
             return <article key={section} className="space-y-2 rounded-xl border border-line bg-surface p-4">
               <h2 className="font-semibold">{section}</h2>
-              {client && <div className="grid gap-2 sm:grid-cols-2">
+              {client && detailsOpen && <div className="grid gap-2 sm:grid-cols-2">
                 <input aria-label={section + " 담당·승인"} className={field} placeholder="담당·승인 순서" value={rule?.owner ?? ""} onChange={(event) => setRule(index, "owner", event.target.value)} />
                 <input aria-label={section + " 채널"} className={field} placeholder="사용 채널" value={rule?.channel ?? ""} onChange={(event) => setRule(index, "channel", event.target.value)} />
                 <textarea aria-label={section + " 대응 지침"} className={field + " sm:col-span-2"} placeholder="고객사별 선행 조치·공유 범위" value={rule?.instruction ?? ""} onChange={(event) => setRule(index, "instruction", event.target.value)} />
               </div>}
-              <p className="text-sm text-muted">{rule?.owner.trim() || "담당 확인 필요"} · {rule?.channel.trim() || "채널 확인 필요"}</p>
+              {client && <p className="text-sm text-muted">{[rule?.owner, rule?.channel, rule?.instruction].filter(Boolean).join(" · ")}</p>}
               {hasInput && draft ? <>
                 <pre className="whitespace-pre-wrap break-words rounded-lg bg-paper p-3 font-sans text-sm">{draft}</pre>
                 <div className="flex flex-wrap items-center gap-2">
@@ -161,12 +166,12 @@ export function IncidentDesk() {
                     try { await navigator.clipboard.writeText(draft); setMessage(section + " 복사 완료"); }
                     catch { setMessage("복사할 수 없습니다. 문안을 선택해 복사하세요."); }
                   }}>복사</button>
-                  {["승인 기록", "발신 기록"].map((state) => <button key={state} className="btn btn-outline" onClick={() =>
+                  {detailsOpen && ["승인 기록", "발신 기록"].map((state) => <button key={state} className="btn btn-outline" onClick={() =>
                     update({ log: [{ section, text: draft, state, context, at: new Date().toISOString() }, ...incident.log] })
                   }>{state}</button>)}
                   {latest && <span className="text-sm">{(latest.text !== draft || latest.context !== context) ? "이전 기록 이후 문안 변경 · 재검토 필요" : latest.state}</span>}
                 </div>
-              </> : <p className="text-sm text-muted">{hasInput ? "공개 여부를 검토하고 확인된 사실을 추가하세요." : "사건 정보를 입력하세요."}</p>}
+              </> : <p className="text-sm text-muted">{hasInput ? "필요한 경우 ‘고객사·공개 사실 추가’에서 공개할 내용을 등록하세요." : "사건 정보를 입력하세요."}</p>}
             </article>;
           })}
           <p role="status" className="text-sm">{message}</p>

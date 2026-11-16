@@ -1,3 +1,4 @@
+import { MEDIA_DESKS, type MediaDesk } from "./lib/mediaDesks";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   BookOpen,
@@ -14,7 +15,7 @@ import {
   X,
 } from "lucide-react";
 import type { Analysis, ChannelId, IndustryId, IssueCategoryId, LlmConfig, Preset, RiskSpan, RunRecord } from "./types";
-import { PRESETS } from "./lib/presets";
+import { CHANNELS, PRESETS } from "./lib/presets";
 import { getIndustry } from "./lib/industries";
 import { analyze } from "./lib/engine";
 import { buildMarkdown, downloadText, slugForFile } from "./lib/report";
@@ -44,6 +45,8 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export default function App() {
   const [view, setView] = useState<AppView>("simulator");
+  const [desk, setDesk] = useState<MediaDesk | "">("");
+  const [scenario, setScenario] = useState("");
   const [draft, setDraft] = useState(PRESETS[0].draft);
   const [brand, setBrand] = useState(PRESETS[0].brand);
   const [issue, setIssue] = useState<IssueCategoryId>(PRESETS[0].issue);
@@ -83,20 +86,27 @@ export default function App() {
   const stale =
     analysis !== null &&
     (draft.replace(/\r\n/g, "\n") !== analysis.text ||
+      (analysis.scenario ?? "") !== scenario.trim() ||
+      (analysis.mediaDesk ?? "") !== desk ||
+      (channels.length > 0 && channels.join() !== analysis.channels.join()) ||
+      analysis.brand !== (brand.trim() || "당사") ||
       analysis.industry !== industry ||
       analysis.issue !== issue);
 
   const runAnalysis = useCallback(
     async (override?: {
       text?: string;
+      scenario?: string;
+      mediaDesk?: MediaDesk | "";
       brand?: string;
       issue?: IssueCategoryId;
       industry?: IndustryId;
       channels?: ChannelId[];
       tab?: TabId;
     }) => {
+      const context = (override?.scenario ?? scenario).trim();
       const text = (override?.text ?? draft).replace(/\r\n/g, "\n");
-      if (text.trim().length < 20) {
+      if (text.trim().length < 20 && (text.trim() || !context)) {
         notify("초안이 너무 짧습니다. 최소 20자 이상 입력하세요.", "warn");
         return;
       }
@@ -113,9 +123,9 @@ export default function App() {
         await sleep(i === 0 ? 180 : 200);
       }
 
-      let result = analyze({ text, brand: cfgBrand, issue: cfgIssue, industry: cfgIndustry, channels: cfgChannels });
+      let result = analyze({ text, scenario: context, mediaDesk: override?.mediaDesk ?? desk, brand: cfgBrand, issue: cfgIssue, industry: cfgIndustry, channels: cfgChannels });
 
-      if (apiConfig.enabled && apiConfig.apiKey.trim()) {
+      if (text.trim() && apiConfig.enabled && apiConfig.apiKey.trim()) {
         try {
           const enriched = await enrichWithLlm(apiConfig, result);
           result = {
@@ -133,14 +143,14 @@ export default function App() {
 
       const previous = runs.find((r) => r.brand === result.brand) ?? null;
       setBaseline(previous);
-      setRuns((prev) => addRun(prev, result));
+      if (text.trim()) setRuns((prev) => addRun(prev, result));
       setAnalysis(result);
       setSelectedSpanId(null);
       setTab(override?.tab ?? "press");
       setActivePreset(null);
       setRunning(false);
     },
-    [apiConfig, brand, channels, draft, industry, issue, notify, runs],
+    [apiConfig, brand, channels, draft, industry, issue, notify, runs, scenario, desk],
   );
 
   const handlePreset = (preset: Preset) => {
@@ -148,10 +158,14 @@ export default function App() {
     setIssue(preset.issue);
     setIndustry(preset.industry);
     setChannels(preset.channels);
+    setDesk("");
+    setScenario("");
     setDraft(preset.draft);
     setActivePreset(preset.id);
     void runAnalysis({
       text: preset.draft,
+      scenario: "",
+      mediaDesk: "",
       brand: preset.brand,
       issue: preset.issue,
       industry: preset.industry,
@@ -211,10 +225,14 @@ export default function App() {
     const runIndustry = run.industry ?? "tech";
     setIndustry(runIndustry);
     setChannels(run.channels);
+    setDesk(run.mediaDesk ?? "");
+    setScenario(run.scenario ?? "");
     setDraft(run.text);
     setActivePreset(null);
     void runAnalysis({
       text: run.text,
+      mediaDesk: run.mediaDesk ?? "",
+      scenario: run.scenario ?? "",
       brand: run.brand,
       issue: run.issue,
       industry: runIndustry,
@@ -316,6 +334,10 @@ export default function App() {
                   <div className="xl:sticky xl:top-[70px] xl:h-[calc(100vh-84px)]">
                     <div className="h-full">
                       <InputPanel
+                        desk={desk}
+                        onDesk={setDesk}
+                        scenario={scenario}
+                        onScenario={setScenario}
                         draft={draft}
                         onDraft={(v) => {
                           setDraft(v);
@@ -349,6 +371,19 @@ export default function App() {
                 <div className={cx(panelVisible("analysis"), "min-w-0 lg:block")}>
                   {!analysis ? (
                     <EmptyState onPreset={handlePreset} />
+                  ) : !analysis.text.trim() ? (
+                    <Card className="space-y-3 p-4">
+                      <h1 className="text-lg font-semibold">사건 사전 점검</h1>
+                      <p className="whitespace-pre-wrap break-words text-sm">{analysis.scenario}</p>
+                      <p className="text-xs text-muted">{analysis.industryLabel} · {analysis.issueLabel} · {CHANNELS.filter((channel) => analysis.channels.includes(channel.id)).map((channel) => channel.label).join(", ")}</p>
+                      {stale && <p className="text-sm text-warn">입력이 변경됐습니다. 다시 실행해 주세요.</p>}
+                      <h2 className="font-semibold">발표 전 확인할 질문</h2>
+                      <ul className="list-disc space-y-1 pl-5 text-sm">
+                        {analysis.mediaDesk && <li>{analysis.mediaDesk} 데스크 · {MEDIA_DESKS[analysis.mediaDesk]}</li>}
+                        {analysis.factChecks.map((check, index) => <li key={index}>{check.question}</li>)}
+                      </ul>
+                      <p className="text-sm text-muted">입장문을 추가하면 매체별 예상 반응과 문장 위험도를 확인할 수 있습니다.</p>
+                    </Card>
                   ) : (
                     <div className="space-y-3">
                       <Card className="overflow-hidden">
@@ -372,6 +407,8 @@ export default function App() {
                               </span>
                               {baseline && <span className="chip bg-ok-soft text-ok">2차</span>}
                             </div>
+                            {analysis.mediaDesk && <p className="mt-2 text-xs"><strong>{analysis.mediaDesk} 데스크 예상 질문</strong> · {MEDIA_DESKS[analysis.mediaDesk]}</p>}
+                            {analysis.scenario && <p className="mt-2 whitespace-pre-wrap break-words text-xs"><strong>사건 내용</strong> · {analysis.scenario}</p>}
                             <p className="mt-1 truncate text-[10.5px] text-muted">
                               {analysis.summaryLine} · {new Date(analysis.createdAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })} 생성
                             </p>
@@ -421,7 +458,7 @@ export default function App() {
                       {stale && (
                         <div className="flex flex-wrap items-center gap-2 rounded-xl border border-warn/25 bg-warn-soft px-3.5 py-2.5">
                           <span className="text-[11px] font-medium text-warn">
-                            초안·업종·이슈 유형이 변경되었습니다. 결과는 마지막 분석 기준입니다.
+                            분석 입력이 변경되었습니다. 결과는 마지막 분석 기준입니다.
                           </span>
                           <button
                             type="button"
@@ -460,16 +497,16 @@ export default function App() {
                 </div>
 
                 <div className={cx(panelVisible("risk"), "min-w-0 xl:block")}>
-                  <div className="xl:sticky xl:top-[70px]">{railNode}</div>
+                  <div className="xl:sticky xl:top-[70px]">{analysis && !analysis.text.trim() ? <Card className="p-4 text-sm">입장문을 추가하면 문장 위험도를 표시합니다.</Card> : railNode}</div>
                 </div>
               </div>
 
               <div className={cx("mt-3 lg:hidden", mobilePanel === "risk" ? "block" : "hidden")}>
-                <div className="grid gap-3 sm:grid-cols-2">{railNode}</div>
+                <div className="grid gap-3 sm:grid-cols-2">{analysis && !analysis.text.trim() ? <Card className="p-4 text-sm">입장문을 추가하면 문장 위험도를 표시합니다.</Card> : railNode}</div>
               </div>
 
               <div className="mt-3 hidden lg:block xl:hidden">
-                <div className="grid gap-3 sm:grid-cols-2">{railNode}</div>
+                <div className="grid gap-3 sm:grid-cols-2">{analysis && !analysis.text.trim() ? <Card className="p-4 text-sm">입장문을 추가하면 문장 위험도를 표시합니다.</Card> : railNode}</div>
               </div>
               </>
             )}
