@@ -1,7 +1,7 @@
 import { BookOpen, History, LifeBuoy, Radar, Settings2, ShieldCheck } from "lucide-react";
 import { cx } from "./ui";
 
-export type AppView = "incident" | "simulator" | "history" | "library";
+export type AppView = "simulator" | "history" | "library";
 
 function NavButton({
   active,

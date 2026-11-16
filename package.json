@@ -3,12 +3,14 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "PRISM — PR 위기관리·여론 시뮬레이터. 초안 한 편으로 기자 시각, 채널별 여론, 리스크 스코어와 대응 팩을 한 번에 점검하는 PR 인텔리전스 콘솔",
+  "description": "PRISM — PR 위기관리·여론 시뮬레이터. 실시간 AI(Vercel /api/analyze, gpt-4o-mini)와 업종 매뉴얼 엔진으로 초안을 수정 2버전·채널 반응·기자 답변·골든타임까지 점검하는 PR 인텔리전스 콘솔",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "bundle:api": "esbuild api/analyze.ts --bundle --format=esm --platform=node --target=node20 --outfile=.tmp/analyze.mjs",
+    "verify:ai": "python3 scripts/verify_ai.py"
   },
   "dependencies": {
     "lucide-react": "^0.544.0",

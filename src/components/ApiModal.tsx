@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { Eye, EyeOff, KeyRound, Loader2, ShieldCheck, Trash2, X } from "lucide-react";
+import { CheckCircle2, Eye, EyeOff, KeyRound, Loader2, Server, ShieldCheck, Trash2, X } from "lucide-react";
 import type { LlmConfig } from "../types";
-import { testLlmConnection } from "../lib/llm";
+import { AI_ENDPOINT, checkAiServer } from "../lib/ai";
 import { Toggle, cx } from "./ui";
 
 export function ApiModal({
@@ -17,15 +17,20 @@ export function ApiModal({
 }) {
   const [draft, setDraft] = useState<LlmConfig>(config);
   const [show, setShow] = useState(false);
-  const [testState, setTestState] = useState<{ status: "idle" | "loading" | "ok" | "error"; message?: string }>({
+  const [testState, setTestState] = useState<{ status: "idle" | "loading" | "ok" | "warn" | "error"; message?: string }>({
     status: "idle",
   });
 
   useEffect(() => {
-    if (open) {
-      setDraft(config);
-      setTestState({ status: "idle" });
-    }
+    if (!open) return;
+    setDraft(config);
+    setTestState({ status: "loading" });
+    void checkAiServer().then((status) => {
+      setTestState({
+        status: status.ok ? (status.serverKey ? "ok" : "warn") : "error",
+        message: status.message,
+      });
+    });
   }, [open, config]);
 
   useEffect(() => {
@@ -44,10 +49,12 @@ export function ApiModal({
       <div className="animate-rise relative z-10 max-h-[92vh] w-full overflow-y-auto rounded-t-2xl border border-line bg-surface shadow-[0_30px_80px_-30px_rgba(16,19,25,0.5)] sm:max-w-[520px] sm:rounded-2xl">
         <div className="flex items-start justify-between border-b border-line px-5 py-4">
           <div>
-            <div className="eyebrow">Optional</div>
-            <h2 className="mt-1 text-[15px] font-semibold tracking-tight">LLM 정밀 분석</h2>
+            <div className="eyebrow">Realtime AI</div>
+            <h2 className="mt-1 text-[15px] font-semibold tracking-tight">실시간 AI 분석</h2>
             <p className="mt-1 text-[11px] leading-relaxed text-muted">
-              내장 엔진 결과에 LLM의 헤드라인·취재 질문을 더합니다. 비워 두어도 모든 기능이 동작합니다.
+              서버의 <code className="num rounded bg-paper-deep px-1 py-[1px] text-[10px]">{AI_ENDPOINT}</code>가
+              gpt-4o-mini로 수정 초안 2종·채널 반응·기자 답변·골든타임을 다시 씁니다. 연결되지 않으면 로컬 규칙으로
+              자동 전환되고, 위험 점수는 항상 내장 엔진이 계산합니다.
             </p>
           </div>
           <button type="button" onClick={onClose} className="rounded-md p-1 text-muted hover:bg-paper-deep hover:text-ink" aria-label="닫기">
@@ -58,46 +65,58 @@ export function ApiModal({
         <div className="space-y-4 px-5 py-4">
           <div className="flex items-center justify-between rounded-lg border border-line bg-[#fcfcfa] px-3 py-2.5">
             <div>
-              <div className="text-[11.5px] font-semibold text-ink">분석 시 LLM 사용</div>
-              <div className="text-[10px] text-muted">꺼두면 내장 엔진만으로 분석합니다.</div>
+              <div className="text-[11.5px] font-semibold text-ink">분석할 때 실시간 AI 사용</div>
+              <div className="text-[10px] text-muted">꺼두면 내장 엔진만으로 끝납니다. (AI 호출 비용 없음)</div>
             </div>
-            <Toggle checked={draft.enabled} onChange={(v) => setDraft({ ...draft, enabled: v })} label="LLM 사용" />
+            <Toggle checked={draft.enabled} onChange={(v) => setDraft({ ...draft, enabled: v })} label="실시간 AI 사용" />
           </div>
 
-          <div>
-            <span className="mb-1.5 block text-[11px] font-semibold text-ink-2">제공자</span>
-            <div className="seg w-full">
-              {[
-                ["openai", "OpenAI 호환"],
-                ["anthropic", "Anthropic"],
-              ].map(([id, label]) => (
-                <button
-                  key={id}
-                  type="button"
-                  data-active={draft.provider === id}
-                  className="seg-item flex-1"
-                  onClick={() => setDraft({ ...draft, provider: id as LlmConfig["provider"] })}
-                >
-                  {label}
-                </button>
-              ))}
+          <div
+            className={cx(
+              "flex items-start gap-2 rounded-lg border px-3 py-2.5",
+              testState.status === "ok" && "border-ok/25 bg-ok-soft",
+              testState.status === "warn" && "border-warn/25 bg-warn-soft",
+              testState.status === "error" && "border-risk/20 bg-risk-soft",
+              (testState.status === "idle" || testState.status === "loading") && "border-line bg-[#fcfcfa]",
+            )}
+          >
+            {testState.status === "loading" ? (
+              <Loader2 size={13} className="mt-[1px] shrink-0 animate-spin text-muted" />
+            ) : testState.status === "ok" ? (
+              <CheckCircle2 size={13} className="mt-[1px] shrink-0 text-ok" />
+            ) : (
+              <Server size={13} className="mt-[1px] shrink-0 text-muted" />
+            )}
+            <div className="min-w-0">
+              <p className="text-[11px] font-semibold text-ink">
+                {testState.status === "ok"
+                  ? "서버 키 연결됨"
+                  : testState.status === "warn"
+                    ? "서버 키 없음"
+                    : testState.status === "error"
+                      ? "AI 백엔드 연결 안 됨"
+                      : "서버 상태 확인 중…"}
+              </p>
+              <p className="mt-0.5 text-[10px] leading-relaxed text-muted">
+                {testState.message ?? "잠시만 기다려 주세요."}
+              </p>
             </div>
+            <button
+              type="button"
+              onClick={async () => {
+                setTestState({ status: "loading" });
+                const status = await checkAiServer();
+                setTestState({ status: status.ok ? (status.serverKey ? "ok" : "warn") : "error", message: status.message });
+              }}
+              className="btn btn-outline ml-auto h-7 shrink-0 px-2 text-[10px]"
+            >
+              다시 확인
+            </button>
           </div>
-
-          <label className="block">
-            <span className="mb-1.5 block text-[11px] font-semibold text-ink-2">모델</span>
-            <input
-              className="field"
-              value={draft.model}
-              onChange={(e) => setDraft({ ...draft, model: e.target.value })}
-              placeholder={draft.provider === "openai" ? "gpt-4o-mini" : "claude-3-5-haiku-latest"}
-              spellCheck={false}
-            />
-          </label>
 
           <label className="block">
             <span className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold text-ink-2">
-              <KeyRound size={11} /> API 키
+              <KeyRound size={11} /> 개인 OpenAI 키 (선택)
             </span>
             <span className="relative block">
               <input
@@ -105,7 +124,7 @@ export function ApiModal({
                 type={show ? "text" : "password"}
                 value={draft.apiKey}
                 onChange={(e) => setDraft({ ...draft, apiKey: e.target.value })}
-                placeholder="sk-..."
+                placeholder="서버 키가 없을 때만 사용 (sk-...)"
                 autoComplete="off"
                 spellCheck={false}
               />
@@ -123,46 +142,14 @@ export function ApiModal({
           <div className="flex items-start gap-2 rounded-lg border border-line bg-paper/60 px-3 py-2.5">
             <ShieldCheck size={13} className="mt-[1px] shrink-0 text-ok" />
             <p className="text-[10px] leading-relaxed text-muted">
-              키는 이 브라우저의 로컬 저장소에만 보관되며 서버로 전송되지 않습니다. 브라우저에서 API를 직접 호출하므로
-              제공자의 CORS 정책에 따라 실패할 수 있고, 그때도 내장 엔진 결과가 그대로 표시됩니다.
+              서버에 OPENAI_API_KEY가 있으면 개인 키는 쓰이지 않습니다. 개인 키는 이 브라우저 로컬 저장소에만 보관되고,
+              이 사이트의 <code className="num">/api/analyze</code> 프록시를 거쳐 OpenAI로 전달됩니다. 초안은 분석에만
+              쓰이며 서버에 저장하지 않습니다.
             </p>
           </div>
-
-          {testState.status !== "idle" && (
-            <div
-              className={cx(
-                "rounded-lg border px-3 py-2 text-[10.5px] leading-relaxed",
-                testState.status === "ok" && "border-ok/25 bg-ok-soft text-ok",
-                testState.status === "error" && "border-risk/20 bg-risk-soft text-risk",
-                testState.status === "loading" && "border-line bg-[#fcfcfa] text-muted",
-              )}
-            >
-              {testState.status === "loading" && "연결 확인 중…"}
-              {testState.status === "ok" && `연결 성공 · ${testState.message}`}
-              {testState.status === "error" && `연결 실패 · ${testState.message}`}
-            </div>
-          )}
         </div>
 
         <div className="flex flex-wrap items-center gap-2 border-t border-line bg-[#fbfbf8] px-5 py-3.5">
-          <button
-            type="button"
-            className="btn btn-outline h-8 px-3 text-[11.5px]"
-            disabled={testState.status === "loading" || !draft.apiKey.trim()}
-            onClick={async () => {
-              setTestState({ status: "loading" });
-              try {
-                const msg = await testLlmConnection(draft);
-                setTestState({ status: "ok", message: msg });
-              } catch (e) {
-                setTestState({ status: "error", message: e instanceof Error ? e.message : "알 수 없는 오류" });
-              }
-            }}
-          >
-            {testState.status === "loading" ? <Loader2 size={12} className="animate-spin" /> : null}
-            연결 확인
-          </button>
-
           {config.apiKey && (
             <button
               type="button"

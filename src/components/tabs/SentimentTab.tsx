@@ -1,4 +1,4 @@
-import { Clock, Flame, Heart, MessageCircle, Radio, Waves } from "lucide-react";
+import { AlertTriangle, Clock, Flame, Heart, MessageCircle, Radio, Waves } from "lucide-react";
 import type { Analysis } from "../../types";
 import { Card, Eyebrow, Meter, ScoreBadge, ToneTag, cx, scoreColor } from "../ui";
 
@@ -56,7 +56,11 @@ export function SentimentTab({ analysis }: { analysis: Analysis }) {
       </Card>
 
       <div className="grid gap-3 md:grid-cols-2">
-        {analysis.channelForecasts.map((c) => (
+        {analysis.channelForecasts.map((c) => {
+          const sim = analysis.channelSimulations.find((s) => s.id === c.id);
+          const reactions = sim?.reactions.length ? sim.reactions : c.reactions;
+          const triggers = sim?.triggers ?? [];
+          return (
           <Card key={c.id} className="flex flex-col p-4">
             <div className="flex items-start justify-between gap-2">
               <div>
@@ -68,6 +72,14 @@ export function SentimentTab({ analysis }: { analysis: Analysis }) {
                     )}
                   />
                   <h3 className="text-[12.5px] font-semibold text-ink">{c.label}</h3>
+                  <span
+                    className={cx(
+                      "chip px-1.5 py-0 text-[8.5px]",
+                      sim?.source === "ai" ? "bg-ok-soft text-ok" : "bg-paper-deep text-muted",
+                    )}
+                  >
+                    {sim?.source === "ai" ? "AI 시뮬레이션" : "규칙 시뮬레이션"}
+                  </span>
                 </div>
                 <p className="mt-1 text-[10.5px] leading-relaxed text-muted">{c.note}</p>
               </div>
@@ -89,7 +101,7 @@ export function SentimentTab({ analysis }: { analysis: Analysis }) {
             </div>
 
             <div className="mt-3 space-y-1.5">
-              {c.reactions.map((r) => (
+              {reactions.map((r) => (
                 <article key={r.id} className="rounded-lg border border-line bg-[#fcfcfa] p-2.5">
                   <div className="flex items-center gap-1.5">
                     <span
@@ -118,13 +130,30 @@ export function SentimentTab({ analysis }: { analysis: Analysis }) {
               ))}
             </div>
 
+            {triggers.length > 0 && (
+              <div className="mt-3 rounded-lg border border-risk/15 bg-risk-soft/45 p-2.5">
+                <p className="flex items-center gap-1 text-[10px] font-semibold text-risk">
+                  <AlertTriangle size={10.5} /> 악화 트리거
+                </p>
+                <ul className="mt-1 space-y-1">
+                  {triggers.slice(0, 3).map((t) => (
+                    <li key={t} className="flex gap-1.5 text-[10px] leading-[1.55] text-ink-2">
+                      <span className="mt-[6px] h-[3px] w-[3px] shrink-0 rounded-full bg-risk/70" />
+                      <span>{t}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
             <div className="mt-auto flex items-center gap-1.5 pt-2.5 text-[9.5px] text-faint">
               <Radio size={10} />
               밈 리스크 <span className="num" style={{ color: scoreColor(c.memeRisk) }}>{c.memeRisk}</span>
-              <span className="ml-auto">예측 반응 {c.reactions.length}건</span>
+              <span className="ml-auto">예측 반응 {reactions.length}건</span>
             </div>
           </Card>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

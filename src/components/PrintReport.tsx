@@ -18,6 +18,9 @@ export function PrintReport({ analysis }: { analysis: Analysis }) {
           <div className="text-right text-[7.5pt] text-[#555]">
             <div>PR 리스크 시뮬레이션 리포트</div>
             <div className="mt-0.5">{new Date(analysis.createdAt).toLocaleString("ko-KR")}</div>
+            <div className="mt-0.5 font-semibold">
+              {analysis.mode === "ai" ? `실시간 AI 분석 · ${analysis.ai?.model ?? "gpt-4o-mini"}` : "로컬 규칙 모드"}
+            </div>
           </div>
         </header>
 
@@ -169,23 +172,58 @@ export function PrintReport({ analysis }: { analysis: Analysis }) {
         </section>
 
         <section className="mt-4 break-inside-avoid">
-          <h2 className="border-b border-ink pb-1 text-[11pt] font-bold">6. 응답 팩 (Q&amp;A)</h2>
+          <h2 className="border-b border-ink pb-1 text-[11pt] font-bold">6. 기자 압박 질문 · 모범 답변 · 금기 표현</h2>
           <div className="mt-2 space-y-2">
-            {analysis.qa.map((q, i) => (
+            {analysis.pressQa.map((q, i) => (
               <div key={q.id} className="text-[8pt] leading-relaxed">
                 <div className="font-semibold">
                   Q{i + 1}. {q.question}{" "}
-                  <span className="text-[7pt] font-normal text-[#777]">({q.status === "ready" ? "준비됨" : "확인 필요"})</span>
+                  <span className="text-[7pt] font-normal text-[#777]">({sevLabel(q.severity)})</span>
                 </div>
-                <div className="text-[#444]">{q.answer}</div>
+                <div className="text-[#444]">{q.answerGuide}</div>
+                {q.avoid.length > 0 && (
+                  <div className="text-[7pt] text-[#b02a21]">피해야 할 말: {q.avoid.join(", ")}</div>
+                )}
               </div>
             ))}
           </div>
         </section>
 
         <section className="mt-4 break-inside-avoid">
-          <h2 className="border-b border-ink pb-1 text-[11pt] font-bold">7. 수정 1차안</h2>
-          <div className="mt-2 whitespace-pre-wrap border border-[#e5e5e5] bg-[#fafaf8] p-3 text-[8.5pt] leading-[1.8]">
+          <h2 className="border-b border-ink pb-1 text-[11pt] font-bold">7. 수정 초안 2버전</h2>
+          {analysis.revisions.map((r) => (
+            <div key={r.id} className="mt-2">
+              <div className="text-[8.5pt] font-semibold">
+                {r.label} <span className="text-[7pt] font-normal text-[#777]">— {r.audience}</span>
+              </div>
+              <div className="mt-1 whitespace-pre-wrap border border-[#e5e5e5] bg-[#fafaf8] p-2.5 text-[8pt] leading-[1.7]">
+                {r.body}
+              </div>
+            </div>
+          ))}
+        </section>
+
+        <section className="mt-4 break-inside-avoid">
+          <h2 className="border-b border-ink pb-1 text-[11pt] font-bold">8. 골든타임 액션 플랜</h2>
+          <div className="mt-2 grid grid-cols-3 gap-3">
+            {analysis.goldenTime.map((step) => (
+              <div key={step.window} className="text-[7.5pt] leading-relaxed">
+                <div className="font-semibold">
+                  {step.window} — {step.title}
+                </div>
+                <ul className="mt-1 space-y-0.5">
+                  {step.items.map((item, i) => (
+                    <li key={i}>☐ {item}</li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="mt-4 break-inside-avoid">
+          <h2 className="border-b border-ink pb-1 text-[11pt] font-bold">9. 참고 — 엔진 자동 교체안</h2>
+          <div className="mt-2 whitespace-pre-wrap border border-[#e5e5e5] bg-[#fafaf8] p-3 text-[8pt] leading-[1.7]">
             {analysis.revisedDraft}
           </div>
           <p className="mt-1.5 text-[7pt] text-[#777]">
@@ -197,7 +235,7 @@ export function PrintReport({ analysis }: { analysis: Analysis }) {
           <span>PRISM — PR 위기관리·여론 시뮬레이터</span>
           <span>
             {getChannel(analysis.channels[0]).label} 외 {analysis.channels.length - 1}개 채널 · 엔진{" "}
-            {analysis.engine === "llm" ? "LLM 보강" : "v2.4"}
+            {analysis.mode === "ai" ? "AI 실시간" : "v2.5"}
           </span>
         </footer>
       </div>

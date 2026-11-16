@@ -26,6 +26,7 @@ import {
 import { getIndustry } from "./industries";
 import { RISK_RULES } from "./rules";
 import { josaEun, josaRo } from "./korean";
+import { buildLocalDeliverables } from "./enhance";
 import {
   ACCENTS,
   CHANNEL_THEMES,
@@ -912,9 +913,6 @@ function buildRevisedDraft(
 }
 
 export interface AnalyzeInput {
-  scenario?: string;
-  mediaOutlet?: string;
-  mediaDesk?: Analysis["mediaDesk"];
   text: string;
   brand: string;
   issue: IssueCategoryId;
@@ -965,7 +963,7 @@ export function analyze(input: AnalyzeInput): Analysis {
 
   const phrase = spans.find((s) => s.severity === 3)?.text ?? spans[0]?.text ?? "확인 중";
   const headlines = buildHeadlines(brand, input.issue, input.industry, spans, structural);
-  const factChecks = buildFactChecks(input.issue, input.industry, structural, spans, text || input.scenario || "");
+  const factChecks = buildFactChecks(input.issue, input.industry, structural, spans, text);
   const missing = buildMissing(structural, text, input.industry);
   const channelForecasts = buildChannels(
     channels,
@@ -1005,12 +1003,10 @@ export function analyze(input: AnalyzeInput): Analysis {
     structural.apology ? "사과 표현 있음" : "사과 표현 없음"
   } · 업종 필수항목 ${evaluation.passed}/${evaluation.total}`;
 
-  return {
+  const base: Omit<Analysis, "revisions" | "channelSimulations" | "pressQa" | "goldenTime"> = {
     id: `${Date.now().toString(36)}-${hashString(text).toString(36).slice(0, 6)}`,
     createdAt: new Date().toISOString(),
-    scenario: input.scenario,
-    mediaDesk: input.mediaDesk,
-    mediaOutlet: input.mediaOutlet,
+    mode: "local",
     brand,
     issue: input.issue,
     issueLabel: issue.label,
@@ -1045,6 +1041,8 @@ export function analyze(input: AnalyzeInput): Analysis {
     engine: "heuristic",
     source: "heuristic",
   };
+
+  return { ...base, ...buildLocalDeliverables(base) };
 }
 
 /** 교체안을 실제로 적용한 뒤의 점수 (미리보기용) */

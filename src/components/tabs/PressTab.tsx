@@ -1,4 +1,4 @@
-import { AlertCircle, FileWarning, Quote } from "lucide-react";
+import { AlertCircle, FileWarning, Quote, ShieldAlert } from "lucide-react";
 import type { Analysis } from "../../types";
 import { getIndustry } from "../../lib/industries";
 import { Card, Eyebrow, SectionHead, SeverityTag, cx } from "../ui";
@@ -56,9 +56,42 @@ export function PressTab({ analysis }: { analysis: Analysis }) {
 
         <Card className="p-4">
           <SectionHead
+            eyebrow="Press defense"
+            title="기자 압박 질문 · 답변 가이드"
+            desc="질문과 함께 바로 읽을 답변 방향, 피해야 할 말까지 봅니다. 전체 문항은 응답 팩에 있습니다."
+            action={<span className="num chip bg-paper-deep text-muted">{analysis.pressQa.length}</span>}
+          />
+          <ul className="mt-3 space-y-2">
+            {analysis.pressQa.slice(0, 4).map((q, i) => (
+              <li key={q.id} className="rounded-lg border border-line bg-[#fcfcfa] p-3">
+                <div className="flex items-start gap-2">
+                  <span className="num mt-[1px] text-[9.5px] text-faint">Q{i + 1}</span>
+                  <p className="min-w-0 flex-1 text-[12px] font-semibold leading-snug text-ink">{q.question}</p>
+                  <SeverityTag level={q.severity} />
+                </div>
+                <p className="mt-1.5 line-clamp-2 text-[10.5px] leading-[1.65] text-ink-2">{q.answerGuide}</p>
+                {q.avoid.length > 0 && (
+                  <div className="mt-1.5 flex flex-wrap items-center gap-1">
+                    <span className="inline-flex items-center gap-1 text-[9.5px] font-semibold text-risk">
+                      <ShieldAlert size={10} /> 금기
+                    </span>
+                    {q.avoid.map((a) => (
+                      <span key={a} className="chip bg-risk-soft px-1.5 py-0 text-[9px] text-risk">
+                        {a}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+        </Card>
+
+        <Card className="p-4">
+          <SectionHead
             eyebrow="Fact-check"
-            title="기자가 물을 질문"
-            desc="답변 팩에서 미리 막아야 할 질문입니다."
+            title="팩트체크 질문"
+            desc="기사화 전에 숫자로 답할 수 있어야 하는 질문입니다."
             action={<span className="num chip bg-paper-deep text-muted">{analysis.factChecks.length}</span>}
           />
           <ol className="mt-3 divide-y divide-line">

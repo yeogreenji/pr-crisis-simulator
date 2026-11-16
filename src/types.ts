@@ -253,12 +253,66 @@ export interface AnalysisStats {
   industryChecksTotal: number;
 }
 
+export type AnalysisMode = "ai" | "local";
+
+/** AI·로컬 엔진이 함께 만드는 실전 산출물 */
+export interface RevisionVariant {
+  id: "empathy" | "authority";
+  label: string;
+  audience: string;
+  /** 완성된 문안 (복사 버튼으로 그대로 사용) */
+  body: string;
+  /** 핵심 변경 포인트 */
+  changes: string[];
+}
+
+export interface ChannelSimulation {
+  id: ChannelId;
+  label: string;
+  reactions: Reaction[];
+  /** 이 문안에서 반응이 악화되는 트리거 */
+  triggers: string[];
+  source: "ai" | "local";
+}
+
+export interface PressQaItem {
+  id: string;
+  question: string;
+  /** 바로 읽을 수 있는 모범 답변 가이드 */
+  answerGuide: string;
+  /** 피해야 할 말 */
+  avoid: string[];
+  severity: Severity;
+  source: "ai" | "local";
+}
+
+export interface GoldenTimeStep {
+  window: string;
+  title: string;
+  items: string[];
+}
+
+export interface AiMeta {
+  model: string;
+  usedAt: string;
+  /** AI가 따로 제안한 종합 판단 점수 (내장 엔진 점수와 별개) */
+  score?: number;
+  comment?: string;
+  latencyMs?: number;
+}
+
 export interface Analysis {
-  scenario?: string;
-  mediaOutlet?: string;
-  mediaDesk?: import("./lib/mediaDesks").MediaDesk | "";
   id: string;
   createdAt: string;
+  /** 결과를 만든 모드 — 상단 배지에 표시 */
+  mode: AnalysisMode;
+  /** 로컬 모드로 떨어진 이유 (AI 모드면 없음) */
+  modeNote?: string;
+  ai?: AiMeta;
+  revisions: RevisionVariant[];
+  channelSimulations: ChannelSimulation[];
+  pressQa: PressQaItem[];
+  goldenTime: GoldenTimeStep[];
   brand: string;
   issue: IssueCategoryId;
   issueLabel: string;
@@ -293,9 +347,6 @@ export interface Grade {
 }
 
 export interface RunRecord {
-  scenario?: string;
-  mediaOutlet?: string;
-  mediaDesk?: import("./lib/mediaDesks").MediaDesk | "";
   id: string;
   createdAt: string;
   brand: string;
@@ -313,10 +364,11 @@ export interface RunRecord {
   summaryLine: string;
   topIssues: string[];
   engine: "heuristic" | "llm";
+  mode?: AnalysisMode;
 }
 
+/** 실시간 AI 분석 설정 — 서버 키가 없을 때만 개인 키를 프록시로 전달합니다. */
 export interface LlmConfig {
-  provider: "openai" | "anthropic";
   apiKey: string;
   model: string;
   enabled: boolean;

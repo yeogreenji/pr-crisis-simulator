@@ -28,8 +28,8 @@ export function EmptyState({ onPreset }: { onPreset: (p: Preset) => void }) {
           세 개의 시선을 미리 봅니다
         </h1>
         <p className="mx-auto mt-2.5 max-w-[430px] text-[12px] leading-[1.85] text-muted">
-          기자가 쓸 제목, 채널별 반응, 점수를 깎는 문장을 한 번에 점검하세요. 왼쪽 초안을 붙여넣거나 샘플 시나리오로
-          바로 시작할 수 있습니다.
+          기자가 쓸 제목, 채널별 반응, 점수를 깎는 문장을 한 번에 점검하세요. ‘새 글 작성’에 내 초안을 붙여넣거나
+          파일로 불러오면 바로 분석합니다.
         </p>
 
         <div className="mx-auto mt-6 grid max-w-[540px] gap-2 sm:grid-cols-2">
@@ -48,7 +48,7 @@ export function EmptyState({ onPreset }: { onPreset: (p: Preset) => void }) {
         </div>
 
         <div className="mt-6">
-          <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-faint">샘플로 시작하기</div>
+          <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-faint">예시로 먼저 보기</div>
           <div className="mx-auto flex max-w-[560px] flex-wrap justify-center gap-1.5">
             {PRESETS.map((p) => (
               <button
@@ -65,7 +65,7 @@ export function EmptyState({ onPreset }: { onPreset: (p: Preset) => void }) {
         </div>
 
         <p className="mt-5 text-[9.5px] text-faint">
-          식품·유통·소비재·IT·제조·엔터 6개 업종 매뉴얼 내장 · API 키 없이 동작 · 샘플 기업은 모두 가상입니다
+          식품·유통·소비재·IT·제조·엔터 6개 업종 매뉴얼 내장 · 실시간 AI 연결 시 정밀 분석 · 샘플 기업은 모두 가상입니다
         </p>
       </div>
     </Card>

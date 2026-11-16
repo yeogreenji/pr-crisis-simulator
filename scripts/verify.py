@@ -1,20 +1,26 @@
 import json
+import os
 import re
 from playwright.sync_api import sync_playwright
 
-BASE = "http://127.0.0.1:4182/"
+BASE = os.environ.get("BASE_URL", "http://127.0.0.1:4182/")
 OUT = "/workspace/projects/pr-crisis-simulator/docs/screenshots"
 errors = []
 checks = []
 
 
 def attach(page):
-    page.on("console", lambda m: errors.append(f"[console:{m.type}] {m.text}") if m.type in ("error", "warning") else None)
+    page.on(
+        "console",
+        lambda m: errors.append(f"[console:{m.type}] {m.text}")
+        if m.type in ("error", "warning") and "Failed to load resource" not in m.text
+        else None,
+    )
     page.on("pageerror", lambda e: errors.append(f"[pageerror] {e}"))
 
 
 def run_button(page):
-    return page.get_by_role("button", name=re.compile("시뮬레이션 실행|변경사항 반영"))
+    return page.get_by_role("button", name=re.compile("내 초안 분석하기|변경사항 반영|시뮬레이션 실행"))
 
 
 def check(name, cond):
@@ -33,11 +39,11 @@ with sync_playwright() as p:
     page.screenshot(path=f"{OUT}/01-desktop-idle.png")
     check("industry selector has 6 buttons", page.locator("[aria-pressed]").count() == 6)
 
-    # 식품 샘플 실행
-    run_button(page).click()
+    # 식품 예시 실행 (빈 에디터에서 예시 칩으로 시작)
+    page.get_by_role("button", name=re.compile("이물질 회수 입장문")).first.click()
     page.wait_for_selector("text=예상 헤드라인", timeout=15000)
     page.wait_for_timeout(600)
-    check("press tab rendered", page.get_by_text("기자가 물을 질문").count() > 0)
+    check("press tab rendered", page.get_by_text("기자 압박 질문", exact=False).count() > 0)
     check("industry chip in header", page.get_by_text("식품·외식").count() > 0)
     check("industry playbook strip", page.get_by_text("식품 playbook").count() > 0)
 
@@ -46,7 +52,7 @@ with sync_playwright() as p:
     check("run stores industry", runs[0].get("industry") == "food")
 
     # 문장 X-ray + 업종 필수 항목
-    page.get_by_role("button", name="문장 X-ray").click()
+    page.get_by_role("button", name=re.compile("^문장 X-ray")).click()
     page.wait_for_timeout(500)
     check("xray structure checks", page.get_by_text("문서 골격 점검").count() > 0)
     check("industry check card", page.get_by_text("회수 범위·제조번호").count() > 0)
@@ -54,11 +60,12 @@ with sync_playwright() as p:
     page.wait_for_timeout(300)
     check("xray detail", page.get_by_text("이렇게 바꾸면").count() > 0)
     page.get_by_role("button", name="이 문장에 적용하고 재분석").click()
-    page.wait_for_timeout(1800)
+    page.wait_for_timeout(500)
     check("apply toast", page.get_by_text("교체 적용").count() > 0)
+    page.wait_for_timeout(1400)
 
     # 응답 팩: 업종 Q&A 포함
-    page.get_by_role("button", name="응답 팩").click()
+    page.get_by_role("button", name=re.compile("^응답 팩")).click()
     page.wait_for_timeout(400)
     check("industry QA merged", page.get_by_text("회수 대상 제품을 어떻게 확인하나?").count() > 0)
     check("revised draft has industry closing", page.get_by_text("보관 중인 제품은 섭취하지 마시고").count() > 0)
@@ -72,7 +79,7 @@ with sync_playwright() as p:
     page.wait_for_timeout(2200)
     runs = json.loads(page.evaluate("localStorage.getItem('prism.runs.v2')||'[]'"))
     check("steel run stored", runs[0].get("industry") == "steel")
-    page.get_by_role("button", name="문장 X-ray").click()
+    page.get_by_role("button", name=re.compile("^문장 X-ray")).click()
     page.wait_for_timeout(400)
     check("steel checks shown", page.get_by_text("작업·가동 중지").count() > 0)
     check("steel score differs from food", runs[0]["score"] != runs[1]["score"] or runs[0]["industry"] != runs[1]["industry"])
@@ -135,10 +142,10 @@ with sync_playwright() as p:
     page.mouse.move(720, 420)
     page.wait_for_timeout(300)
     page.screenshot(path=f"{OUT}/02-desktop-press.png")
-    page.get_by_role("button", name="여론").click()
+    page.get_by_role("button", name=re.compile("^여론")).click()
     page.wait_for_timeout(500)
     page.screenshot(path=f"{OUT}/03-desktop-sentiment.png")
-    page.get_by_role("button", name="문장 X-ray").click()
+    page.get_by_role("button", name=re.compile("^문장 X-ray")).click()
     page.wait_for_timeout(500)
     page.screenshot(path=f"{OUT}/04-desktop-xray.png")
     marks = page.locator(".whitespace-pre-wrap .mark-risk")
@@ -146,11 +153,11 @@ with sync_playwright() as p:
         marks.nth(min(1, marks.count() - 1)).click()
         page.wait_for_timeout(500)
         page.screenshot(path=f"{OUT}/05-desktop-xray-detail.png")
-    page.get_by_role("button", name="응답 팩").click()
+    page.get_by_role("button", name=re.compile("^응답 팩")).click()
     page.wait_for_timeout(500)
     page.screenshot(path=f"{OUT}/06-desktop-response.png")
 
-    page.get_by_role("button", name="문장 X-ray").click()
+    page.get_by_role("button", name=re.compile("^문장 X-ray")).click()
     page.wait_for_timeout(300)
     page.get_by_role("button", name="전체 교체안 적용").click()
     page.wait_for_timeout(3200)
@@ -186,17 +193,19 @@ with sync_playwright() as p:
     mp.goto(BASE, wait_until="networkidle")
     mp.wait_for_timeout(700)
     mp.screenshot(path=f"{OUT}/08-mobile-idle.png")
-    run_button(mp).click()
+    mp.locator("summary").first.click()
+    mp.wait_for_timeout(250)
+    mp.get_by_role("button", name=re.compile("이물질 회수 입장문")).first.click()
     mp.wait_for_selector("text=예상 헤드라인", timeout=15000)
     mp.wait_for_timeout(900)
-    check("mobile run", mp.get_by_text("기자가 물을 질문").count() > 0)
+    check("mobile run", mp.get_by_text("기자 압박 질문", exact=False).count() > 0)
     mp.screenshot(path=f"{OUT}/09-mobile-press.png")
     mp.get_by_role("button", name="리스크").last.click()
     mp.wait_for_timeout(400)
     check("mobile risk", mp.get_by_text("리스크 구성").count() > 0)
     mp.screenshot(path=f"{OUT}/10-mobile-risk.png")
     mp.get_by_role("button", name="분석").last.click()
-    mp.get_by_role("button", name="문장 X-ray").click()
+    mp.get_by_role("button", name=re.compile("^문장 X-ray")).click()
     mp.wait_for_timeout(400)
     mp.screenshot(path=f"{OUT}/11-mobile-xray.png")
 

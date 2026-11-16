@@ -16,15 +16,13 @@ export const toRecord = (a: Analysis): RunRecord => ({
   score: a.score,
   gradeLabel: a.grade.label,
   text: a.text,
-  scenario: a.scenario,
-  mediaDesk: a.mediaDesk,
-  mediaOutlet: a.mediaOutlet,
   stats: a.stats,
   breakdown: a.breakdown,
   channelTones: a.channelForecasts.map((c) => ({ id: c.id, label: c.label, negativity: c.negativity })),
   summaryLine: a.summaryLine,
   topIssues: a.spans.slice(0, 3).map((s) => s.label),
   engine: a.engine,
+  mode: a.mode,
 });
 
 export function loadRuns(): RunRecord[] {
@@ -68,10 +66,9 @@ export const gradeLabelFor = (score: number) =>
   (GRADE_LABELS.find((g) => score <= g.max) ?? GRADE_LABELS[GRADE_LABELS.length - 1]).label;
 
 const DEFAULT_API: LlmConfig = {
-  provider: "openai",
   apiKey: "",
   model: "gpt-4o-mini",
-  enabled: false,
+  enabled: true,
 };
 
 export function loadApiConfig(): LlmConfig {

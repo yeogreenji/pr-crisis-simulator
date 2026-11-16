@@ -12,3 +12,6 @@ Thumbs.db
 # Playwright 실행 산출물
 test-results/
 playwright-report/
+
+# 검증용 로컬 하네스 산출물
+.tmp/

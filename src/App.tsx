@@ -1,5 +1,4 @@
-import { MEDIA_DESKS, type MediaDesk } from "./lib/mediaDesks";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   BookOpen,
   ClipboardCheck,
@@ -15,13 +14,12 @@ import {
   X,
 } from "lucide-react";
 import type { Analysis, ChannelId, IndustryId, IssueCategoryId, LlmConfig, Preset, RiskSpan, RunRecord } from "./types";
-import { CHANNELS, PRESETS } from "./lib/presets";
+import { PRESETS } from "./lib/presets";
 import { getIndustry } from "./lib/industries";
 import { analyze } from "./lib/engine";
 import { buildMarkdown, downloadText, slugForFile } from "./lib/report";
 import { addRun, clearRuns, loadApiConfig, loadRuns, persistApiConfig, removeRun } from "./lib/storage";
-import { enrichWithLlm } from "./lib/llm";
-import { IncidentDesk } from "./components/IncidentDesk";
+import { checkAiServer, describeAiError, requestAiAnalysis } from "./lib/ai";
 import { InputPanel } from "./components/InputPanel";
 import { RiskRail } from "./components/RiskRail";
 import { PressTab } from "./components/tabs/PressTab";
@@ -32,6 +30,7 @@ import { HistoryView } from "./components/HistoryView";
 import { ApiModal } from "./components/ApiModal";
 import { PrintReport } from "./components/PrintReport";
 import { EmptyState } from "./components/EmptyState";
+import { ModeBanner } from "./components/ModeBanner";
 import { Sidebar, type AppView } from "./components/Sidebar";
 import { TopBar } from "./components/TopBar";
 import { LibraryView } from "./components/LibraryView";
@@ -41,24 +40,24 @@ type TabId = "press" | "sentiment" | "xray" | "response";
 type MobilePanel = "input" | "analysis" | "risk";
 type ToastTone = "ok" | "warn" | "err";
 
+const MAX_AI_CHARS = 8_000;
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export default function App() {
   const [view, setView] = useState<AppView>("simulator");
-  const [outlet, setOutlet] = useState("");
-  const [desk, setDesk] = useState<MediaDesk | "">("");
-  const [scenario, setScenario] = useState("");
-  const [draft, setDraft] = useState(PRESETS[0].draft);
-  const [brand, setBrand] = useState(PRESETS[0].brand);
+  const [draft, setDraft] = useState("");
+  const [brand, setBrand] = useState("");
   const [issue, setIssue] = useState<IssueCategoryId>(PRESETS[0].issue);
   const [industry, setIndustry] = useState<IndustryId>(PRESETS[0].industry);
   const [channels, setChannels] = useState<ChannelId[]>(PRESETS[0].channels);
-  const [activePreset, setActivePreset] = useState<string | null>(PRESETS[0].id);
+  const [activePreset, setActivePreset] = useState<string | null>(null);
 
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [baseline, setBaseline] = useState<RunRecord | null>(null);
   const [running, setRunning] = useState(false);
   const [step, setStep] = useState(0);
+  const [aiPending, setAiPending] = useState(false);
+  const [aiReady, setAiReady] = useState(false);
   const [tab, setTab] = useState<TabId>("press");
   const [selectedSpanId, setSelectedSpanId] = useState<string | null>(null);
 
@@ -70,9 +69,22 @@ export default function App() {
   const [mobilePanel, setMobilePanel] = useState<MobilePanel>("input");
   const [toast, setToast] = useState<{ id: number; message: string; tone: ToastTone } | null>(null);
 
+  const runSeq = useRef(0);
+  const aiCache = useRef(new Map<string, Analysis>());
+
   const notify = useCallback((message: string, tone: ToastTone = "ok") => {
     setToast({ id: Date.now(), message, tone });
   }, []);
+
+  const refreshAiStatus = useCallback(async () => {
+    const status = await checkAiServer();
+    setAiReady(status.ok);
+    return status;
+  }, []);
+
+  useEffect(() => {
+    void refreshAiStatus();
+  }, [refreshAiStatus]);
 
   useEffect(() => {
     if (!toast) return;
@@ -87,29 +99,65 @@ export default function App() {
   const stale =
     analysis !== null &&
     (draft.replace(/\r\n/g, "\n") !== analysis.text ||
-      (analysis.scenario ?? "") !== scenario.trim() ||
-      (analysis.mediaOutlet ?? "") !== outlet ||
-      (analysis.mediaDesk ?? "") !== desk ||
-      (channels.length > 0 && channels.join() !== analysis.channels.join()) ||
-      analysis.brand !== (brand.trim() || "당사") ||
       analysis.industry !== industry ||
       analysis.issue !== issue);
+
+  /** 로컬 결과를 화면에 올린 뒤 실시간 AI로 다시 씁니다. 실패하면 로컬 결과를 그대로 둡니다. */
+  const runAiPass = useCallback(
+    async (base: Analysis, seq: number) => {
+      const cacheKey = [base.text, base.brand, base.issue, base.industry, base.channels.join(",")].join("|");
+
+      if (base.text.length > MAX_AI_CHARS) {
+        setAnalysis({ ...base, modeNote: "초안이 8,000자를 넘어 실시간 AI는 건너뛰었습니다." });
+        return;
+      }
+
+      setAiPending(true);
+      try {
+        const cached = aiCache.current.get(cacheKey);
+        let merged: Analysis;
+        if (cached) {
+          merged = { ...cached, id: base.id, createdAt: base.createdAt };
+        } else {
+          const result = await requestAiAnalysis(base, { apiKey: apiConfig.apiKey });
+          merged = { ...result.analysis, id: base.id, createdAt: base.createdAt };
+          aiCache.current.set(cacheKey, merged);
+        }
+        if (runSeq.current !== seq) return;
+        setAnalysis(merged);
+        setRuns((prev) => addRun(prev, merged));
+        setAiReady(true);
+        const took = merged.ai?.latencyMs
+          ? merged.ai.latencyMs >= 1000
+            ? `${(merged.ai.latencyMs / 1000).toFixed(1)}초`
+            : `${merged.ai.latencyMs}ms`
+          : "완료";
+        notify(`실시간 AI 분석 반영 · ${took}`);
+      } catch (error) {
+        if (runSeq.current !== seq) return;
+        const note = describeAiError(error);
+        setAnalysis((prev) => (prev ? { ...prev, modeNote: note } : prev));
+        setRuns((prev) => addRun(prev, { ...base, mode: "local", modeNote: note }));
+        if (error instanceof Error && error.message.includes("연결하지 못했습니다")) setAiReady(false);
+        notify(note, "warn");
+      } finally {
+        if (runSeq.current === seq) setAiPending(false);
+      }
+    },
+    [apiConfig.apiKey, notify],
+  );
 
   const runAnalysis = useCallback(
     async (override?: {
       text?: string;
-      scenario?: string;
-      mediaOutlet?: string;
-      mediaDesk?: MediaDesk | "";
       brand?: string;
       issue?: IssueCategoryId;
       industry?: IndustryId;
       channels?: ChannelId[];
       tab?: TabId;
     }) => {
-      const context = (override?.scenario ?? scenario).trim();
       const text = (override?.text ?? draft).replace(/\r\n/g, "\n");
-      if (text.trim().length < 20 && (text.trim() || !context)) {
+      if (text.trim().length < 20) {
         notify("초안이 너무 짧습니다. 최소 20자 이상 입력하세요.", "warn");
         return;
       }
@@ -118,6 +166,9 @@ export default function App() {
       const cfgIndustry = override?.industry ?? industry;
       const cfgChannels = override?.channels ?? channels;
 
+      const seq = runSeq.current + 1;
+      runSeq.current = seq;
+      setAiPending(false);
       setRunning(true);
       setStep(0);
       setMobilePanel("analysis");
@@ -126,51 +177,55 @@ export default function App() {
         await sleep(i === 0 ? 180 : 200);
       }
 
-      let result = analyze({ text, scenario: context, mediaDesk: override?.mediaDesk ?? desk, mediaOutlet: override?.mediaOutlet ?? outlet, brand: cfgBrand, issue: cfgIssue, industry: cfgIndustry, channels: cfgChannels });
-
-      if (text.trim() && apiConfig.enabled && apiConfig.apiKey.trim()) {
-        try {
-          const enriched = await enrichWithLlm(apiConfig, result);
-          result = {
-            ...result,
-            engine: "llm",
-            headlines: enriched.headlines.length ? enriched.headlines : result.headlines,
-            factChecks: enriched.factChecks.length ? enriched.factChecks : result.factChecks,
-          };
-          notify("LLM 정밀 분석을 반영했습니다.");
-        } catch (error) {
-          const msg = error instanceof Error ? error.message : "알 수 없는 오류";
-          notify(`LLM 호출 실패 — 내장 엔진 결과를 표시합니다. (${msg})`, "warn");
-        }
-      }
+      const result = analyze({
+        text,
+        brand: cfgBrand,
+        issue: cfgIssue,
+        industry: cfgIndustry,
+        channels: cfgChannels,
+      });
 
       const previous = runs.find((r) => r.brand === result.brand) ?? null;
       setBaseline(previous);
-      if (text.trim()) setRuns((prev) => addRun(prev, result));
       setAnalysis(result);
+      setRuns((prev) => addRun(prev, result));
       setSelectedSpanId(null);
       setTab(override?.tab ?? "press");
       setActivePreset(null);
       setRunning(false);
+
+      if (!apiConfig.enabled) {
+        const note = "설정에서 실시간 AI 분석을 꺼 두었습니다. 내장 규칙으로 분석했습니다.";
+        setAnalysis((prev) => (prev ? { ...prev, modeNote: note } : prev));
+        setRuns((prev) => addRun(prev, { ...result, modeNote: note }));
+        return;
+      }
+
+      await runAiPass(result, seq);
     },
-    [apiConfig, brand, channels, draft, industry, issue, notify, runs, scenario, desk, outlet],
+    [apiConfig.enabled, brand, channels, draft, industry, issue, notify, runAiPass, runs],
   );
+
+  const retryAi = useCallback(() => {
+    if (!analysis) return;
+    if (!apiConfig.enabled) {
+      setApiOpen(true);
+      return;
+    }
+    const seq = runSeq.current + 1;
+    runSeq.current = seq;
+    void runAiPass(analysis, seq);
+  }, [analysis, apiConfig.enabled, runAiPass]);
 
   const handlePreset = (preset: Preset) => {
     setBrand(preset.brand);
     setIssue(preset.issue);
     setIndustry(preset.industry);
     setChannels(preset.channels);
-    setOutlet("");
-    setDesk("");
-    setScenario("");
     setDraft(preset.draft);
     setActivePreset(preset.id);
     void runAnalysis({
       text: preset.draft,
-      scenario: "",
-      mediaOutlet: "",
-      mediaDesk: "",
       brand: preset.brand,
       issue: preset.issue,
       industry: preset.industry,
@@ -187,6 +242,19 @@ export default function App() {
 
   const toggleChannel = (id: ChannelId) => {
     setChannels((prev) => (prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]));
+  };
+
+  const resetDraft = () => {
+    runSeq.current += 1;
+    setDraft("");
+    setBrand("");
+    setActivePreset(null);
+    setAnalysis(null);
+    setBaseline(null);
+    setSelectedSpanId(null);
+    setAiPending(false);
+    setMobilePanel("input");
+    notify("새 글을 시작합니다. 초안을 붙여넣거나 파일을 불러오세요.");
   };
 
   const applySpan = (span: RiskSpan) => {
@@ -209,11 +277,11 @@ export default function App() {
     void runAnalysis({ text: analysis.revisedDraft, tab: "xray" });
   };
 
-  const loadRevised = () => {
-    if (!analysis) return;
-    setDraft(analysis.revisedDraft);
+  const loadTextToEditor = (text: string) => {
+    setDraft(text);
+    setActivePreset(null);
     setMobilePanel("input");
-    notify("수정안을 에디터에 넣었습니다. 확인 필요 값을 채운 뒤 다시 분석하세요.", "ok");
+    notify("수정안을 에디터에 넣었습니다. [확인 필요] 값을 채운 뒤 다시 분석하세요.", "ok");
   };
 
   const exportMarkdown = () => {
@@ -230,16 +298,10 @@ export default function App() {
     const runIndustry = run.industry ?? "tech";
     setIndustry(runIndustry);
     setChannels(run.channels);
-    setOutlet(run.mediaOutlet ?? "");
-    setDesk(run.mediaDesk ?? "");
-    setScenario(run.scenario ?? "");
     setDraft(run.text);
     setActivePreset(null);
     void runAnalysis({
       text: run.text,
-      mediaOutlet: run.mediaOutlet ?? "",
-      mediaDesk: run.mediaDesk ?? "",
-      scenario: run.scenario ?? "",
       brand: run.brand,
       issue: run.issue,
       industry: runIndustry,
@@ -270,18 +332,11 @@ export default function App() {
   const saveApi = (config: LlmConfig) => {
     setApiConfig(config);
     persistApiConfig(config);
-    notify(config.enabled && config.apiKey ? "LLM 설정을 저장했습니다." : "LLM 설정을 저장했습니다. (사용 안 함)", "ok");
+    void refreshAiStatus();
+    notify(config.enabled ? "실시간 AI 설정을 저장했습니다." : "실시간 AI를 꺼 두었습니다. 로컬 규칙으로 분석합니다.", "ok");
   };
 
-  const tabs = useMemo(() => {
-    if (!analysis) return [];
-    return [
-      { id: "press" as TabId, label: "기자 시각", icon: Newspaper, count: analysis.factChecks.length },
-      { id: "sentiment" as TabId, label: "여론", icon: MessagesSquare, count: analysis.channelForecasts.length },
-      { id: "xray" as TabId, label: "문장 X-ray", icon: ScanText, count: analysis.spans.length },
-      { id: "response" as TabId, label: "응답 팩", icon: ClipboardCheck, count: analysis.qa.length },
-    ];
-  }, [analysis]);
+  const tabs = useMemoTabs(analysis);
 
   const panelVisible = (panel: MobilePanel) => (mobilePanel === panel ? "block" : "hidden");
 
@@ -310,7 +365,10 @@ export default function App() {
 
         <TopBar
           view={view}
-          apiEnabled={apiConfig.enabled && Boolean(apiConfig.apiKey)}
+          apiEnabled={apiConfig.enabled}
+          aiReady={aiReady}
+          aiPending={aiPending}
+          mode={analysis?.mode ?? null}
           onOpenApi={() => setApiOpen(true)}
           onChangeView={(v) => {
             setView(v);
@@ -320,9 +378,7 @@ export default function App() {
 
         <main className="lg:pl-[68px]">
           <div className="mx-auto w-full max-w-[1600px] px-3 pb-24 pt-3 sm:px-5 sm:pt-4 xl:pb-6">
-            {view === "incident" ? (
-              <IncidentDesk />
-            ) : view === "library" ? (
+            {view === "library" ? (
               <LibraryView industry={industry} onIndustry={setIndustry} onSimulate={simulateIndustry} />
             ) : view === "history" ? (
               <HistoryView
@@ -336,187 +392,190 @@ export default function App() {
               />
             ) : (
               <>
-              <div className="grid gap-3 lg:grid-cols-[330px_minmax(0,1fr)] xl:grid-cols-[352px_minmax(0,1fr)_304px]">
-                <div className={cx(panelVisible("input"), "lg:block")}>
-                  <div className="xl:sticky xl:top-[70px] xl:h-[calc(100vh-84px)]">
-                    <div className="h-full">
-                      <InputPanel
-                        desk={desk}
-                        onDesk={(value) => { setDesk(value); setOutlet(""); }}
-                        outlet={outlet}
-                        onOutlet={setOutlet}
-                        scenario={scenario}
-                        onScenario={setScenario}
-                        draft={draft}
-                        onDraft={(v) => {
-                          setDraft(v);
-                          setActivePreset(null);
-                        }}
-                        brand={brand}
-                        onBrand={setBrand}
-                        issue={issue}
-                        onIssue={setIssue}
-                        industry={industry}
-                        onIndustry={setIndustry}
-                        channels={channels}
-                        onToggleChannel={toggleChannel}
-                        onPreset={handlePreset}
-                        running={running}
-                        step={step}
-                        onRun={() => void runAnalysis()}
-                        stale={stale}
-                        apiEnabled={apiConfig.enabled && Boolean(apiConfig.apiKey)}
-                        onOpenApi={() => setApiOpen(true)}
-                        activePresetId={activePreset}
-                        onOpenPlaybook={(id) => {
-                          setIndustry(id);
-                          setView("library");
-                        }}
-                      />
+                <div className="grid gap-3 lg:grid-cols-[330px_minmax(0,1fr)] xl:grid-cols-[352px_minmax(0,1fr)_304px]">
+                  <div className={cx(panelVisible("input"), "lg:block")}>
+                    <div className="xl:sticky xl:top-[70px] xl:h-[calc(100vh-84px)]">
+                      <div className="h-full">
+                        <InputPanel
+                          draft={draft}
+                          onDraft={(v) => {
+                            setDraft(v);
+                            setActivePreset(null);
+                          }}
+                          brand={brand}
+                          onBrand={setBrand}
+                          issue={issue}
+                          onIssue={setIssue}
+                          industry={industry}
+                          onIndustry={setIndustry}
+                          channels={channels}
+                          onToggleChannel={toggleChannel}
+                          onPreset={handlePreset}
+                          running={running}
+                          aiPending={aiPending}
+                          step={step}
+                          onRun={() => void runAnalysis()}
+                          stale={stale}
+                          apiEnabled={apiConfig.enabled}
+                          onOpenApi={() => setApiOpen(true)}
+                          activePresetId={activePreset}
+                          onOpenPlaybook={(id) => {
+                            setIndustry(id);
+                            setView("library");
+                          }}
+                          onReset={resetDraft}
+                          onNotice={(message, tone) => notify(message, tone ?? "ok")}
+                        />
+                      </div>
                     </div>
+                  </div>
+
+                  <div className={cx(panelVisible("analysis"), "min-w-0 lg:block")}>
+                    {!analysis ? (
+                      <EmptyState onPreset={handlePreset} />
+                    ) : (
+                      <div className="space-y-2.5">
+                        <ModeBanner
+                          analysis={analysis}
+                          pending={aiPending}
+                          aiEnabled={apiConfig.enabled}
+                          onRetry={retryAi}
+                          onOpenSettings={() => setApiOpen(true)}
+                        />
+
+                        <Card className="overflow-hidden">
+                          <div className="flex flex-wrap items-start gap-3 px-4 py-3.5">
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                <h1 className="truncate text-[15px] font-semibold tracking-[-0.025em]">{analysis.brand}</h1>
+                                <span
+                                  className="chip"
+                                  style={{
+                                    background: `${getIndustry(analysis.industry).accent}12`,
+                                    color: getIndustry(analysis.industry).accent,
+                                    border: `1px solid ${getIndustry(analysis.industry).accent}26`,
+                                  }}
+                                >
+                                  {analysis.industryLabel}
+                                </span>
+                                <span className="chip border border-line bg-surface text-ink-2">{analysis.issueLabel}</span>
+                                <span
+                                  className={cx(
+                                    "chip",
+                                    analysis.mode === "ai" ? "bg-ok-soft text-ok" : "bg-paper-deep text-muted",
+                                  )}
+                                >
+                                  {analysis.mode === "ai" ? "실시간 AI 분석" : "로컬 규칙 모드"}
+                                </span>
+                                {baseline && <span className="chip bg-ok-soft text-ok">2차</span>}
+                              </div>
+                              <p className="mt-1 truncate text-[10.5px] text-muted">
+                                {analysis.summaryLine} ·{" "}
+                                {new Date(analysis.createdAt).toLocaleTimeString("ko-KR", {
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })}{" "}
+                                생성
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <button type="button" onClick={exportMarkdown} className="btn btn-outline h-8 px-2.5 text-[11px]">
+                                <Download size={12} />
+                                <span className="hidden sm:inline">리포트</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => window.print()}
+                                className="btn btn-outline h-8 px-2.5 text-[11px]"
+                                title="인쇄용 리포트"
+                              >
+                                <Printer size={12} />
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1 overflow-x-auto border-t border-line px-2 py-1.5">
+                            {tabs.map((t) => {
+                              const active = tab === t.id;
+                              return (
+                                <button
+                                  key={t.id}
+                                  type="button"
+                                  onClick={() => setTab(t.id)}
+                                  className={cx(
+                                    "inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2 py-1.5 text-[11px] font-semibold transition-colors sm:px-2.5 sm:text-[11.5px]",
+                                    active ? "bg-ink text-white" : "text-muted hover:bg-paper-deep hover:text-ink",
+                                  )}
+                                >
+                                  <t.icon size={13} />
+                                  {t.label}
+                                  <span className={cx("num hidden text-[9.5px] sm:inline", active ? "text-white/60" : "text-faint")}>
+                                    {t.count}
+                                  </span>
+                                </button>
+                              );
+                            })}
+                            <div className="ml-auto hidden items-center gap-1.5 pr-1 sm:flex">
+                              <ScoreBadge score={analysis.score} size="sm" />
+                              <span className="text-[9.5px] text-faint">/100</span>
+                            </div>
+                          </div>
+                        </Card>
+
+                        {stale && (
+                          <div className="flex flex-wrap items-center gap-2 rounded-xl border border-warn/25 bg-warn-soft px-3.5 py-2.5">
+                            <span className="text-[11px] font-medium text-warn">
+                              초안·업종·이슈 유형이 변경되었습니다. 결과는 마지막 분석 기준입니다.
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => void runAnalysis()}
+                              className="btn btn-outline ml-auto h-7 border-warn/30 bg-white/70 px-2.5 text-[10.5px] text-warn"
+                            >
+                              <Sparkles size={11} /> 다시 분석
+                            </button>
+                          </div>
+                        )}
+
+                        <div className="animate-rise">
+                          {tab === "press" && <PressTab analysis={analysis} />}
+                          {tab === "sentiment" && <SentimentTab analysis={analysis} />}
+                          {tab === "xray" && (
+                            <XrayTab
+                              analysis={analysis}
+                              selectedId={selectedSpanId}
+                              onSelect={setSelectedSpanId}
+                              onApply={applySpan}
+                              onApplyAll={applyAll}
+                              stale={stale}
+                            />
+                          )}
+                          {tab === "response" && (
+                            <ResponseTab
+                              analysis={analysis}
+                              onLoadToEditor={loadTextToEditor}
+                              onLoadRevised={() => loadTextToEditor(analysis.revisedDraft)}
+                              onExport={exportMarkdown}
+                              onPrint={() => window.print()}
+                            />
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className={cx(panelVisible("risk"), "min-w-0 xl:block")}>
+                    <div className="xl:sticky xl:top-[70px]">{railNode}</div>
                   </div>
                 </div>
 
-                <div className={cx(panelVisible("analysis"), "min-w-0 lg:block")}>
-                  {!analysis ? (
-                    <EmptyState onPreset={handlePreset} />
-                  ) : !analysis.text.trim() ? (
-                    <Card className="space-y-3 p-4">
-                      <h1 className="text-lg font-semibold">사건 사전 점검</h1>
-                      <p className="whitespace-pre-wrap break-words text-sm">{analysis.scenario}</p>
-                      <p className="text-xs text-muted">{analysis.industryLabel} · {analysis.issueLabel} · {CHANNELS.filter((channel) => analysis.channels.includes(channel.id)).map((channel) => channel.label).join(", ")}</p>
-                      {stale && <p className="text-sm text-warn">입력이 변경됐습니다. 다시 실행해 주세요.</p>}
-                      <h2 className="font-semibold">발표 전 확인할 질문</h2>
-                      <ul className="list-disc space-y-1 pl-5 text-sm">
-                        {analysis.mediaDesk && <li>{analysis.mediaOutlet ? analysis.mediaOutlet + " · " : ""}{analysis.mediaDesk} 데스크 · {MEDIA_DESKS[analysis.mediaDesk]}</li>}
-                        {analysis.factChecks.map((check, index) => <li key={index}>{check.question}</li>)}
-                      </ul>
-                      <p className="text-sm text-muted">입장문을 추가하면 매체별 예상 반응과 문장 위험도를 확인할 수 있습니다.</p>
-                    </Card>
-                  ) : (
-                    <div className="space-y-3">
-                      <Card className="overflow-hidden">
-                        <div className="flex flex-wrap items-start gap-3 px-4 py-3.5">
-                          <div className="min-w-0 flex-1">
-                            <div className="flex flex-wrap items-center gap-1.5">
-                              <h1 className="truncate text-[15px] font-semibold tracking-[-0.025em]">{analysis.brand}</h1>
-                              <span
-                                className="chip"
-                                style={{
-                                  background: `${getIndustry(analysis.industry).accent}12`,
-                                  color: getIndustry(analysis.industry).accent,
-                                  border: `1px solid ${getIndustry(analysis.industry).accent}26`,
-                                }}
-                              >
-                                {analysis.industryLabel}
-                              </span>
-                              <span className="chip border border-line bg-surface text-ink-2">{analysis.issueLabel}</span>
-                              <span className="chip bg-paper-deep text-muted">
-                                {analysis.engine === "llm" ? "LLM 정밀 분석" : "휴리스틱 v2.5 · 업종 매뉴얼"}
-                              </span>
-                              {baseline && <span className="chip bg-ok-soft text-ok">2차</span>}
-                            </div>
-                            {analysis.mediaDesk && <p className="mt-2 text-xs"><strong>{analysis.mediaOutlet ? analysis.mediaOutlet + " · " : ""}{analysis.mediaDesk} 데스크 예상 질문</strong> · {MEDIA_DESKS[analysis.mediaDesk]}</p>}
-                            {analysis.scenario && <p className="mt-2 whitespace-pre-wrap break-words text-xs"><strong>사건 내용</strong> · {analysis.scenario}</p>}
-                            <p className="mt-1 truncate text-[10.5px] text-muted">
-                              {analysis.summaryLine} · {new Date(analysis.createdAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })} 생성
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            <button type="button" onClick={exportMarkdown} className="btn btn-outline h-8 px-2.5 text-[11px]">
-                              <Download size={12} />
-                              <span className="hidden sm:inline">리포트</span>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => window.print()}
-                              className="btn btn-outline h-8 px-2.5 text-[11px]"
-                              title="인쇄용 리포트"
-                            >
-                              <Printer size={12} />
-                            </button>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-1 overflow-x-auto border-t border-line px-2 py-1.5">
-                          {tabs.map((t) => {
-                            const active = tab === t.id;
-                            return (
-                              <button
-                                key={t.id}
-                                type="button"
-                                onClick={() => setTab(t.id)}
-                                className={cx(
-                                  "inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2 py-1.5 text-[11px] font-semibold transition-colors sm:px-2.5 sm:text-[11.5px]",
-                                  active ? "bg-ink text-white" : "text-muted hover:bg-paper-deep hover:text-ink",
-                                )}
-                              >
-                                <t.icon size={13} />
-                                {t.label}
-                                <span className={cx("num hidden text-[9.5px] sm:inline", active ? "text-white/60" : "text-faint")}>{t.count}</span>
-                              </button>
-                            );
-                          })}
-                          <div className="ml-auto hidden items-center gap-1.5 pr-1 sm:flex">
-                            <ScoreBadge score={analysis.score} size="sm" />
-                            <span className="text-[9.5px] text-faint">/100</span>
-                          </div>
-                        </div>
-                      </Card>
-
-                      {stale && (
-                        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-warn/25 bg-warn-soft px-3.5 py-2.5">
-                          <span className="text-[11px] font-medium text-warn">
-                            분석 입력이 변경되었습니다. 결과는 마지막 분석 기준입니다.
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => void runAnalysis()}
-                            className="btn btn-outline ml-auto h-7 border-warn/30 bg-white/70 px-2.5 text-[10.5px] text-warn"
-                          >
-                            <Sparkles size={11} /> 다시 분석
-                          </button>
-                        </div>
-                      )}
-
-                      <div className="animate-rise">
-                        {tab === "press" && <PressTab analysis={analysis} />}
-                        {tab === "sentiment" && <SentimentTab analysis={analysis} />}
-                        {tab === "xray" && (
-                          <XrayTab
-                            analysis={analysis}
-                            selectedId={selectedSpanId}
-                            onSelect={setSelectedSpanId}
-                            onApply={applySpan}
-                            onApplyAll={applyAll}
-                            stale={stale}
-                          />
-                        )}
-                        {tab === "response" && (
-                          <ResponseTab
-                            analysis={analysis}
-                            onLoadRevised={loadRevised}
-                            onExport={exportMarkdown}
-                            onPrint={() => window.print()}
-                          />
-                        )}
-                      </div>
-                    </div>
-                  )}
+                <div className={cx("mt-3 lg:hidden", mobilePanel === "risk" ? "block" : "hidden")}>
+                  <div className="grid gap-3 sm:grid-cols-2">{railNode}</div>
                 </div>
 
-                <div className={cx(panelVisible("risk"), "min-w-0 xl:block")}>
-                  <div className="xl:sticky xl:top-[70px]">{analysis && !analysis.text.trim() ? <Card className="p-4 text-sm">입장문을 추가하면 문장 위험도를 표시합니다.</Card> : railNode}</div>
+                <div className="mt-3 hidden lg:block xl:hidden">
+                  <div className="grid gap-3 sm:grid-cols-2">{railNode}</div>
                 </div>
-              </div>
-
-              <div className={cx("mt-3 lg:hidden", mobilePanel === "risk" ? "block" : "hidden")}>
-                <div className="grid gap-3 sm:grid-cols-2">{analysis && !analysis.text.trim() ? <Card className="p-4 text-sm">입장문을 추가하면 문장 위험도를 표시합니다.</Card> : railNode}</div>
-              </div>
-
-              <div className="mt-3 hidden lg:block xl:hidden">
-                <div className="grid gap-3 sm:grid-cols-2">{analysis && !analysis.text.trim() ? <Card className="p-4 text-sm">입장문을 추가하면 문장 위험도를 표시합니다.</Card> : railNode}</div>
-              </div>
               </>
             )}
           </div>
@@ -566,23 +625,28 @@ export default function App() {
         {helpOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-ink/35 backdrop-blur-[2px]" onClick={() => setHelpOpen(false)} aria-hidden />
-            <div className="animate-rise relative z-10 w-full max-w-[440px] rounded-2xl border border-line bg-surface p-5 shadow-2xl">
+            <div className="animate-rise relative z-10 w-full max-w-[460px] rounded-2xl border border-line bg-surface p-5 shadow-2xl">
               <div className="flex items-start justify-between">
                 <div>
                   <div className="eyebrow">Guide</div>
                   <h2 className="mt-1 text-[15px] font-semibold">이렇게 사용합니다</h2>
                 </div>
-                <button type="button" onClick={() => setHelpOpen(false)} className="rounded-md p-1 text-muted hover:bg-paper-deep" aria-label="닫기">
+                <button
+                  type="button"
+                  onClick={() => setHelpOpen(false)}
+                  className="rounded-md p-1 text-muted hover:bg-paper-deep"
+                  aria-label="닫기"
+                >
                   <X size={16} />
                 </button>
               </div>
               <ol className="mt-4 space-y-2.5">
                 {[
-                  "업종(식품·유통·소비재·IT·제조·엔터)과 이슈 유형, 타깃 채널을 고르고 초안을 붙여넣습니다.",
-                  "시뮬레이션을 실행하면 기자 시각·여론·리스크가 업종 기준으로 동시에 생성됩니다.",
-                  "문장 X-ray에서 위험 구절을 눌러 교체안을 적용하고, 업종 필수 항목이 비었는지 확인합니다.",
-                  "응답 팩에서 Q&A와 수정 1차안을 복사하거나 Markdown·인쇄로 내보냅니다.",
-                  "상단 '사례·매뉴얼'에서 실제 위기 사례와 업종별 골든타임 타임라인을 볼 수 있습니다.",
+                  "‘새 글 작성’으로 에디터를 비우고, 내 보도자료·입장문을 붙여넣거나 .txt/.md 파일로 불러옵니다.",
+                  "업종과 이슈 유형, 타깃 채널을 고르고 ‘내 초안 분석하기’를 누릅니다. 예시는 ‘예시로 테스트하기’에 있습니다.",
+                  "상단 배지로 실시간 AI 분석인지 로컬 규칙 모드인지 확인합니다. AI가 연결되지 않아도 모든 탭이 채워집니다.",
+                  "응답 팩에서 수정 초안 2버전(공감형·팩트형)을 복사해 쓰고, 기자 질문·금기 표현·골든타임 체크리스트로 대응합니다.",
+                  "문장 X-ray에서 위험 구절을 교체하고, 사례·매뉴얼에서 실제 위기 사례와 업종 타임라인을 확인합니다.",
                 ].map((t, i) => (
                   <li key={i} className="flex gap-2.5">
                     <span className="num mt-[1px] grid h-5 w-5 shrink-0 place-items-center rounded-md bg-paper-deep text-[9.5px] font-semibold text-muted">
@@ -594,7 +658,7 @@ export default function App() {
               </ol>
               <div className="mt-4 rounded-lg border border-line bg-[#fcfcfa] p-3 text-[10.5px] leading-relaxed text-muted">
                 모든 기록은 이 브라우저의 로컬 저장소에만 보관됩니다. 샘플 기업·인물은 가상이며, 실제 인물 정보는
-                사용하지 않습니다.
+                사용하지 않습니다. 초안은 분석 요청에만 쓰이고 서버에 저장하지 않습니다.
               </div>
               <button type="button" onClick={() => setHelpOpen(false)} className="btn btn-primary mt-4 h-9 w-full text-[12px]">
                 확인
@@ -623,4 +687,14 @@ export default function App() {
       {analysis && view !== "library" && <PrintReport analysis={analysis} />}
     </>
   );
+}
+
+function useMemoTabs(analysis: Analysis | null) {
+  const tabs: { id: TabId; label: string; icon: typeof Newspaper; count: number }[] = [];
+  if (!analysis) return tabs;
+  tabs.push({ id: "press", label: "기자 시각", icon: Newspaper, count: analysis.factChecks.length });
+  tabs.push({ id: "sentiment", label: "여론", icon: MessagesSquare, count: analysis.channelForecasts.length });
+  tabs.push({ id: "xray", label: "문장 X-ray", icon: ScanText, count: analysis.spans.length });
+  tabs.push({ id: "response", label: "응답 팩", icon: ClipboardCheck, count: analysis.pressQa.length });
+  return tabs;
 }

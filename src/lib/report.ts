@@ -14,7 +14,14 @@ export function buildMarkdown(a: Analysis, previous?: { score: number; createdAt
   lines.push(`- 이슈 유형: ${a.issueLabel}`);
   lines.push(`- 타깃 채널: ${a.channels.map((c) => getChannel(c).label).join(", ")}`);
   lines.push(`- 분석 시각: ${when}`);
-  lines.push(`- 엔진: ${a.engine === "llm" ? "내장 엔진 + LLM 정밀 분석" : "내장 휴리스틱 엔진 v2.5 · 업종 매뉴얼"}`);
+  lines.push(
+    `- 분석 모드: ${
+      a.mode === "ai"
+        ? `실시간 AI 분석 (${a.ai?.model ?? "gpt-4o-mini"})`
+        : `로컬 규칙 모드${a.modeNote ? ` — ${a.modeNote}` : ""}`
+    }`,
+  );
+  lines.push("- 리스크 점수: 내장 엔진 v2.5 · 업종 매뉴얼 기준");
   lines.push("");
   lines.push("## 1. 리스크 요약");
   lines.push("");
@@ -78,10 +85,16 @@ export function buildMarkdown(a: Analysis, previous?: { score: number; createdAt
   for (const d of a.viral.drivers) lines.push(`- ${d}`);
   lines.push("");
   for (const c of a.channelForecasts) {
+    const sim = a.channelSimulations.find((s) => s.id === c.id);
+    const reactions = sim?.reactions.length ? sim.reactions : c.reactions;
     lines.push(`### ${c.label}`);
     lines.push(`주요 쟁점: ${c.themes.join(" · ")}`);
-    for (const r of c.reactions) {
+    for (const r of reactions) {
       lines.push(`- (${r.tone}) ${r.text} — ${r.handle}`);
+    }
+    if (sim?.triggers.length) {
+      lines.push("악화 트리거:");
+      for (const t of sim.triggers) lines.push(`- ${t}`);
     }
     lines.push("");
   }
@@ -99,15 +112,37 @@ export function buildMarkdown(a: Analysis, previous?: { score: number; createdAt
     }
   }
   lines.push("");
-  lines.push("## 5. 응답 팩 (Q&A)");
+  lines.push("## 5. 기자 압박 질문 · 모범 답변 · 금기 표현");
   lines.push("");
-  for (const q of a.qa) {
-    lines.push(`### ${q.question}`);
-    lines.push(`${q.answer}`);
-    lines.push(`> ${q.status === "confirm" ? "확인 필요 — " : "준비됨 — "}${q.source}`);
+  a.pressQa.forEach((q, i) => {
+    lines.push(`### Q${i + 1}. ${q.question} (${sevLabel(q.severity)})`);
+    lines.push(`${q.answerGuide}`);
+    if (q.avoid.length) lines.push(`피해야 할 말: ${q.avoid.join(", ")}`);
+    lines.push(`> ${q.source === "ai" ? "AI 실시간 생성" : `${a.industryLabel} 매뉴얼 기준`}`);
+    lines.push("");
+  });
+  lines.push("## 6. 수정 초안 2버전");
+  lines.push("");
+  for (const r of a.revisions) {
+    lines.push(`### ${r.label} — ${r.audience}`);
+    if (r.changes.length) {
+      lines.push("변경 포인트:");
+      for (const c of r.changes) lines.push(`- ${c}`);
+    }
+    lines.push("");
+    lines.push("```");
+    lines.push(r.body);
+    lines.push("```");
     lines.push("");
   }
-  lines.push("## 6. 수정 1차안");
+  lines.push("## 7. 골든타임 액션 플랜");
+  lines.push("");
+  for (const step of a.goldenTime) {
+    lines.push(`### ${step.window} — ${step.title}`);
+    for (const item of step.items) lines.push(`- [ ] ${item}`);
+    lines.push("");
+  }
+  lines.push("## 8. 엔진 자동 교체안 (참고)");
   lines.push("");
   lines.push("```");
   lines.push(a.revisedDraft);
@@ -115,7 +150,7 @@ export function buildMarkdown(a: Analysis, previous?: { score: number; createdAt
   lines.push("");
   lines.push(`> [확인 필요]로 표시된 값은 실제 수치·일정으로 교체한 뒤 배포하세요.`);
   lines.push("");
-  lines.push(`## 7. ${a.industryLabel} 매뉴얼 — 배포 전 체크`);
+  lines.push(`## 9. ${a.industryLabel} 매뉴얼 — 배포 전 체크`);
   lines.push("");
   const industry = getIndustry(a.industry);
   for (const r of industry.playbook.required) lines.push(`- **${r.label}** — ${r.desc}`);

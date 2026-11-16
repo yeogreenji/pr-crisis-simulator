@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, type HTMLAttributes, type ReactNode } from "react";
 import { Check, Copy } from "lucide-react";
 
 export const cx = (...parts: Array<string | false | null | undefined>) => parts.filter(Boolean).join(" ");
@@ -7,12 +7,17 @@ export function Card({
   children,
   className,
   as: Tag = "div",
+  ...rest
 }: {
   children: ReactNode;
   className?: string;
   as?: "div" | "section" | "aside" | "article";
-}) {
-  return <Tag className={cx("card", className)}>{children}</Tag>;
+} & Omit<HTMLAttributes<HTMLElement>, "className" | "children">) {
+  return (
+    <Tag className={cx("card", className)} {...rest}>
+      {children}
+    </Tag>
+  );
 }
 
 export function Eyebrow({ children, className }: { children: ReactNode; className?: string }) {
