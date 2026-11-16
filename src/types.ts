@@ -255,6 +255,7 @@ export interface AnalysisStats {
 
 export interface Analysis {
   scenario?: string;
+  mediaOutlet?: string;
   mediaDesk?: import("./lib/mediaDesks").MediaDesk | "";
   id: string;
   createdAt: string;
@@ -293,6 +294,7 @@ export interface Grade {
 
 export interface RunRecord {
   scenario?: string;
+  mediaOutlet?: string;
   mediaDesk?: import("./lib/mediaDesks").MediaDesk | "";
   id: string;
   createdAt: string;

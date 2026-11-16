@@ -913,6 +913,7 @@ function buildRevisedDraft(
 
 export interface AnalyzeInput {
   scenario?: string;
+  mediaOutlet?: string;
   mediaDesk?: Analysis["mediaDesk"];
   text: string;
   brand: string;
@@ -1009,6 +1010,7 @@ export function analyze(input: AnalyzeInput): Analysis {
     createdAt: new Date().toISOString(),
     scenario: input.scenario,
     mediaDesk: input.mediaDesk,
+    mediaOutlet: input.mediaOutlet,
     brand,
     issue: input.issue,
     issueLabel: issue.label,

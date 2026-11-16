@@ -45,6 +45,7 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export default function App() {
   const [view, setView] = useState<AppView>("simulator");
+  const [outlet, setOutlet] = useState("");
   const [desk, setDesk] = useState<MediaDesk | "">("");
   const [scenario, setScenario] = useState("");
   const [draft, setDraft] = useState(PRESETS[0].draft);
@@ -87,6 +88,7 @@ export default function App() {
     analysis !== null &&
     (draft.replace(/\r\n/g, "\n") !== analysis.text ||
       (analysis.scenario ?? "") !== scenario.trim() ||
+      (analysis.mediaOutlet ?? "") !== outlet ||
       (analysis.mediaDesk ?? "") !== desk ||
       (channels.length > 0 && channels.join() !== analysis.channels.join()) ||
       analysis.brand !== (brand.trim() || "당사") ||
@@ -97,6 +99,7 @@ export default function App() {
     async (override?: {
       text?: string;
       scenario?: string;
+      mediaOutlet?: string;
       mediaDesk?: MediaDesk | "";
       brand?: string;
       issue?: IssueCategoryId;
@@ -123,7 +126,7 @@ export default function App() {
         await sleep(i === 0 ? 180 : 200);
       }
 
-      let result = analyze({ text, scenario: context, mediaDesk: override?.mediaDesk ?? desk, brand: cfgBrand, issue: cfgIssue, industry: cfgIndustry, channels: cfgChannels });
+      let result = analyze({ text, scenario: context, mediaDesk: override?.mediaDesk ?? desk, mediaOutlet: override?.mediaOutlet ?? outlet, brand: cfgBrand, issue: cfgIssue, industry: cfgIndustry, channels: cfgChannels });
 
       if (text.trim() && apiConfig.enabled && apiConfig.apiKey.trim()) {
         try {
@@ -150,7 +153,7 @@ export default function App() {
       setActivePreset(null);
       setRunning(false);
     },
-    [apiConfig, brand, channels, draft, industry, issue, notify, runs, scenario, desk],
+    [apiConfig, brand, channels, draft, industry, issue, notify, runs, scenario, desk, outlet],
   );
 
   const handlePreset = (preset: Preset) => {
@@ -158,6 +161,7 @@ export default function App() {
     setIssue(preset.issue);
     setIndustry(preset.industry);
     setChannels(preset.channels);
+    setOutlet("");
     setDesk("");
     setScenario("");
     setDraft(preset.draft);
@@ -165,6 +169,7 @@ export default function App() {
     void runAnalysis({
       text: preset.draft,
       scenario: "",
+      mediaOutlet: "",
       mediaDesk: "",
       brand: preset.brand,
       issue: preset.issue,
@@ -225,12 +230,14 @@ export default function App() {
     const runIndustry = run.industry ?? "tech";
     setIndustry(runIndustry);
     setChannels(run.channels);
+    setOutlet(run.mediaOutlet ?? "");
     setDesk(run.mediaDesk ?? "");
     setScenario(run.scenario ?? "");
     setDraft(run.text);
     setActivePreset(null);
     void runAnalysis({
       text: run.text,
+      mediaOutlet: run.mediaOutlet ?? "",
       mediaDesk: run.mediaDesk ?? "",
       scenario: run.scenario ?? "",
       brand: run.brand,
@@ -335,7 +342,9 @@ export default function App() {
                     <div className="h-full">
                       <InputPanel
                         desk={desk}
-                        onDesk={setDesk}
+                        onDesk={(value) => { setDesk(value); setOutlet(""); }}
+                        outlet={outlet}
+                        onOutlet={setOutlet}
                         scenario={scenario}
                         onScenario={setScenario}
                         draft={draft}
@@ -379,7 +388,7 @@ export default function App() {
                       {stale && <p className="text-sm text-warn">입력이 변경됐습니다. 다시 실행해 주세요.</p>}
                       <h2 className="font-semibold">발표 전 확인할 질문</h2>
                       <ul className="list-disc space-y-1 pl-5 text-sm">
-                        {analysis.mediaDesk && <li>{analysis.mediaDesk} 데스크 · {MEDIA_DESKS[analysis.mediaDesk]}</li>}
+                        {analysis.mediaDesk && <li>{analysis.mediaOutlet ? analysis.mediaOutlet + " · " : ""}{analysis.mediaDesk} 데스크 · {MEDIA_DESKS[analysis.mediaDesk]}</li>}
                         {analysis.factChecks.map((check, index) => <li key={index}>{check.question}</li>)}
                       </ul>
                       <p className="text-sm text-muted">입장문을 추가하면 매체별 예상 반응과 문장 위험도를 확인할 수 있습니다.</p>
@@ -407,7 +416,7 @@ export default function App() {
                               </span>
                               {baseline && <span className="chip bg-ok-soft text-ok">2차</span>}
                             </div>
-                            {analysis.mediaDesk && <p className="mt-2 text-xs"><strong>{analysis.mediaDesk} 데스크 예상 질문</strong> · {MEDIA_DESKS[analysis.mediaDesk]}</p>}
+                            {analysis.mediaDesk && <p className="mt-2 text-xs"><strong>{analysis.mediaOutlet ? analysis.mediaOutlet + " · " : ""}{analysis.mediaDesk} 데스크 예상 질문</strong> · {MEDIA_DESKS[analysis.mediaDesk]}</p>}
                             {analysis.scenario && <p className="mt-2 whitespace-pre-wrap break-words text-xs"><strong>사건 내용</strong> · {analysis.scenario}</p>}
                             <p className="mt-1 truncate text-[10.5px] text-muted">
                               {analysis.summaryLine} · {new Date(analysis.createdAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })} 생성

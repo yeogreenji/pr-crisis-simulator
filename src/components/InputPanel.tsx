@@ -1,3 +1,4 @@
+import { MediaList } from "./MediaList";
 import { MEDIA_DESKS, type MediaDesk } from "../lib/mediaDesks";
 import { ArrowUpRight, Check, ChevronDown, Loader2, RotateCcw, Sparkles, Wand2 } from "lucide-react";
 import type { ChannelId, IndustryId, IssueCategoryId, Preset } from "../types";
@@ -11,6 +12,8 @@ const RUN_STEPS = ["초안 문장 분해", "기자 시각 생성", "채널 톤 �
 export function InputPanel({
   desk,
   onDesk,
+  outlet,
+  onOutlet,
   scenario,
   onScenario,
   draft,
@@ -34,6 +37,8 @@ export function InputPanel({
   onOpenPlaybook,
 }: {
   desk: MediaDesk | "";
+  outlet: string;
+  onOutlet: (value: string) => void;
   onDesk: (value: MediaDesk | "") => void;
   scenario: string;
   onScenario: (value: string) => void;
@@ -128,6 +133,7 @@ export function InputPanel({
             {Object.keys(MEDIA_DESKS).map((name) => <option key={name}>{name}</option>)}
           </select>
         </label>
+        <MediaList desk={desk} outlet={outlet} onOutlet={onOutlet} />
         <div>
           <div className="mb-1.5 flex items-center justify-between">
             <span className="text-[11px] font-semibold text-ink-2">예상 반응을 볼 매체·채널</span>
