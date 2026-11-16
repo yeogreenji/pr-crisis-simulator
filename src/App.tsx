@@ -369,6 +369,7 @@ export default function App() {
           aiReady={aiReady}
           aiPending={aiPending}
           mode={analysis?.mode ?? null}
+          aiModel={analysis?.ai?.model}
           onOpenApi={() => setApiOpen(true)}
           onChangeView={(v) => {
             setView(v);

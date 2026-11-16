@@ -53,7 +53,7 @@ export function ApiModal({
             <h2 className="mt-1 text-[15px] font-semibold tracking-tight">실시간 AI 분석</h2>
             <p className="mt-1 text-[11px] leading-relaxed text-muted">
               서버의 <code className="num rounded bg-paper-deep px-1 py-[1px] text-[10px]">{AI_ENDPOINT}</code>가
-              gpt-4o-mini로 수정 초안 2종·채널 반응·기자 답변·골든타임을 다시 씁니다. 연결되지 않으면 로컬 규칙으로
+              Gemini(또는 OpenAI)로 수정 초안 2종·채널 반응·기자 답변·골든타임을 다시 씁니다. 연결되지 않으면 로컬 규칙으로
               자동 전환되고, 위험 점수는 항상 내장 엔진이 계산합니다.
             </p>
           </div>
@@ -116,7 +116,7 @@ export function ApiModal({
 
           <label className="block">
             <span className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold text-ink-2">
-              <KeyRound size={11} /> 개인 OpenAI 키 (선택)
+              <KeyRound size={11} /> 개인 AI 키 (선택 · Gemini / OpenAI sk-…)
             </span>
             <span className="relative block">
               <input
@@ -124,7 +124,7 @@ export function ApiModal({
                 type={show ? "text" : "password"}
                 value={draft.apiKey}
                 onChange={(e) => setDraft({ ...draft, apiKey: e.target.value })}
-                placeholder="서버 키가 없을 때만 사용 (sk-...)"
+                placeholder="서버 키가 없을 때만 사용 (Gemini 키 또는 sk-...)"
                 autoComplete="off"
                 spellCheck={false}
               />
@@ -142,8 +142,8 @@ export function ApiModal({
           <div className="flex items-start gap-2 rounded-lg border border-line bg-paper/60 px-3 py-2.5">
             <ShieldCheck size={13} className="mt-[1px] shrink-0 text-ok" />
             <p className="text-[10px] leading-relaxed text-muted">
-              서버에 OPENAI_API_KEY가 있으면 개인 키는 쓰이지 않습니다. 개인 키는 이 브라우저 로컬 저장소에만 보관되고,
-              이 사이트의 <code className="num">/api/analyze</code> 프록시를 거쳐 OpenAI로 전달됩니다. 초안은 분석에만
+              서버에 GEMINI_API_KEY나 OPENAI_API_KEY가 있으면 개인 키는 쓰이지 않습니다. 개인 키는 이 브라우저 로컬 저장소에만 보관되고,
+              이 사이트의 <code className="num">/api/analyze</code> 프록시를 거쳐 해당 AI 제공자로 전달됩니다. 초안은 분석에만
               쓰이며 서버에 저장하지 않습니다.
             </p>
           </div>

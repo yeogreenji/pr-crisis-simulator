@@ -143,7 +143,7 @@
 - 업종 규제 주체·법령·매뉴얼을 반영한 1시간/6시간/24시간 액션 체크리스트
 - 헤드라인·팩트체크 질문·AI 총평
 
-키 우선순위: `OPENAI_API_KEY`(서버) → 요청 본문 `apiKey` → `x-api-key` 헤더. 입력은 8,000자까지, 초과 시 413을 반환하고 클라이언트는 로컬 모드로 남습니다. CORS·OPTIONS·GET 상태 확인을 지원하며 키 값은 응답에 포함하지 않습니다.
+키 우선순위: `GEMINI_API_KEY`(서버) → 개인 키가 `sk-…`가 아니면 Gemini, `OPENAI_API_KEY`(서버) → 요청 본문 `apiKey` → `x-api-key` 헤더(둘 다 없을 때, `sk-…`는 OpenAI). Gemini 키는 `AIza…`·`AQ.…` 형식 모두 지원합니다. Gemini는 `generationConfig.responseMimeType: "application/json"`으로 같은 구조화 JSON을 받습니다. 입력은 8,000자까지, 초과 시 413을 반환하고 클라이언트는 로컬 모드로 남습니다. CORS·OPTIONS·GET 상태 확인을 지원하며 키 값은 응답에 포함하지 않습니다.
 
 - 상단 배지가 **실시간 AI 분석** / **로컬 규칙 모드**를 구분하고, 로컬로 떨어진 이유를 표시합니다. ‘AI로 다시 분석’으로 재시도할 수 있습니다.
 - 서버 키가 없으면 설정 모달에서 개인 키를 넣을 수 있습니다. 개인 키는 브라우저 로컬 저장소에만 보관되고 이 사이트의 `/api/analyze` 프록시로만 전송됩니다.
@@ -192,14 +192,14 @@ vercel            # 프리뷰
 vercel --prod     # 운영
 ```
 
-Vercel 프로젝트 설정에서 환경변수 **`OPENAI_API_KEY`** 를 추가하면 실시간 AI가 켜집니다. `vercel.json`이 Vite SPA(`dist/`)와 `api/analyze.ts`를 함께 배포하며, GitHub Pages용 `GITHUB_ACTIONS` base 경로 분기는 그대로 유지됩니다. 서버 키 없이 배포해도 앱은 로컬 규칙 모드로 완전히 동작합니다.
+Vercel 프로젝트 설정에서 환경변수 **`GEMINI_API_KEY`**(Google AI Studio 키, 기본 모델 `gemini-3.5-flash-lite` — 실측 2.2초 응답) 또는 **`OPENAI_API_KEY`** 를 추가하면 실시간 AI가 켜집니다. 신규 키는 `gemini-2.5-flash`가 404로 거절되고 `gemini-3.8-flash`는 thinking으로 15~25초 걸려 Vercel 타임아웃 위험이 있어 flash-lite를 기본값으로 씁니다. 둘 다 있으면 Gemini를 씁니다(모델은 `GEMINI_MODEL`로 변경). `vercel.json`이 Vite SPA(`dist/`)와 `api/analyze.ts`를 함께 배포하며, GitHub Pages용 `GITHUB_ACTIONS` base 경로 분기는 그대로 유지됩니다. 서버 키 없이 배포해도 앱은 로컬 규칙 모드로 완전히 동작합니다.
 
 ---
 
 ## 8. 데이터와 프라이버시
 
 - 초안·분석 기록·개인 API 키는 브라우저 localStorage에만 저장됩니다. 실시간 AI를 켜면 초안이 분석 요청 본문으로 `/api/analyze`에 전송되고, 서버는 이를 저장하지 않습니다(OpenAI 호출 후 폐기).
-- API 키는 서버 응답·로그에 남기지 않습니다. 서버 키(`OPENAI_API_KEY`)는 Vercel 환경변수로만 보관합니다.
+- API 키는 서버 응답·로그에 남기지 않습니다. 서버 키(`GEMINI_API_KEY`·`OPENAI_API_KEY`)는 Vercel 환경변수로만 보관합니다.
 - 히스토리는 최대 24건, 앱에서 즉시 삭제할 수 있습니다.
 - 시뮬레이터의 기업·제품·인물·반응은 전부 가상이며 실제 회사·개인 정보를 사용하지 않습니다.
 - 사례 라이브러리의 기업·기관은 실명이지만, 공개된 보도·공식 자료의 사실만 요약했습니다. 개별 출처 링크를 카드에 표시합니다.

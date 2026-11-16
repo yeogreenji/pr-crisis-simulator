@@ -3,22 +3,34 @@
  *
  * POST /api/analyze
  *   body: { brand, industry, issue, channels, draft, context?, apiKey? }
- *   - OPENAI_API_KEY 가 있으면 그것을, 없으면 요청의 apiKey / x-api-key 헤더를 씁니다.
- *   - gpt-4o-mini + response_format: json_object 로 구조화된 실전 산출물을 만듭니다.
+ *   - GEMINI_API_KEY 가 있으면 Google Gemini를, 없으면 OPENAI_API_KEY를 씁니다.
+ *   - 두 서버 키가 모두 없을 때만 요청의 apiKey / x-api-key 헤더를 씁니다(sk-…=OpenAI, 그 외=Gemini).
+ *   - Gemini는 responseMimeType: application/json, OpenAI는 response_format: json_object 로 같은 구조를 받습니다.
  *
- * GET /api/analyze  → 서버 상태(키 설정 여부·모델명)만 반환합니다. 키 값은 절대 내려보내지 않습니다.
+ * GET /api/analyze  → 서버 상태(키 설정 여부·제공자·모델명)만 반환합니다. 키 값은 절대 내려보내지 않습니다.
  */
 
 /** Node 런타임 환경변수 (타입 의존성 없이 읽습니다). */
 const ENV: Record<string, string | undefined> =
   (globalThis as unknown as { process?: { env?: Record<string, string | undefined> } }).process?.env ?? {};
 
-const MODEL = "gpt-4o-mini";
+const OPENAI_MODEL = "gpt-4o-mini";
+const GEMINI_MODEL = (ENV.GEMINI_MODEL || "").trim() || "gemini-3.5-flash-lite";
 const MAX_DRAFT_CHARS = 8_000;
 const MIN_DRAFT_CHARS = 20;
 const UPSTREAM_TIMEOUT_MS = 55_000;
 const OPENAI_BASE = (ENV.OPENAI_BASE_URL || "https://api.openai.com/v1").replace(/\/+$/, "");
 const OPENAI_URL = `${OPENAI_BASE}/chat/completions`;
+/** GEMINI_BASE_URL은 검증 하네스가 모의 서버를 물릴 때만 씁니다. */
+const GEMINI_BASE = (ENV.GEMINI_BASE_URL || "https://generativelanguage.googleapis.com").replace(/\/+$/, "");
+
+type Provider = "gemini" | "openai";
+
+/**
+ * 개인 키는 앞자리로 제공자를 가립니다. OpenAI 키만 sk- 로 시작하고,
+ * Gemini 키는 AIza… 또는 AQ.… 등으로 발급되므로 "sk-가 아니면 Gemini"로 봅니다.
+ */
+const isGeminiKey = (key: string): boolean => key.length > 0 && !key.startsWith("sk-");
 
 const ALLOWED_INDUSTRIES = ["food", "retail", "consumer", "tech", "steel", "entertainment"];
 const ALLOWED_CHANNELS = ["econ-press", "it-press", "office-community", "sns-x", "youtube", "consumer-cafe"];
@@ -68,6 +80,32 @@ interface VercelResponse {
   json(body: unknown): void;
   setHeader(name: string, value: string): void;
   end(chunk?: string): void;
+}
+
+interface CompletionInput {
+  apiKey: string;
+  model: string;
+  system: string;
+  user: string;
+  maxTokens: number;
+  temperature: number;
+  signal: AbortSignal;
+}
+
+interface CompletionSuccess {
+  content: string;
+  model: string;
+  usage: unknown;
+}
+
+type CompletionOutcome =
+  | { ok: true; value: CompletionSuccess }
+  | { ok: false; status: number; error: string; message: string };
+
+interface GeminiResponse {
+  candidates?: { content?: { parts?: { text?: string; thought?: boolean }[] }; finishReason?: string }[];
+  usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number; totalTokenCount?: number };
+  error?: { message?: string };
 }
 
 export const config = { maxDuration: 60 };
@@ -178,6 +216,127 @@ function buildUserPrompt(input: {
   return lines.join("\n");
 }
 
+async function completeOpenAI(input: CompletionInput): Promise<CompletionOutcome> {
+  const upstream = await fetch(OPENAI_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${input.apiKey}`,
+    },
+    body: JSON.stringify({
+      model: input.model,
+      temperature: input.temperature,
+      max_tokens: input.maxTokens,
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: input.system },
+        { role: "user", content: input.user },
+      ],
+    }),
+    signal: input.signal,
+  });
+
+  if (!upstream.ok) {
+    const raw = await upstream.text().catch(() => "");
+    let detail = raw.slice(0, 240);
+    try {
+      const parsed = JSON.parse(raw) as { error?: { message?: string } };
+      if (parsed?.error?.message) detail = parsed.error.message.slice(0, 240);
+    } catch {
+      /* 원문 유지 */
+    }
+    const hint =
+      upstream.status === 401
+        ? "API 키가 유효하지 않습니다."
+        : upstream.status === 429
+          ? "OpenAI 요청 한도에 걸렸습니다. 잠시 후 다시 시도하세요."
+          : "AI 제공자 응답 오류입니다.";
+    return { ok: false, status: upstream.status, error: "upstream_error", message: `${hint} ${detail}`.trim() };
+  }
+
+  const data = (await upstream.json()) as {
+    choices?: { message?: { content?: string } }[];
+    usage?: { total_tokens?: number };
+  };
+  const content = data.choices?.[0]?.message?.content ?? "";
+  if (!content.trim()) {
+    return { ok: false, status: 502, error: "empty_completion", message: "AI가 빈 응답을 보냈습니다." };
+  }
+  return { ok: true, value: { content, model: input.model, usage: data.usage ?? null } };
+}
+
+async function completeGemini(input: CompletionInput): Promise<CompletionOutcome> {
+  const url = `${GEMINI_BASE}/v1beta/models/${encodeURIComponent(input.model)}:generateContent?key=${encodeURIComponent(input.apiKey)}`;
+  const generationConfig: Record<string, unknown> = {
+    responseMimeType: "application/json",
+    temperature: input.temperature,
+  };
+  if (/^gemini-3\./.test(input.model)) {
+    // Gemini 3.x는 thinking을 끌 수 없고 thinking 토큰이 maxOutputTokens에 포함됩니다.
+    // 잘린 JSON을 받지 않도록 한도만 넓히고, thinkingConfig는 보내지 않습니다(모델별 지원 편차).
+    generationConfig.maxOutputTokens = Math.min(65_536, input.maxTokens * 3 + 1_024);
+  } else {
+    generationConfig.maxOutputTokens = input.maxTokens;
+    // 2.5 Flash는 thinkingBudget 0으로 추론을 끌 수 있습니다(2.5 Flash-Lite는 기본 꺼짐).
+    if (/^gemini-2\.5-flash(?!-lite)/.test(input.model)) generationConfig.thinkingConfig = { thinkingBudget: 0 };
+  }
+
+  const upstream = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      systemInstruction: { parts: [{ text: input.system }] },
+      contents: [{ role: "user", parts: [{ text: input.user }] }],
+      generationConfig,
+    }),
+    signal: input.signal,
+  });
+
+  if (!upstream.ok) {
+    const raw = await upstream.text().catch(() => "");
+    let detail = raw.slice(0, 240);
+    try {
+      const parsed = JSON.parse(raw) as { error?: { message?: string } };
+      if (parsed?.error?.message) detail = parsed.error.message.slice(0, 240);
+    } catch {
+      /* 원문 유지 */
+    }
+    const hint =
+      upstream.status === 404
+        ? "Gemini 모델을 사용할 수 없습니다. GEMINI_MODEL을 확인하세요."
+        : upstream.status === 400 || upstream.status === 401 || upstream.status === 403
+          ? "Gemini API 키나 요청이 거부되었습니다."
+          : upstream.status === 429
+            ? "Gemini 요청 한도에 걸렸습니다. 잠시 후 다시 시도하세요."
+            : "AI 제공자 응답 오류입니다.";
+    return { ok: false, status: upstream.status, error: "upstream_error", message: `${hint} ${detail}`.trim() };
+  }
+
+  const data = (await upstream.json()) as GeminiResponse;
+  const content = (data.candidates?.[0]?.content?.parts ?? [])
+    .filter((part) => part.thought !== true)
+    .map((part) => part.text ?? "")
+    .join("")
+    .trim();
+  if (!content) {
+    const reason = data.candidates?.[0]?.finishReason;
+    return {
+      ok: false,
+      status: 502,
+      error: "empty_completion",
+      message: reason ? `Gemini가 응답을 만들지 못했습니다 (${reason}).` : "AI가 빈 응답을 보냈습니다.",
+    };
+  }
+  const usage = data.usageMetadata
+    ? {
+        prompt_tokens: data.usageMetadata.promptTokenCount ?? 0,
+        completion_tokens: data.usageMetadata.candidatesTokenCount ?? 0,
+        total_tokens: data.usageMetadata.totalTokenCount ?? 0,
+      }
+    : null;
+  return { ok: true, value: { content, model: input.model, usage } };
+}
+
 function setCors(res: VercelResponse) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
@@ -223,13 +382,22 @@ function sanitizeContext(raw: unknown): AnalyzeContext {
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   setCors(res);
 
+  const geminiEnvKey = (ENV.GEMINI_API_KEY ?? "").trim();
+  const openaiEnvKey = (ENV.OPENAI_API_KEY ?? "").trim();
+  const envProvider: Provider | null = geminiEnvKey ? "gemini" : openaiEnvKey ? "openai" : null;
+
   if (req.method === "OPTIONS") {
     res.status(204).end();
     return;
   }
 
   if (req.method === "GET") {
-    res.status(200).json({ ok: true, model: MODEL, serverKey: Boolean(ENV.OPENAI_API_KEY) });
+    res.status(200).json({
+      ok: true,
+      model: envProvider === "gemini" ? GEMINI_MODEL : OPENAI_MODEL,
+      provider: envProvider,
+      serverKey: Boolean(envProvider),
+    });
     return;
   }
 
@@ -263,17 +431,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  const apiKey =
-    ENV.OPENAI_API_KEY?.trim() ||
-    headerValue(req, "x-api-key") ||
-    (typeof body.apiKey === "string" ? body.apiKey.trim() : "");
-  if (!apiKey) {
+  const headerKey = headerValue(req, "x-api-key");
+  const bodyKey = typeof body.apiKey === "string" ? body.apiKey.trim() : "";
+  const requestKey = headerKey || bodyKey;
+  // 서버 키가 1순위. 서버 키가 없을 때만 요청의 개인 키를 쓰고, 키 앞자리로 제공자를 가릅니다.
+  const geminiKey = geminiEnvKey || (requestKey && isGeminiKey(requestKey) ? requestKey : "");
+  const openaiKey = openaiEnvKey || (requestKey && !isGeminiKey(requestKey) ? requestKey : "");
+  const provider: Provider | null = geminiKey ? "gemini" : openaiKey ? "openai" : null;
+  const apiKey = geminiKey || openaiKey;
+  if (!provider) {
     res.status(501).json({
       error: "no_key",
-      message: "서버에 OPENAI_API_KEY가 설정되지 않았습니다. 배포 환경변수를 추가하거나 설정에서 개인 키를 입력하세요.",
+      message:
+        "서버에 GEMINI_API_KEY나 OPENAI_API_KEY가 설정되지 않았습니다. 배포 환경변수를 추가하거나 설정에서 개인 키(Gemini 또는 sk-…)를 입력하세요.",
     });
     return;
   }
+  const model = provider === "gemini" ? GEMINI_MODEL : OPENAI_MODEL;
 
   const industryId = typeof body.industry === "string" && ALLOWED_INDUSTRIES.includes(body.industry) ? body.industry : "tech";
   const issueId = typeof body.issue === "string" && ALLOWED_ISSUES.includes(body.issue) ? body.issue : "service-outage";
@@ -297,54 +471,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const timer = setTimeout(() => controller.abort(), UPSTREAM_TIMEOUT_MS);
 
   try {
-    const upstream = await fetch(OPENAI_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: MODEL,
-        temperature: 0.35,
-        max_tokens: 4096,
-        response_format: { type: "json_object" },
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: userPrompt },
-        ],
-      }),
-      signal: controller.signal,
-    });
-
-    if (!upstream.ok) {
-      const raw = await upstream.text().catch(() => "");
-      let detail = raw.slice(0, 240);
-      try {
-        const parsed = JSON.parse(raw) as { error?: { message?: string } };
-        if (parsed?.error?.message) detail = parsed.error.message.slice(0, 240);
-      } catch {
-        /* 원문 유지 */
-      }
-      const hint =
-        upstream.status === 401
-          ? "API 키가 유효하지 않습니다."
-          : upstream.status === 429
-            ? "OpenAI 요청 한도에 걸렸습니다. 잠시 후 다시 시도하세요."
-            : "AI 제공자 응답 오류입니다.";
-      res.status(502).json({ error: "upstream_error", status: upstream.status, message: `${hint} ${detail}`.trim() });
+    const outcome =
+      provider === "gemini"
+        ? await completeGemini({ apiKey, model, system: SYSTEM_PROMPT, user: userPrompt, maxTokens: 4096, temperature: 0.4, signal: controller.signal })
+        : await completeOpenAI({ apiKey, model, system: SYSTEM_PROMPT, user: userPrompt, maxTokens: 4096, temperature: 0.35, signal: controller.signal });
+    if (!outcome.ok) {
+      res.status(502).json({ error: outcome.error, status: outcome.status, message: outcome.message });
       return;
     }
 
-    const data = (await upstream.json()) as {
-      choices?: { message?: { content?: string } }[];
-      usage?: { total_tokens?: number };
-    };
-    const content = data.choices?.[0]?.message?.content ?? "";
-    if (!content.trim()) {
-      res.status(502).json({ error: "empty_completion", message: "AI가 빈 응답을 보냈습니다." });
-      return;
-    }
-
+    const content = outcome.value.content;
     let result: unknown;
     try {
       result = JSON.parse(content.replace(/^```(?:json)?/i, "").replace(/```$/g, "").trim());
@@ -355,9 +491,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     res.status(200).json({
       ok: true,
-      model: MODEL,
+      provider,
+      model: outcome.value.model,
       latencyMs: Date.now() - startedAt,
-      usage: data.usage ?? null,
+      usage: outcome.value.usage,
       result,
     });
   } catch (error) {

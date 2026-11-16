@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """PRISM 실전형 AI 개조 검증.
 
-- api/analyze.ts를 esbuild로 번들한 실제 핸들러를 로컬 서버로 띄워 검증합니다(모의 OpenAI).
-- 실시간 AI 모드 / 로컬 폴백 / 정적 호스팅 폴백 / 파일 불러오기 / 새 글 / 복사 / 모바일 390px을 확인합니다.
+- api/analyze.ts를 esbuild로 번들한 실제 핸들러를 로컬 서버로 띄워 검증합니다(모의 OpenAI·모의 Gemini).
+- 실시간 AI 모드 / Gemini 모드 / 로컬 폴백 / 정적 호스팅 폴백 / 파일 불러오기 / 새 글 / 복사 / 모바일 390px을 확인합니다.
 
 준비:
   export PATH=/workspace/.tools/node-v22.12.0-linux-x64/bin:$PATH
@@ -76,6 +76,19 @@ def api_post(port: int, payload: dict, headers: dict | None = None) -> tuple[int
             return e.code, {"raw": body[:200]}
 
 
+def api_get(port: int) -> tuple[int, dict]:
+    req = urllib.request.Request(f"http://127.0.0.1:{port}/api/analyze", headers={"Accept": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=15) as res:
+            return res.status, json.loads(res.read().decode("utf-8") or "{}")
+    except urllib.error.HTTPError as e:
+        body = e.read().decode("utf-8") or "{}"
+        try:
+            return e.code, json.loads(body)
+        except json.JSONDecodeError:
+            return e.code, {"raw": body[:200]}
+
+
 def attach(page) -> None:
     page.on(
         "console",
@@ -119,16 +132,27 @@ def main() -> int:
     try:
         mock = spawn("mock-openai.mjs", 4191)
         mock_fail = spawn("mock-openai.mjs", 4193, {"MOCK_FAIL": "1"})
+        gemini_mock = spawn("mock-gemini.mjs", 4196, {"MOCK_CAPTURE": str(TMP / "gemini-last.json")})
         ai = spawn("serve-ai.mjs", 4190, {"OPENAI_API_KEY": "sk-test-harness", "OPENAI_BASE_URL": "http://127.0.0.1:4191/v1"})
         no_key = spawn("serve-ai.mjs", 4192, {"OPENAI_BASE_URL": "http://127.0.0.1:4191/v1"})
         fail = spawn("serve-ai.mjs", 4194, {"OPENAI_API_KEY": "sk-test-harness", "OPENAI_BASE_URL": "http://127.0.0.1:4193/v1"})
+        gemini = spawn(
+            "serve-ai.mjs",
+            4197,
+            {"GEMINI_API_KEY": "AQ-test-harness-key", "GEMINI_BASE_URL": "http://127.0.0.1:4196"},
+        )
+        gemini_personal = spawn(
+            "serve-ai.mjs",
+            4198,
+            {"GEMINI_BASE_URL": "http://127.0.0.1:4196", "OPENAI_BASE_URL": "http://127.0.0.1:4191/v1"},
+        )
         static = subprocess.Popen(
             [sys.executable, "-m", "http.server", "4195", "--bind", "127.0.0.1", "--directory", str(ROOT / "dist")],
             stdout=open(TMP / "static.log", "w"),
             stderr=subprocess.STDOUT,
         )
-        procs = [mock, mock_fail, ai, no_key, fail, static]
-        for port in (4190, 4191, 4192, 4193, 4194, 4195):
+        procs = [mock, mock_fail, gemini_mock, ai, no_key, fail, gemini, gemini_personal, static]
+        for port in (4190, 4191, 4192, 4193, 4194, 4195, 4196, 4197, 4198):
             wait_port(port)
 
         # ---------- API 계약 ----------
@@ -157,6 +181,81 @@ def main() -> int:
             and len(body.get("result", {}).get("goldenTime", [])) == 3
         )
         check("API: 계약대로 JSON 산출", ok_shape, f"{status}")
+
+        # ---------- Gemini 경로 (GEMINI_API_KEY + 모의 Gemini) ----------
+        status, body = api_get(4197)
+        check(
+            "API: Gemini 서버 상태",
+            status == 200 and body.get("serverKey") is True and body.get("provider") == "gemini" and body.get("model") == "gemini-3.5-flash-lite",
+            f"{status} {body}",
+        )
+
+        status, body = api_get(4190)
+        check(
+            "API: OpenAI 서버 상태 provider",
+            status == 200 and body.get("provider") == "openai" and body.get("model") == "gpt-4o-mini",
+            f"{status} {body}",
+        )
+
+        status, body = api_post(4197, {"draft": DRAFT})
+        gemini_shape = (
+            status == 200
+            and body.get("ok") is True
+            and body.get("provider") == "gemini"
+            and body.get("model") == "gemini-3.5-flash-lite"
+            and len(body.get("result", {}).get("revisions", [])) == 2
+            and len(body.get("result", {}).get("goldenTime", [])) == 3
+        )
+        check("API: Gemini 모의 응답으로 계약대로 JSON 산출", gemini_shape, f"{status} {str(body)[:160]}")
+
+        captured = {}
+        try:
+            captured = json.loads((TMP / "gemini-last.json").read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            captured = {}
+        gen = (captured.get("body") or {}).get("generationConfig") or {}
+        contents = (captured.get("body") or {}).get("contents") or [{}]
+        system = (captured.get("body") or {}).get("systemInstruction") or {}
+        check(
+            "Gemini 요청: responseMimeType·temperature·thinking 계약",
+            captured.get("model") == "gemini-3.5-flash-lite"
+            and gen.get("responseMimeType") == "application/json"
+            and gen.get("temperature") == 0.4
+            # Gemini 3.x는 thinking을 끌 수 없어 출력 한도만 넓히고 thinkingConfig는 보내지 않습니다(4096*3+1024).
+            and gen.get("maxOutputTokens") == 4096 * 3 + 1024
+            and "thinkingConfig" not in gen,
+            json.dumps({"model": captured.get("model"), "generationConfig": gen}, ensure_ascii=False)[:200],
+        )
+        check(
+            "Gemini 요청: 시스템 프롬프트와 사용자 프롬프트 전달",
+            bool(((system.get("parts") or [{}])[0]).get("text"))
+            and "한결푸드" in str(((contents[0].get("parts") or [{}])[0]).get("text") or ""),
+            f"contents={len(contents)}",
+        )
+
+        # 서버 키가 없고 요청 본문 키가 AIza…이면 Gemini로
+        status, body = api_post(4198, {"draft": DRAFT, "apiKey": "AIza-request-personal"})
+        check(
+            "API: 요청 본문 AIza 키 → Gemini",
+            status == 200 and body.get("provider") == "gemini",
+            f"{status} {str(body)[:120]}",
+        )
+
+        # 최근 Gemini 키는 AQ.로 시작합니다 (sk-가 아니면 Gemini)
+        status, body = api_post(4198, {"draft": DRAFT, "apiKey": "AQ.real-user-gemini-key-0001"})
+        check(
+            "API: 요청 본문 AQ. 키 → Gemini",
+            status == 200 and body.get("provider") == "gemini",
+            f"{status} {str(body)[:120]}",
+        )
+
+        # 서버 키가 없고 요청 본문 키가 sk-…이면 OpenAI로 (기존 호환)
+        status, body = api_post(4198, {"draft": DRAFT, "apiKey": "sk-request-personal"})
+        check(
+            "API: 요청 본문 sk- 키 → OpenAI 호환 유지",
+            status == 200 and body.get("provider") == "openai",
+            f"{status} {str(body)[:120]}",
+        )
 
         # ---------- 데스크톱: 실시간 AI ----------
         with sync_playwright() as p:
@@ -298,6 +397,23 @@ def main() -> int:
             page3.get_by_role("button", name=re.compile("^응답 팩")).first.click()
             page3.wait_for_timeout(500)
             check("정적 호스팅: 2버전 렌더", page3.locator("[data-testid='revision-card']").count() == 2)
+
+            # ---------- Gemini 서버 키 모드 (UI) ----------
+            page4 = ctx.new_page()
+            attach(page4)
+            page4.goto("http://127.0.0.1:4197/", wait_until="networkidle")
+            page4.wait_for_timeout(400)
+            page4.locator("summary").first.click()
+            page4.wait_for_timeout(200)
+            page4.get_by_role("button", name=re.compile("이물질 회수 입장문")).first.click()
+            page4.wait_for_selector("text=실시간 AI 분석", timeout=30000)
+            page4.wait_for_timeout(600)
+            check("Gemini UI: 실시간 AI 배지", "실시간 AI" in page4.locator("[data-testid='ai-mode-chip']").inner_text())
+            check("Gemini UI: 모델명 표시", page4.get_by_text("gemini-3.5-flash-lite").count() > 0)
+            page4.get_by_role("button", name=re.compile("^응답 팩")).first.click()
+            page4.wait_for_timeout(500)
+            check("Gemini UI: 수정 2버전", page4.locator("[data-testid='revision-card']").count() == 2)
+            page4.screenshot(path=str(SHOTS / "29-desktop-gemini-mode.png"))
 
             # ---------- 모바일 390px ----------
             mctx = browser.new_context(

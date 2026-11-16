@@ -465,7 +465,7 @@ export function describeAiError(error: unknown): string {
   if (error instanceof AiError) {
     switch (error.code) {
       case "no_key":
-        return "서버 키 미설정 — 설정에서 개인 키를 넣거나 Vercel에 OPENAI_API_KEY를 추가하세요.";
+        return "서버 키 미설정 — 설정에서 개인 키를 넣거나 Vercel에 GEMINI_API_KEY(또는 OPENAI_API_KEY)를 추가하세요.";
       case "static":
         return "정적 호스팅 모드 — AI 백엔드(/api/analyze)가 없어 로컬 규칙으로 분석했습니다.";
       case "too_long":

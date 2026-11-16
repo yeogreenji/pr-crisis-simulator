@@ -15,6 +15,7 @@ export function TopBar({
   aiReady,
   aiPending,
   mode,
+  aiModel,
   onOpenApi,
   onChangeView,
 }: {
@@ -23,13 +24,15 @@ export function TopBar({
   aiReady: boolean;
   aiPending: boolean;
   mode: AnalysisMode | null;
+  aiModel?: string;
   onOpenApi: () => void;
   onChangeView: (v: AppView) => void;
 }) {
+  const model = aiModel || "gpt-4o-mini";
   const status = aiPending
     ? { tone: "ai", label: "실시간 AI 분석 중…" }
     : mode === "ai"
-      ? { tone: "ai", label: "실시간 AI · gpt-4o-mini" }
+      ? { tone: "ai", label: `실시간 AI · ${model}` }
       : mode === "local"
         ? { tone: "local", label: "로컬 규칙 모드 · 업종 매뉴얼" }
         : aiReady
