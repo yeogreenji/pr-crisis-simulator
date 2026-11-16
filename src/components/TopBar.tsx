@@ -35,6 +35,7 @@ export function TopBar({
             <span className="sm:hidden">PRISM</span>
             <ChevronDown size={13} className="text-faint" />
           </button>
+          <button type="button" className={cx("btn btn-outline shrink-0 text-xs", view === "incident" && "font-bold")} aria-current={view === "incident" ? "page" : undefined} onClick={() => onChangeView("incident")}>초동 대응</button>
           <span className="hidden h-4 w-px bg-line-strong sm:block" />
           <div className="hidden items-center gap-0.5 sm:flex">
             {VIEWS.map((v) => (

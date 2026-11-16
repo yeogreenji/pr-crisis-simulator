@@ -20,6 +20,7 @@ import { analyze } from "./lib/engine";
 import { buildMarkdown, downloadText, slugForFile } from "./lib/report";
 import { addRun, clearRuns, loadApiConfig, loadRuns, persistApiConfig, removeRun } from "./lib/storage";
 import { enrichWithLlm } from "./lib/llm";
+import { IncidentDesk } from "./components/IncidentDesk";
 import { InputPanel } from "./components/InputPanel";
 import { RiskRail } from "./components/RiskRail";
 import { PressTab } from "./components/tabs/PressTab";
@@ -294,7 +295,9 @@ export default function App() {
 
         <main className="lg:pl-[68px]">
           <div className="mx-auto w-full max-w-[1600px] px-3 pb-24 pt-3 sm:px-5 sm:pt-4 xl:pb-6">
-            {view === "library" ? (
+            {view === "incident" ? (
+              <IncidentDesk />
+            ) : view === "library" ? (
               <LibraryView industry={industry} onIndustry={setIndustry} onSimulate={simulateIndustry} />
             ) : view === "history" ? (
               <HistoryView
