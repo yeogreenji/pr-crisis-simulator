@@ -17,6 +17,7 @@ import { Composer, type ComposeValue } from "./components/Composer";
 import { PackageSkeleton, PackageView } from "./components/PackageView";
 import { ReviewView } from "./components/ReviewView";
 import { ManualModal } from "./components/ManualModal";
+import { CaseLibrary } from "./components/CaseLibrary";
 import { SettingsModal } from "./components/SettingsModal";
 import { cx } from "./components/ui";
 
@@ -42,6 +43,7 @@ export default function App() {
   const [aiReady, setAiReady] = useState(false);
   const [aiNote, setAiNote] = useState("AI 연결 확인 중");
   const [manualOpen, setManualOpen] = useState(false);
+  const [library, setLibrary] = useState<{ open: boolean; caseId?: string }>({ open: false });
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [toast, setToast] = useState<{ id: number; message: string } | null>(null);
   const seq = useRef(0);
@@ -181,6 +183,19 @@ export default function App() {
     setStage("compose");
   };
 
+  if (library.open) {
+    return (
+      <div className="min-h-screen bg-paper">
+        <CaseLibrary
+          initialCaseId={library.caseId}
+          onBack={() => {
+            setLibrary({ open: false });
+          }}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-paper">
       {stage === "compose" && (
@@ -189,6 +204,7 @@ export default function App() {
           onChange={setForm}
           onSubmit={() => void submit()}
           onOpenManual={() => setManualOpen(true)}
+          onOpenLibrary={() => setLibrary({ open: true })}
           onOpenSettings={() => setSettingsOpen(true)}
           reviewMode={reviewMode}
           onReviewMode={(v) => {
@@ -213,6 +229,7 @@ export default function App() {
           onEdit={newSituation}
           onRegenerate={regenerate}
           onOpenManual={() => setManualOpen(true)}
+          onOpenCase={(id) => setLibrary({ open: true, caseId: id })}
           onNotice={notify}
         />
       )}
@@ -226,7 +243,12 @@ export default function App() {
         />
       )}
 
-      <ManualModal open={manualOpen} onClose={() => setManualOpen(false)} initialEntity={form.entities[0]} />
+      <ManualModal
+        open={manualOpen}
+        onClose={() => setManualOpen(false)}
+        initialEntity={form.entities[0]}
+        onOpenLibrary={() => setLibrary({ open: true })}
+      />
       <SettingsModal
         open={settingsOpen}
         config={apiConfig}

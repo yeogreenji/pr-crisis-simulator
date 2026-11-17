@@ -42,7 +42,7 @@ export function SectionHead({
       <div className="min-w-0">
         {eyebrow && <Eyebrow className="mb-1.5">{eyebrow}</Eyebrow>}
         <h2 className="text-[15px] font-semibold tracking-[-0.02em] text-ink">{title}</h2>
-        {desc && <p className="mt-1 text-[12.5px] leading-relaxed text-muted">{desc}</p>}
+        {desc && <p className="mt-1 text-[14px] leading-relaxed text-muted">{desc}</p>}
       </div>
       {action}
     </div>
@@ -91,14 +91,14 @@ export function ScoreBadge({ score, size = "md" }: { score: number; size?: "sm" 
     <span
       className={cx(
         "num inline-flex items-baseline gap-0.5 rounded-lg font-semibold",
-        size === "sm" && "px-1.5 py-0.5 text-[12px]",
+        size === "sm" && "px-1.5 py-0.5 text-[13.5px]",
         size === "md" && "px-2 py-1 text-[13px]",
         size === "lg" && "px-2.5 py-1.5 text-[16px]",
       )}
       style={{ color, background: `${color}0f`, border: `1px solid ${color}26` }}
     >
       {score}
-      <span className="text-[9px] font-medium opacity-60">/100</span>
+      <span className="text-[11.5px] font-medium opacity-60">/100</span>
     </span>
   );
 }
@@ -174,7 +174,7 @@ export function CopyButton({
   return (
     <button
       type="button"
-      className={cx("btn btn-ghost px-2 py-1 text-[11.5px] text-muted hover:text-ink", className)}
+      className={cx("btn btn-ghost px-2 py-1 text-[13px] text-muted hover:text-ink", className)}
       onClick={async () => {
         try {
           await navigator.clipboard.writeText(text);

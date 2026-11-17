@@ -1,0 +1,284 @@
+[
+  {
+    "id": "namyang-bulgaris-2021",
+    "industry": "food",
+    "type": "false-claim",
+    "stance": "apology",
+    "tags": ["불가리스", "코로나 억제", "식품표시광고법", "오너 사퇴", "대국민 사과"],
+    "company": "남양유업",
+    "country": "KR",
+    "date": "2021-04~2021-07",
+    "title": "남양유업 불가리스 — ‘코로나 억제’ 발표 3주 만의 회장 사퇴",
+    "trigger": "발효유 불가리스가 코로나19 바이러스를 억제한다는 연구 결과를 발표했고, 식약처는 이를 사실상 제품 홍보로 보고 고발",
+    "scale": [
+      "발표 직후 주가 29% 급등, 불가리스 품절",
+      "발표 약 3주 만에 회장 사퇴",
+      "세종시 영업정지 처분이 과징금 8억 2천만 원으로 대체"
+    ],
+    "timeline": [
+      { "when": "4월 중순", "what": "‘불가리스가 코로나 바이러스를 78% 억제’한다는 연구 결과를 발표. 주가가 급등하고 제품이 품절됐다." },
+      { "when": "4/15", "what": "식약처가 식품표시광고법 위반 혐의로 행정처분하고 고발. 연구 발표를 사실상 제품 홍보로 판단." },
+      { "when": "4월 하순", "what": "사과했지만 불매 움직임이 확산. 2013년 대리점 갑질 사태 때처럼 대국민 사과에 나설지가 쟁점이 됨." },
+      { "when": "5/3~5/4", "what": "이광범 대표가 사의를 표명(5/3)하고, 홍원식 회장이 대국민 사과와 함께 사퇴(5/4). 경영권을 자녀에게 물려주지 않겠다고 밝힘." },
+      { "when": "7/5", "what": "세종시가 영업정지 처분을 과징금 8억 2천만 원으로 대체." }
+    ],
+    "response": [
+      "대국민 사과에서 2013년 밀어내기, 외조카 사건, 온라인 댓글 논란까지 함께 거론하며 사과",
+      "회장 사퇴와 경영권 세습 포기 선언",
+      "대표 사의 표명, 오너 3세 본부장 보직 해임"
+    ],
+    "outcome": "회장이 지분 51.68%를 그대로 보유해 ‘알맹이 빠진 사과’라는 지적이 나왔다. 발효유 사업이 연 매출 2,000억 원 이상이어서 이미지 쇄신이 과제로 꼽혔다.",
+    "lesson": "연구 결과를 ‘효과’로 알린 것이 사태의 시작이었고, 최종 사과는 발표 후 약 3주 만에 회장 사퇴로 나왔다. 오너 리스크가 반복된 기업은 새 논란이 과거 논란과 합쳐 읽힌다. 사과 범위를 과거 사안까지 넓히고, 지분·경영권 같은 구체 조치를 함께 내놓지 않으면 사과가 ‘알맹이 빠졌다’는 평가를 받는다.",
+    "verdict": "failure",
+    "sources": [
+      { "label": "아주경제 · 홍원식 회장 사퇴, 대국민 사과 (2021-05-04)", "url": "https://www.ajunews.com/view/20210504112537537" },
+      { "label": "뉴시스 · 불가리스 역풍과 2013년 사과 비교 (2021-04-21)", "url": "https://www.newsis.com/view/NISX20210420_0001413515" },
+      { "label": "아이뉴스24 · 식약처, 남양유업 고발", "url": "https://www.inews24.com/view/1359049" },
+      { "label": "서울신문 · 코로나균 78% 억제 발표와 주가 급등 (2021-04-15)", "url": "https://m.seoul.co.kr/news/2021/04/15/20210415500001" },
+      { "label": "서울신문 · 영업정지→과징금 8억 2천만 원 (2021-07-05)", "url": "https://m.seoul.co.kr/news/2021/07/05/20210705500192" },
+      { "label": "데일리안 · 회장 사퇴에도 싸늘한 반응, 지분 51.68% (2021-05-04)", "url": "https://www.dailian.co.kr/news/view/988373/" }
+    ]
+  },
+  {
+    "id": "spc-pyeongtaek-2022",
+    "industry": "food",
+    "type": "industrial-accident",
+    "stance": "apology",
+    "tags": ["SPC", "SPL", "끼임", "중대재해", "대국민 사과", "안전 투자", "불매운동"],
+    "company": "SPC그룹 (SPL 평택공장)",
+    "country": "KR",
+    "date": "2022-10~2025-06",
+    "title": "SPC 평택 제빵공장 사망 — 1,000억 원 약속 이후에도 반복된 사고",
+    "trigger": "SPL 평택 제빵공장에서 야간 근무 중이던 20대 노동자가 소스 혼합기에 상반신이 끼여 사망",
+    "scale": [
+      "사고 후 3년간 1,000억 원 안전 투자 약속",
+      "2024년 말까지 835억 원(약 84%) 집행",
+      "이후에도 샤니 성남(2023-08)·삼립 시화공장(2025-05) 사망 사고"
+    ],
+    "timeline": [
+      { "when": "2022-10-15", "what": "평택 SPL 공장에서 소스 혼합기 끼임 사고로 노동자 사망." },
+      { "when": "10/17~10/20", "what": "고용노동부 수사전담팀 구성(10/17), 대표 입건(10/18), 고용부·경찰 합동 압수수색(10/20)." },
+      { "when": "10/21", "what": "허영인 회장이 직접 대국민 사과. 3년간 1,000억 원 안전 투자를 발표하고, 사고 다음 날 공장을 가동한 것을 잘못이라고 사과." },
+      { "when": "10/24", "what": "장례식장에서 입관을 마치자 형사 고소를 하지 말라며 합의금을 제안했다는 사실이 보도됨." },
+      { "when": "2022-11", "what": "외부 전문가로 구성된 안전경영위원회 출범, 전 사업장 안전진단 착수." },
+      { "when": "2023-08", "what": "샤니 성남 공장에서 반죽 기계에 끼인 노동자 사망." },
+      { "when": "2025-05", "what": "삼립 시화공장에서 노동자 사망. 도세호 대표가 1,000억 원 안전경영 플랜의 확대·연장을 발표." },
+      { "when": "2025-06", "what": "안전경영혁신TF 신설, 산업안전 600억 원대 추가 투자 계획이 보도됨." }
+    ],
+    "response": [
+      "회장이 직접 대국민 사과, 사고 다음 날 가동 결정을 잘못으로 인정",
+      "3년 1,000억 원 안전 투자 발표와 외부 인사 중심의 안전경영위원회 출범",
+      "전 사업장 안전진단",
+      "재발 후 투자 확대·연장과 안전경영혁신TF 신설"
+    ],
+    "outcome": "SPC는 산재 건수가 2022년 대비 55% 이상 줄고 재해율이 식품제조업 평균보다 낮다고 밝혔다(회사 측 주장). 그러나 사망 사고가 반복되면서 ‘유명무실한 투자’라는 비판이 나왔다.",
+    "lesson": "사과와 투자 금액은 약속일 뿐 증거가 아니다. 재발하면 첫 약속이 가장 먼저 비교 대상이 된다. 금액이 아니라 설비·인력·작업 방식의 변화와 외부 검증 결과를 단계마다 공개해야 한다.",
+    "verdict": "failure",
+    "sources": [
+      { "label": "이투데이 · 1,000억 원 규모 안전 대책 (2022-10-21)", "url": "https://www.etoday.co.kr/news/view/2184294" },
+      { "label": "참여연대 사건 타임라인 · SPC 평택 사망사고", "url": "https://watch.peoplepower21.org/WatchPro/case/302/" },
+      { "label": "한경매거진 · 안전경영위원회 출범 (2022-11)", "url": "https://magazine.hankyung.com/business/article/202211254944b" },
+      { "label": "경향신문 · 835억 원 집행에도 반복된 사고 (2025-05-21)", "url": "https://www.khan.co.kr/article/202505211708001" },
+      { "label": "시대일보 · 도세호 대표 안전경영 확대·연장 (2025-05-29)", "url": "https://www.sidae.com/article/2025052914360577461" },
+      { "label": "다음뉴스 · 산업안전 추가 투입과 TF 신설 (2025-06-23)", "url": "https://v.daum.net/v/20250623175945952" },
+      { "label": "토요경제 · 1,000억 투자에도 못 막은 사고, 회사 측 감소율 설명", "url": "https://sateconomy.co.kr/news/view/1065622080261721" }
+    ]
+  },
+  {
+    "id": "theborn-korea-2025",
+    "industry": "food",
+    "type": "false-claim",
+    "stance": "apology",
+    "tags": ["더본코리아", "백종원", "원산지 표시", "농약 분무기", "가맹점", "다회 사과"],
+    "company": "더본코리아 (백종원)",
+    "country": "KR",
+    "date": "2025-03~2025-11",
+    "title": "더본코리아 — 연쇄 논란 속 세 번의 사과와 ‘무혐의’ 이후의 실적",
+    "trigger": "국립농산물품질관리원이 원산지 표시 위반 혐의로 더본코리아를 입건한 데 이어, 농약 분무기 사용·위생 문제 등 논란이 잇따름",
+    "scale": [
+      "가맹점 지원 300억 원 상생안",
+      "2025년 매출 3,612억 원(전년 대비 22.2% 감소), 영업손실 237억 원"
+    ],
+    "timeline": [
+      { "when": "3/13", "what": "입장문을 내고 생산·유통 과정의 잘못을 반성하고 모든 문제를 살피지 못한 책임을 인정." },
+      { "when": "3/17", "what": "농약 분무기 사용 논란에 ‘식품위생법을 준수했으나 앞으로 사용하지 않겠다’고 설명." },
+      { "when": "3/28", "what": "주주총회에서 대면 사과." },
+      { "when": "4/15", "what": "홈페이지에 조직·업무 혁신안(‘이제 다 바꾸겠습니다’) 게시." },
+      { "when": "5/6", "what": "세 번째 사과문. 촬영 중인 프로그램을 제외하고 모든 방송 활동을 중단하겠다고 밝힘." },
+      { "when": "5/12~5/13", "what": "기자간담회에서 300억 원 규모 가맹점 상생안과 경영 방식 개선을 약속. 특정 누리꾼이 70여 건의 민원을 제기했다며 억울함도 호소." },
+      { "when": "11/10", "what": "원산지 허위표시 의혹은 무혐의로 판단되고 실무자 2명은 검찰 송치. 농약통 분무기 등 4건은 입건 전 조사 종결." }
+    ],
+    "response": [
+      "서면 사과(3/13) → 주총 대면 사과(3/28) → 방송 활동 중단 선언(5/6)으로 수위를 단계적으로 높임",
+      "300억 원 규모 가맹점 상생지원안",
+      "조직·업무 혁신안 공개, 이후 각자대표에서 단독대표 체제로 전환"
+    ],
+    "outcome": "원산지 허위표시 혐의는 무혐의로 정리됐지만, 2025년 실적은 2012년 이후 처음으로 영업손실과 순손실을 동시에 기록했다. 가맹점주들은 ‘생계 위협’을 호소하며 시위를 예고했다.",
+    "lesson": "법적 혐의가 정리돼도 브랜드 신뢰와 가맹점 매출은 따로 회복해야 한다. 사과가 몇 차례로 나뉘면 ‘이번이 마지막인가’라는 질문이 남고, 대표가 직접 억울함을 드러내는 발언은 사과의 진정성을 약하게 보이게 할 위험이 있다.",
+    "verdict": "mixed",
+    "sources": [
+      { "label": "세계일보 · 농약 분무기 해명과 원산지 표시 입건 (2025-03-17)", "url": "https://www.segye.com/newsView/20250317504029" },
+      { "label": "쿠키뉴스 · 주총 대면 사과 (2025-03-28)", "url": "https://www.kukinews.com/article/view/kuk202503280114" },
+      { "label": "스포츠경향 · 조직·업무 혁신안 (2025-04-15)", "url": "https://sports.khan.co.kr/article/202504151846003" },
+      { "label": "서울신문 · 방송활동 중단, 3번째 사과문 (2025-05-06)", "url": "https://m.seoul.co.kr/news/2025/05/06/20250506500015" },
+      { "label": "비즈워치 · 기자간담회, 300억 원 상생안 (2025-05-14)", "url": "https://news.bizwatch.co.kr/article/consumer/2025/05/14/0003" },
+      { "label": "서울신문 · 원산지 허위표시 무혐의 (2025-11-10)", "url": "https://m.seoul.co.kr/news/2025/11/10/20251110500400" },
+      { "label": "딜사이트 · 2025년 실적과 단독대표 전환", "url": "https://dealsite.co.kr/articles/160351" }
+    ]
+  },
+  {
+    "id": "mrpizza-owner-2016",
+    "industry": "food",
+    "type": "owner-risk",
+    "tags": ["미스터피자", "MP그룹", "갑질", "경비원 폭행", "치즈 통행세", "가맹점", "폐점률"],
+    "company": "MP그룹 (미스터피자)",
+    "country": "KR",
+    "date": "2016-04~2022",
+    "title": "미스터피자 회장 갑질 — 오너 리스크가 가맹점 폐점으로 이어진 6년",
+    "trigger": "정우현 회장의 경비원 폭행 사건, 가맹점 치즈 유통 ‘통행세’ 논란",
+    "scale": [
+      "폐점률 7.6%(2015) → 13.9%(2016) → 15.7%(2017)",
+      "매장 수 411개(2015) → 367개(2016) → 311개(2017) → 184개(2022년 말)"
+    ],
+    "timeline": [
+      { "when": "2016-04", "what": "회장의 경비원 폭행 사건이 알려지며 불매운동이 일고, 정치권에서도 오너 일가 갑질 규제가 거론됨." },
+      { "when": "2016-04-06", "what": "가맹점주들이 본사 앞에서 기자회견을 열어 상생협약 파기와 특수관계인을 통한 치즈 가격 문제를 제기." },
+      { "when": "2017-06", "what": "정우현 회장이 회장직에서 물러남." },
+      { "when": "2018", "what": "폐점률과 매장 수 감소가 계속되며 매장 수 281개(3분기 기준)." }
+    ],
+    "response": [
+      "2017년 회장직 사퇴",
+      "(출처로 확인되는 가맹점주 대상 보호 조치는 확인하지 못함)"
+    ],
+    "outcome": "사건 이후 폐점률과 매장 수 감소가 이어져 2022년 말 매장은 184개로 줄었다. 한국창업경영연구소 소장은 프랜차이즈의 오너 일가 갑질 논란이 폐점률 상승과 무관하지 않다고 분석했다.",
+    "lesson": "가맹 사업에서는 오너 개인의 문제가 가맹점 매출 하락으로 직결된다. 오너 사건 대응에는 사과·사퇴와 별도로 가맹점주 대상 보호 조치가 필요하다.",
+    "verdict": "failure",
+    "sources": [
+      { "label": "비즈워치 · 미스터피자 폐점률과 오너 리스크 (2019-01-09)", "url": "https://news.bizwatch.co.kr/article/consumer/2019/01/09/0016" },
+      { "label": "비즈워치 · 미스터피자 매장 수 184개 (2023-10-06)", "url": "https://news.bizwatch.co.kr/article/consumer/2023/10/06/0037" },
+      { "label": "토요경제 · 호식이·미스터피자 오너 사퇴 (2017-06-27)", "url": "https://www.sateconomy.co.kr/news/view/179587350956409" },
+      { "label": "다음뉴스 · 미스터피자는 왜 추락했을까 (2023-10-11)", "url": "https://v.daum.net/v/20231011071003913" },
+      { "label": "참여연대 · 가맹점주 기자회견 (2016-04-06)", "url": "https://peoplepower21.org/?p=1407820" }
+    ]
+  },
+  {
+    "id": "nestle-maggi-india-2015",
+    "industry": "food",
+    "type": "product-safety",
+    "stance": "rebuttal",
+    "tags": ["네슬레", "마기", "인도", "납", "MSG", "판매 금지", "법적 대응"],
+    "company": "Nestlé India (Maggi)",
+    "country": "GLOBAL",
+    "date": "2015-04~2015-11",
+    "title": "네슬레 마기(인도) — 판매 금지에 법정으로, 5개월 뒤 복귀",
+    "trigger": "정부 실험실이 마기 면에서 허용치 초과 납과 MSG를 검출했다고 발표. ‘MSG 무첨가’ 표기도 문제가 됨",
+    "scale": [
+      "9개 품종 회수·생산·판매 중단 명령(2015-06-05)",
+      "네슬레 발표 기준 폐기 제품 35,000톤 이상",
+      "금지 후 약 5개월 만에 판매 재개(2015-11-09)"
+    ],
+    "timeline": [
+      { "when": "2015-04", "what": "정부 실험실이 허용치를 넘는 납과 MSG를 검출했다고 발표. 네슬레는 자체 및 독립 인증 실험실에서는 납이 기준 이내라고 반박." },
+      { "when": "5/21", "what": "네슬레가 ‘MSG를 첨가하지 않는다’는 성명을 발표." },
+      { "when": "6/5", "what": "식품안전표준청(FSSAI)이 9개 품종 전량 회수와 생산·판매 중단을 명령. 같은 날 네슬레 인도가 판매를 중단." },
+      { "when": "6월 중순", "what": "네슬레는 청문 없이 명령이 내려졌고 납을 검사한 정부 실험실이 인증을 받지 않았다고 주장. 명령은 따르며 35,000톤 이상 폐기." },
+      { "when": "2015-08", "what": "봄베이 고등법원이 판매 금지를 취소하고 인증 실험실 3곳의 재검사를 요구." },
+      { "when": "11/9", "what": "법원 명령 이행 후 마기 판매 재개." }
+    ],
+    "response": [
+      "판매를 자발적으로 중단하고 명령은 따르면서(폐기 이행) 절차·검사기관 인증 문제를 법원에서 다툼",
+      "해외 인증 실험실 검사 결과를 규제 당국과 공유",
+      "재출시 때 제품 성분은 바꾸지 않고 대규모 미디어 캠페인 진행"
+    ],
+    "outcome": "재출시 이후 인스턴트 면 시장에서 60% 이상의 점유율을 되찾았다. 이후 소비자분쟁조정 기관(NCDRC)은 정부가 2015년에 제기한 청구를 기각했다.",
+    "lesson": "규제 명령은 이행하되 절차와 검사 방법의 문제를 법적으로 다투는 투트랙이 가능하다. 다만 승소와 별개로 약 5개월의 판매 중단과 대량 폐기 비용, 소비자 혼란은 감수해야 했다.",
+    "verdict": "mixed",
+    "sources": [
+      { "label": "Nestlé · Maggi 사건 타임라인", "url": "https://www.nestle-mena.com/en/ask-nestle/maggi-noodles-india/overview-timeline" },
+      { "label": "The Grocer · Maggi 인도 판매 재개", "url": "https://www.thegrocer.co.uk/food-safety/nestles-maggi-noodles-go-back-on-sale-in-india/527343.article" },
+      { "label": "Think Insights · 금지부터 재출시까지", "url": "https://thinkinsights.net/index.php/consulting/how-maggi-reclaimed-india" },
+      { "label": "Outlook Business · 재출시 후 점유율", "url": "https://www.outlookbusiness.com/news/fssai-is-now-more-pro-active-industry-centred-with-fast-responses-nestle-2" },
+      { "label": "Bar & Bench · NCDRC 기각", "url": "https://barandbench.com/amp/story/news/ncdrc-dismisses-complaint-by-indian-government-against-nestle-maggi-noodles" }
+    ]
+  },
+  {
+    "id": "maple-leaf-listeria-2008",
+    "industry": "food",
+    "type": "product-safety",
+    "stance": "apology",
+    "tags": ["메이플리프", "리스테리아", "CEO 사과", "법무보다 소비자", "캐나다"],
+    "company": "Maple Leaf Foods",
+    "country": "GLOBAL",
+    "date": "2008-08",
+    "title": "메이플리프 푸드 리스테리아 — 법무보다 소비자를 택한 CEO 사과",
+    "trigger": "가공육 공장에서 시작된 리스테리아 집단 감염과 대규모 리콜",
+    "scale": [
+      "확진 57명, 사망 22명(캐나다 하원 소위원회 기록)",
+      "리콜 직접 비용 최소 2천만 캐나다달러(당시 CBC 보도)"
+    ],
+    "timeline": [
+      { "when": "2008-08", "what": "리콜과 함께 감염 확산. 8/23 CEO 마이클 맥케인이 제품이 질병과 사망에 연결됐다고 인정하는 성명을 발표." },
+      { "when": "8/27", "what": "맥케인이 회사가 전적으로 책임이 있다고 밝히고, 규제기관이나 제도를 탓하지 않겠다고 언급." },
+      { "when": "8~9월", "what": "웹사이트에 사과문을 올리고 기자회견을 반복. 전면 신문 사과 광고와 TV 유료 광고를 집행." },
+      { "when": "2008년 말", "what": "사망자 22명, 확진 57명으로 집계." }
+    ],
+    "response": [
+      "CEO가 즉시 공개 사과하고 법적 책임 최소화는 부차적이라고 밝힘",
+      "부정하지 않고 원인 조사를 약속, 책임을 회사에 둠",
+      "전면 신문 사과 광고와 TV 광고로 직접 전달",
+      "사건 이후 식품 안전 체계 강화(회사 설명)"
+    ],
+    "outcome": "캐나다 프레스는 맥케인을 2008년 비즈니스 뉴스메이커로 선정했다. 사건 이후 캐나다 식품 안전 감시 체계가 바뀌고 식품검사청(CFIA) 검사관이 늘었다.",
+    "lesson": "첫 발표에서 법적 책임 최소화보다 소비자 안전을 우선한다고 밝힌 것이 이후 모든 대응의 톤을 정했다. 사과의 주체를 CEO로 두고 제도·규제 탓을 하지 않은 점이 전문가들에게 모범으로 평가됐다.",
+    "verdict": "exemplary",
+    "sources": [
+      { "label": "CBC · Maple Leaf Foods의 대응", "url": "https://www.cbc.ca/lite/story/1.763404" },
+      { "label": "Law Times · 효과적인 위기 대응 사례", "url": "https://www.lawtimesnews.com/news/general/a-case-study-in-effective-crisis-management/258726" },
+      { "label": "Insurance Journal · CEO ‘전적으로 책임’ (2008-08-28)", "url": "https://insurancejournal.com/news/international/2008/08/28/93156.htm" },
+      { "label": "캐나다 하원 · 리스테리아 사태 보고서 (확진·사망 집계)", "url": "https://www.noscommunes.ca/documentviewer/en/40-2/AGRI/report-3/page-51" },
+      { "label": "Dairy News Today · 2008년 이후 감시 체계 변화", "url": "https://dairynews.today/global/news/tale-of-2-listeria-summer-recalls-maple-leaf-foods-vs-danone.html" }
+    ]
+  },
+  {
+    "id": "blue-bell-listeria-2015",
+    "industry": "food",
+    "type": "product-safety",
+    "stance": "investigating",
+    "tags": ["블루벨", "리스테리아", "전 제품 회수", "test and hold", "단계적 회수"],
+    "company": "Blue Bell Creameries",
+    "country": "US",
+    "date": "2015-01~2015-08",
+    "title": "블루벨 리스테리아 — 단계적 회수 끝에 ‘전 제품 회수’를 택한 아이스크림 회사",
+    "trigger": "여러 공장 생산 제품에서 리스테리아가 검출되고, 캔자스 병원에서 감염·사망이 보고됨",
+    "scale": [
+      "4개 전 공장, 전 제품 회수(2015-04-20)",
+      "CDC: 4개 주 10명 감염·입원, 캔자스에서 사망 3명 보고",
+      "회수량 약 800만 갤런, 약 1,400명 감원 발표"
+    ],
+    "timeline": [
+      { "when": "1/28", "what": "사우스캐롤라이나 주 검사에서 제품 검출. 블루벨은 ‘자발적 철수’라고 밝히며 이는 리콜이 아니라고 강조." },
+      { "when": "3/13", "what": "‘Scoops’ 등 같은 생산 라인 제품을 시장에서 철수." },
+      { "when": "3/23", "what": "브로큰애로우 공장 생산 3oz 컵 제품 리콜 발표." },
+      { "when": "4/20", "what": "모든 공장의 모든 제품을 자발적으로 회수. 전 제품 ‘테스트 후 출고(test and hold)’ 도입." },
+      { "when": "6/10", "what": "CDC가 관련 감염 조사 종료." },
+      { "when": "8/31", "what": "한 곳 공장에서 생산을 재개하고 15개 주 일부 시장에 단계적으로 복귀. 회수 전·후 제품을 구분하도록 코드 번호 체계를 변경." }
+    ],
+    "response": [
+      "전 공장 전 제품 회수 후 ‘test and hold’로 출고 전 검사",
+      "집중 청소와 직원 교육 프로그램",
+      "회수 전·후 제품을 구분하는 코드 체계 변경",
+      "7월 대형 투자 유치 이후 단계적 시장 복귀"
+    ],
+    "outcome": "회수 4개월 후인 8월 31일 일부 지역에 복귀했다. 초기의 부분 회수 대응은 전문가들에게 ‘recall creep(회수 범위가 조금씩 늘어나는 현상)’이라는 평가를 받았다.",
+    "lesson": "‘리콜이 아니다’라는 표현과 부분 회수가 이어지면 최종적으로 전면 회수로 가더라도 대응이 늦었다는 평가를 받는다. 처음부터 범위를 넓게 잡고 출고 전 검사 같은 구체적 안전장치를 함께 발표하는 쪽이 신뢰 회복에 유리하다.",
+    "verdict": "mixed",
+    "sources": [
+      { "label": "Dairy Foods · 전 제품 자발 회수 보도자료 (2015-04-20)", "url": "https://www.dairyfoods.com/articles/91110-blue-bell-ice-cream-voluntarily-recalls-all-of-its-products-due-to-potential-listeria-contamination" },
+      { "label": "CDC · 2015 블루벨 리스테리아 조사", "url": "https://archive.cdc.gov/www_cdc_gov/listeria/outbreaks/ice-cream-03-15/index.html" },
+      { "label": "Food Safety News · 회수 4개월 후 일부 시장 복귀", "url": "https://www.foodsafetynews.com/2015/08/four-months-after-total-recall-blue-bell-ice-cream-is-returning-to-select-markets-in-two-weeks/" },
+      { "label": "Fortune · 블루벨 대응 시점 분석 (2015-09-25)", "url": "https://dc.fortune.com/2015/09/25/blue-bell-listeria-recall/" },
+      { "label": "Food Engineering · 8월 31일 재출시 (2015-08-25)", "url": "https://www.foodengineeringmag.com/articles/94463-blue-bell-to-begin-distributing-ice-cream-again" },
+      { "label": "Just Food · 약 1,400명 감원", "url": "https://www.just-food.com/?p=64866" }
+    ]
+  }
+]

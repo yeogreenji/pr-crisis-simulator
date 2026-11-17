@@ -31,6 +31,8 @@ import {
   type Statement,
 } from "../lib/package";
 import { ENTITY_PROFILES } from "../lib/profiles";
+import { findSimilarCases } from "../lib/similar";
+import { CASE_TYPE_LABEL, CASE_VERDICT_LABEL } from "../lib/cases";
 import { CopyButton, cx } from "./ui";
 
 const RISK_STYLE: Record<string, { bg: string; color: string; border: string }> = {
@@ -54,7 +56,7 @@ function BlockHeader({
 }) {
   return (
     <div className="flex flex-wrap items-start gap-3 border-b border-line px-4 py-3.5 sm:px-5">
-      <span className="num mt-[1px] grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-ink text-[10px] font-semibold text-white">
+      <span className="num mt-[1px] grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-ink text-[12px] font-semibold text-white">
         {n}
       </span>
       <div className="min-w-0 flex-1">
@@ -62,9 +64,9 @@ function BlockHeader({
           <Icon size={13} className="text-muted" />
           <h2 className="text-[14px] font-semibold tracking-[-0.02em] text-ink">{title}</h2>
         </div>
-        <p className="mt-0.5 text-[10.5px] leading-relaxed text-muted">{desc}</p>
+        <p className="mt-0.5 text-[12.5px] leading-relaxed text-muted">{desc}</p>
       </div>
-      {copy && <CopyButton text={copy} label="블록 전체 복사" className="btn btn-outline h-7 shrink-0 px-2 text-[10.5px]" />}
+      {copy && <CopyButton text={copy} label="블록 전체 복사" className="btn btn-outline h-7 shrink-0 px-2 text-[12.5px]" />}
     </div>
   );
 }
@@ -77,29 +79,29 @@ function Overview({ pkg }: { pkg: ResponsePackage }) {
           <div className="eyebrow">Response system</div>
           <h2 className="mt-1 text-[14px] font-semibold tracking-[-0.02em]">전체 대응 시스템 — 1시간 → 6시간 → 24시간</h2>
         </div>
-        <span className="text-[10px] text-faint">각 단계의 ‘통과 기준’을 넘겨야 다음으로 갑니다</span>
+        <span className="text-[12px] text-faint">각 단계의 ‘통과 기준’을 넘겨야 다음으로 갑니다</span>
       </div>
       <div className="grid gap-2 px-4 pb-4 pt-3 sm:px-5 lg:grid-cols-3">
         {pkg.roadmap.map((phase, i) => (
           <div key={phase.window} className="relative rounded-xl border border-line bg-[#fcfcfa] p-3">
             <div className="flex items-center gap-1.5">
               <span className="num text-[13px] font-semibold text-faint">{"①②③"[i]}</span>
-              <span className="chip bg-ink px-2 py-0.5 text-[9.5px] text-white">{phase.window}</span>
-              <span className="ml-auto text-[9.5px] font-medium text-muted">{i === 0 ? "지금" : i === 1 ? "오늘 안" : "이후"}</span>
+              <span className="chip bg-ink px-2 py-0.5 text-[12px] text-white">{phase.window}</span>
+              <span className="ml-auto text-[12px] font-medium text-muted">{i === 0 ? "지금" : i === 1 ? "오늘 안" : "이후"}</span>
             </div>
-            <div className="mt-1.5 text-[12.5px] font-semibold text-ink">{phase.title}</div>
-            <p className="mt-1 text-[10.5px] leading-relaxed text-muted">{phase.goal}</p>
+            <div className="mt-1.5 text-[14px] font-semibold text-ink">{phase.title}</div>
+            <p className="mt-1 text-[12.5px] leading-relaxed text-muted">{phase.goal}</p>
             <ul className="mt-2 space-y-1">
               {phase.items.map((item) => (
-                <li key={item} className="flex gap-1.5 text-[10.5px] leading-relaxed text-ink-2">
+                <li key={item} className="flex gap-1.5 text-[12.5px] leading-relaxed text-ink-2">
                   <span className="mt-[5px] h-1 w-1 shrink-0 rounded-full bg-ink/40" />
                   <span>{item}</span>
                 </li>
               ))}
             </ul>
             <div className="mt-2.5 rounded-lg border border-line bg-white px-2 py-1.5">
-              <span className="text-[9px] font-semibold uppercase tracking-wide text-faint">통과 기준</span>
-              <p className="mt-0.5 text-[10px] leading-snug text-ink-2">{phase.gate}</p>
+              <span className="text-[11.5px] font-semibold uppercase tracking-wide text-faint">통과 기준</span>
+              <p className="mt-0.5 text-[12px] leading-snug text-ink-2">{phase.gate}</p>
             </div>
             {i < pkg.roadmap.length - 1 && (
               <ArrowRight size={12} className="absolute -right-[7px] top-1/2 hidden -translate-y-1/2 text-line-strong lg:block" />
@@ -108,16 +110,16 @@ function Overview({ pkg }: { pkg: ResponsePackage }) {
         ))}
       </div>
       <div className="flex flex-wrap items-center gap-1.5 border-t border-line bg-paper/60 px-4 py-2.5 sm:px-5">
-        <span className="flex items-center gap-1 text-[9.5px] font-semibold uppercase tracking-wide text-faint">
+        <span className="flex items-center gap-1 text-[12px] font-semibold uppercase tracking-wide text-faint">
           <Users size={11} /> 동시에 움직일 곳
         </span>
         {pkg.stakeholders.slice(0, 6).map((s) => (
-          <span key={s.who} className="chip border border-line bg-white text-[10px] text-ink-2">
+          <span key={s.who} className="chip border border-line bg-white text-[12px] text-ink-2">
             {s.who}
-            <span className="text-[8.5px] text-faint">{s.when}</span>
+            <span className="text-[11px] text-faint">{s.when}</span>
           </span>
         ))}
-        <span className="ml-auto text-[9.5px] text-faint">→ 블록 04에서 대상별 할 일·첫 문장</span>
+        <span className="ml-auto text-[12px] text-faint">→ 블록 04에서 대상별 할 일·첫 문장</span>
       </div>
     </section>
   );
@@ -156,13 +158,13 @@ function ActionsBlock({ groups }: { groups: ActionGroup[] }) {
             <div className="flex items-center gap-2">
               <span
                 className={cx(
-                  "chip px-2 py-0.5 text-[9.5px]",
+                  "chip px-2 py-0.5 text-[12px]",
                   i === 0 ? "bg-risk text-white" : i === 1 ? "bg-warn text-white" : "bg-ink text-white",
                 )}
               >
                 {group.window} 내
               </span>
-              <span className="text-[11.5px] font-semibold text-ink">{group.title}</span>
+              <span className="text-[13px] font-semibold text-ink">{group.title}</span>
             </div>
             <ul className="mt-2 space-y-1.5">
               {group.items.map((item, idx) => {
@@ -188,14 +190,14 @@ function ActionsBlock({ groups }: { groups: ActionGroup[] }) {
                       <span className="min-w-0 flex-1">
                         <span
                           className={cx(
-                            "block text-[11px] leading-[1.55]",
+                            "block text-[13px] leading-[1.55]",
                             checked ? "text-faint line-through" : "text-ink-2",
                           )}
                         >
                           {item.text}
                         </span>
                         {item.owner && (
-                          <span className="mt-0.5 inline-block rounded bg-paper-deep px-1 py-[1px] text-[8.5px] font-semibold text-muted">
+                          <span className="mt-0.5 inline-block rounded bg-paper-deep px-1 py-[1px] text-[11px] font-semibold text-muted">
                             {item.owner}
                           </span>
                         )}
@@ -218,25 +220,25 @@ function StatementCard({ statement }: { statement: Statement }) {
     <div className="flex flex-col rounded-xl border border-line bg-[#fcfcfa]" data-testid={`statement-${statement.id}`}>
       <div className="flex items-center gap-1.5 border-b border-line px-3 py-2">
         {statement.id === "public" ? <Megaphone size={12} className="text-muted" /> : <Newspaper size={12} className="text-muted" />}
-        <span className="text-[11px] font-semibold text-ink">
+        <span className="text-[13px] font-semibold text-ink">
           {statement.id === "public" ? "①" : "②"} {statement.label}
         </span>
-        <span className="ml-auto text-[9px] text-faint">{statement.channel}</span>
+        <span className="ml-auto text-[11.5px] text-faint">{statement.channel}</span>
       </div>
       <div className="flex flex-1 flex-col px-3 py-3">
-        <div className="text-[12px] font-semibold leading-snug text-ink">{statement.title}</div>
+        <div className="text-[13.5px] font-semibold leading-snug text-ink">{statement.title}</div>
         <div
-          className="mt-2 flex-1 whitespace-pre-wrap text-[11px] leading-[1.75] text-ink-2"
+          className="mt-2 flex-1 whitespace-pre-wrap text-[13px] leading-[1.75] text-ink-2"
           data-testid={`statement-body-${statement.id}`}
         >
           {statement.body}
         </div>
       </div>
       <div className="flex items-center gap-2 border-t border-line px-3 py-2">
-        <span className="text-[9px] text-faint">
+        <span className="text-[11.5px] text-faint">
           {statement.body.length.toLocaleString()}자 · 대괄호 {placeholders}곳
         </span>
-        <CopyButton text={statementToText(statement)} label="이 입장문 복사" className="btn btn-outline ml-auto h-7 px-2 text-[10.5px]" />
+        <CopyButton text={statementToText(statement)} label="이 입장문 복사" className="btn btn-outline ml-auto h-7 px-2 text-[12.5px]" />
       </div>
     </div>
   );
@@ -258,7 +260,7 @@ function StatementsBlock({ pkg }: { pkg: ResponsePackage }) {
           <StatementCard key={s.id} statement={s} />
         ))}
       </div>
-      <div className="flex items-start gap-2 border-t border-line bg-paper/60 px-4 py-2.5 text-[10px] leading-relaxed text-muted sm:px-5">
+      <div className="flex items-start gap-2 border-t border-line bg-paper/60 px-4 py-2.5 text-[12px] leading-relaxed text-muted sm:px-5">
         <Info size={11} className="mt-[2px] shrink-0" />
         <span>
           <span className="font-semibold text-ink-2">톤 체크</span> — {getStance(pkg.stance).rule}
@@ -278,31 +280,31 @@ function QaItem({ item, index }: { item: QaScript; index: number }) {
         aria-expanded={open}
         className="flex w-full items-start gap-2 px-3 py-2.5 text-left"
       >
-        <span className="num mt-[1px] text-[10px] font-semibold text-faint">Q{index + 1}</span>
-        <span className="min-w-0 flex-1 text-[11.5px] font-semibold leading-snug text-ink">{item.question}</span>
-        {item.level === 3 && <span className="chip bg-risk-soft px-1.5 py-0 text-[8.5px] text-risk">급함</span>}
+        <span className="num mt-[1px] text-[12px] font-semibold text-faint">Q{index + 1}</span>
+        <span className="min-w-0 flex-1 text-[13px] font-semibold leading-snug text-ink">{item.question}</span>
+        {item.level === 3 && <span className="chip bg-risk-soft px-1.5 py-0 text-[11px] text-risk">급함</span>}
         <ChevronDown size={13} className={cx("mt-[2px] shrink-0 text-muted transition-transform", open && "rotate-180")} />
       </button>
       {open && (
         <div className="border-t border-line px-3 pb-3 pt-2.5">
           <div className="rounded-lg border border-line bg-white p-2.5">
-            <div className="whitespace-pre-wrap text-[11px] leading-[1.7] text-ink-2" data-testid="qa-answer">
+            <div className="whitespace-pre-wrap text-[13px] leading-[1.7] text-ink-2" data-testid="qa-answer">
               {item.answer}
             </div>
             <div className="mt-2 flex items-center gap-2">
-              <CopyButton text={item.answer} label="답변 복사" className="btn btn-outline h-6 px-1.5 text-[10px]" />
+              <CopyButton text={item.answer} label="답변 복사" className="btn btn-outline h-6 px-1.5 text-[12px]" />
             </div>
           </div>
           {item.guide && (
-            <p className="mt-2 text-[10px] leading-relaxed text-muted">
+            <p className="mt-2 text-[12px] leading-relaxed text-muted">
               <span className="font-semibold text-ink-2">요령</span> · {item.guide}
             </p>
           )}
           {item.avoid.length > 0 && (
             <div className="mt-1.5 flex flex-wrap items-center gap-1">
-              <span className="text-[9px] font-semibold text-risk">피할 말</span>
+              <span className="text-[11.5px] font-semibold text-risk">피할 말</span>
               {item.avoid.map((a) => (
-                <span key={a} className="rounded bg-risk-soft px-1.5 py-[1px] text-[9px] text-risk">
+                <span key={a} className="rounded bg-risk-soft px-1.5 py-[1px] text-[11.5px] text-risk">
                   {a}
                 </span>
               ))}
@@ -332,13 +334,13 @@ function QaBlock({ pkg }: { pkg: ResponsePackage }) {
       <div className="border-t border-line bg-risk-soft/50 px-4 py-3 sm:px-5">
         <div className="flex items-center gap-1.5">
           <ShieldAlert size={12} className="text-risk" />
-          <span className="text-[11px] font-semibold text-risk">절대 쓰면 안 되는 금기 표현</span>
+          <span className="text-[13px] font-semibold text-risk">절대 쓰면 안 되는 금기 표현</span>
         </div>
         <div className="mt-2 grid gap-1.5 sm:grid-cols-2">
           {pkg.banned.map((b) => (
             <div key={b.phrase} className="rounded-lg border border-risk/15 bg-white px-2.5 py-1.5">
-              <div className="text-[10.5px] font-semibold text-risk">{b.phrase}</div>
-              <div className="mt-0.5 text-[9.5px] leading-snug text-muted">{b.why}</div>
+              <div className="text-[12.5px] font-semibold text-risk">{b.phrase}</div>
+              <div className="mt-0.5 text-[12px] leading-snug text-muted">{b.why}</div>
             </div>
           ))}
         </div>
@@ -363,18 +365,18 @@ function StakeholdersBlock({ pkg }: { pkg: ResponsePackage }) {
         {pkg.stakeholders.map((s) => (
           <div key={`${s.who}-${s.when}`} className="grid gap-2 px-4 py-3 sm:grid-cols-[168px_minmax(0,1fr)] sm:px-5">
             <div className="flex items-start gap-2 sm:block">
-              <div className="text-[11.5px] font-semibold text-ink">{s.who}</div>
-              <span className="chip mt-1 border border-line bg-paper-deep px-1.5 py-0 text-[8.5px] text-muted">
+              <div className="text-[13px] font-semibold text-ink">{s.who}</div>
+              <span className="chip mt-1 border border-line bg-paper-deep px-1.5 py-0 text-[11px] text-muted">
                 {s.when} 내
               </span>
             </div>
             <div className="min-w-0">
-              <p className="text-[11px] leading-relaxed text-ink-2">{s.action}</p>
+              <p className="text-[13px] leading-relaxed text-ink-2">{s.action}</p>
               {s.line && (
                 <div className="mt-1.5 flex items-start gap-2 rounded-lg border border-line bg-[#fcfcfa] px-2.5 py-1.5">
-                  <span className="mt-[2px] text-[9px] font-semibold text-faint">첫 문장</span>
-                  <span className="min-w-0 flex-1 text-[10.5px] leading-relaxed text-ink-2">“{s.line}”</span>
-                  <CopyButton text={s.line} label="복사" className="btn btn-ghost h-6 shrink-0 px-1 text-[9.5px]" />
+                  <span className="mt-[2px] text-[11.5px] font-semibold text-faint">첫 문장</span>
+                  <span className="min-w-0 flex-1 text-[12.5px] leading-relaxed text-ink-2">“{s.line}”</span>
+                  <CopyButton text={s.line} label="복사" className="btn btn-ghost h-6 shrink-0 px-1 text-[12px]" />
                 </div>
               )}
             </div>
@@ -407,10 +409,10 @@ function OutlookBlock({ pkg }: { pkg: ResponsePackage }) {
         {pkg.outlook.reactions.map((r) => (
           <div key={r.channel + r.text} className="rounded-xl border border-line bg-[#fcfcfa] px-3 py-2.5">
             <div className="flex items-center gap-1.5">
-              <span className="text-[9.5px] font-semibold text-muted">{r.channel}</span>
-              <span className="rounded-full bg-white px-1.5 py-[1px] text-[8.5px] text-faint">{r.tone}</span>
+              <span className="text-[12px] font-semibold text-muted">{r.channel}</span>
+              <span className="rounded-full bg-white px-1.5 py-[1px] text-[11px] text-faint">{r.tone}</span>
             </div>
-            <p className="mt-1 text-[11px] leading-relaxed text-ink-2">{r.text}</p>
+            <p className="mt-1 text-[13px] leading-relaxed text-ink-2">{r.text}</p>
           </div>
         ))}
       </div>
@@ -418,12 +420,12 @@ function OutlookBlock({ pkg }: { pkg: ResponsePackage }) {
         <div className="px-4 py-3.5 sm:border-r sm:border-line sm:px-5">
           <div className="flex items-center gap-1.5">
             <AlertTriangle size={12} className="text-warn" />
-            <span className="text-[10.5px] font-semibold text-warn">악화 트리거</span>
+            <span className="text-[12.5px] font-semibold text-warn">악화 트리거</span>
           </div>
           <ul className="mt-2 space-y-1.5">
             {pkg.outlook.triggers.map((t, i) => (
-              <li key={t} className="flex gap-2 text-[10.5px] leading-relaxed text-ink-2">
-                <span className="num mt-[1px] text-[9px] font-semibold text-warn">{i + 1}</span>
+              <li key={t} className="flex gap-2 text-[12.5px] leading-relaxed text-ink-2">
+                <span className="num mt-[1px] text-[11.5px] font-semibold text-warn">{i + 1}</span>
                 <span>{t}</span>
               </li>
             ))}
@@ -432,12 +434,12 @@ function OutlookBlock({ pkg }: { pkg: ResponsePackage }) {
         <div className="border-t border-line px-4 py-3.5 sm:border-t-0 sm:px-5">
           <div className="flex items-center gap-1.5">
             <RotateCcw size={12} className="text-ink-2" />
-            <span className="text-[10.5px] font-semibold text-ink-2">악화 시 다음 대응</span>
+            <span className="text-[12.5px] font-semibold text-ink-2">악화 시 다음 대응</span>
           </div>
           <ol className="mt-2 space-y-1.5">
             {pkg.outlook.escalation.map((t, i) => (
-              <li key={t} className="flex gap-2 text-[10.5px] leading-relaxed text-ink-2">
-                <span className="num mt-[1px] text-[9px] font-semibold text-faint">{i + 1}</span>
+              <li key={t} className="flex gap-2 text-[12.5px] leading-relaxed text-ink-2">
+                <span className="num mt-[1px] text-[11.5px] font-semibold text-faint">{i + 1}</span>
                 <span>{t}</span>
               </li>
             ))}
@@ -448,17 +450,61 @@ function OutlookBlock({ pkg }: { pkg: ResponsePackage }) {
   );
 }
 
+const SIMILAR_VERDICT_STYLE: Record<string, string> = {
+  exemplary: "bg-ok-soft text-ok",
+  mixed: "bg-warn-soft text-warn",
+  failure: "bg-risk-soft text-risk",
+};
+
+function SimilarCasesBlock({ pkg, onOpenCase }: { pkg: ResponsePackage; onOpenCase: (id: string) => void }) {
+  const similar = useMemo(
+    () => findSimilarCases(`${pkg.situation} ${pkg.eventLabel}`, pkg.industry, { limit: 4 }),
+    [pkg.situation, pkg.eventLabel, pkg.industry],
+  );
+  if (similar.length === 0) return null;
+  return (
+    <section className="card overflow-hidden" data-testid="block-similar">
+      <BlockHeader
+        n="06"
+        icon={BookOpen}
+        title="비슷한 실제 사례와 교훈"
+        desc="같은 업종·유형·키워드의 사례입니다. 잘된 대응은 따라 하고, 실패 사례는 피할 말과 시점을 확인하세요."
+      />
+      <div className="grid gap-2.5 px-4 pb-4 sm:grid-cols-2">
+        {similar.map(({ case: c, reasons }) => (
+          <button
+            key={c.id}
+            type="button"
+            onClick={() => onOpenCase(c.id)}
+            className="rounded-xl border border-line bg-white p-3 text-left transition-colors hover:border-ink/40"
+          >
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className={cx("chip px-1.5 py-0 text-[13px]", SIMILAR_VERDICT_STYLE[c.verdict])}>{CASE_VERDICT_LABEL[c.verdict]}</span>
+              <span className="text-[13px] text-faint">{CASE_TYPE_LABEL[c.type]} · {c.date}</span>
+            </div>
+            <div className="mt-1.5 text-[13.5px] font-semibold leading-snug text-ink">{c.title}</div>
+            <p className="mt-1 line-clamp-3 text-[14px] leading-relaxed text-muted">{c.lesson}</p>
+            <div className="mt-1.5 text-[13px] text-accent">{reasons.join(" · ")} · 전체 보기 →</div>
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export function PackageView({
   pkg,
   onEdit,
   onRegenerate,
   onOpenManual,
+  onOpenCase,
   onNotice,
 }: {
   pkg: ResponsePackage;
   onEdit: () => void;
   onRegenerate: () => void;
   onOpenManual: () => void;
+  onOpenCase: (id: string) => void;
   onNotice: (message: string) => void;
 }) {
   const stance = getStance(pkg.stance);
@@ -481,24 +527,24 @@ export function PackageView({
   return (
     <div className="mx-auto w-full max-w-[960px] px-3 pb-20 pt-0 sm:px-5">
       <div className="sticky top-0 z-30 -mx-3 mb-3 flex items-center gap-2 border-b border-line bg-paper/95 px-3 py-2 backdrop-blur print:hidden sm:-mx-5 sm:px-5">
-        <button type="button" onClick={onEdit} className="btn btn-ghost h-8 px-2 text-[11px] text-muted hover:text-ink">
+        <button type="button" onClick={onEdit} className="btn btn-ghost h-8 px-2 text-[13px] text-muted hover:text-ink">
           <ArrowLeft size={13} /> 새 상황
         </button>
-        <span className="hidden text-[10px] text-faint sm:inline">|</span>
-        <span className="hidden truncate text-[10.5px] text-muted sm:inline">{pkg.brand} · {pkg.eventLabel}</span>
+        <span className="hidden text-[12px] text-faint sm:inline">|</span>
+        <span className="hidden truncate text-[12.5px] text-muted sm:inline">{pkg.brand} · {pkg.eventLabel}</span>
         <div className="ml-auto flex items-center gap-1">
-          <button type="button" onClick={onRegenerate} className="btn btn-ghost h-8 px-2 text-[10.5px] text-muted hover:text-ink">
+          <button type="button" onClick={onRegenerate} className="btn btn-ghost h-8 px-2 text-[12.5px] text-muted hover:text-ink">
             <RotateCcw size={12} /> 다시 만들기
           </button>
           <button
             type="button"
             onClick={copyAll}
             data-testid="copy-all"
-            className="btn btn-outline h-8 px-2 text-[10.5px]"
+            className="btn btn-outline h-8 px-2 text-[12.5px]"
           >
             <Copy size={12} /> <span className="hidden sm:inline">전체 복사</span>
           </button>
-          <button type="button" onClick={() => window.print()} className="btn btn-outline h-8 px-2 text-[10.5px]">
+          <button type="button" onClick={() => window.print()} className="btn btn-outline h-8 px-2 text-[12.5px]">
             <Printer size={12} /> <span className="hidden sm:inline">인쇄</span>
           </button>
         </div>
@@ -542,27 +588,27 @@ export function PackageView({
                   href={pkg.fetch.url}
                   target="_blank"
                   rel="noreferrer"
-                  className="flex min-w-0 items-center gap-1 text-[9.5px] text-accent hover:underline"
+                  className="flex min-w-0 items-center gap-1 text-[12px] text-accent hover:underline"
                 >
                   기사 원문 {pkg.fetch.title ? `· ${pkg.fetch.title.slice(0, 34)}` : ""} ({pkg.fetch.chars.toLocaleString()}자 읽음)
                 </a>
               )}
             </div>
             {pkg.fetch?.ok && pkg.fetch.title && (
-              <p className="mt-1.5 text-[12px] font-semibold leading-snug text-ink">{pkg.fetch.title}</p>
+              <p className="mt-1.5 text-[13.5px] font-semibold leading-snug text-ink">{pkg.fetch.title}</p>
             )}
-            <p className="mt-1.5 whitespace-pre-wrap text-[11.5px] leading-[1.7] text-ink-2">
+            <p className="mt-1.5 whitespace-pre-wrap text-[13px] leading-[1.7] text-ink-2">
               {pkg.fetch
                 ? pkg.situation.replace(pkg.fetch.url, "").trim() || (pkg.fetch.ok ? "기사 본문을 서버가 직접 읽어 분석했습니다." : "기사 링크로 접수된 상황입니다.")
                 : pkg.situation}
             </p>
             {pkg.fetch && !pkg.fetch.ok && (
-              <p className="mt-1.5 flex items-start gap-1.5 rounded-lg border border-warn/25 bg-warn-soft px-2 py-1.5 text-[10px] leading-relaxed text-warn">
+              <p className="mt-1.5 flex items-start gap-1.5 rounded-lg border border-warn/25 bg-warn-soft px-2 py-1.5 text-[12px] leading-relaxed text-warn">
                 <Info size={11} className="mt-[2px] shrink-0" />
                 <span>기사 본문을 읽지 못해({pkg.fetch.note ?? "접근 제한"}) 입력한 설명과 매뉴얼로 만들었습니다.</span>
               </p>
             )}
-            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[9.5px] text-faint">
+            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-faint">
               <span>{pkg.brand}</span>
               <span>{new Date(pkg.createdAt).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
               <span>대괄호 {placeholders}곳만 채우면 배포 가능</span>
@@ -571,7 +617,7 @@ export function PackageView({
           </div>
 
           {pkg.modeNote && (
-            <div className="mt-2 flex items-start gap-2 rounded-xl border border-warn/25 bg-warn-soft px-3 py-2 text-[10.5px] leading-relaxed text-warn">
+            <div className="mt-2 flex items-start gap-2 rounded-xl border border-warn/25 bg-warn-soft px-3 py-2 text-[12.5px] leading-relaxed text-warn">
               <Info size={12} className="mt-[2px] shrink-0" />
               <span>{pkg.modeNote}</span>
             </div>
@@ -584,7 +630,7 @@ export function PackageView({
           <div className="flex items-center gap-2 px-1 pt-1">
             <span className="eyebrow">실행 순서</span>
             <div className="hairline flex-1" />
-            <span className="text-[9.5px] text-faint">위에서 아래로 그대로</span>
+            <span className="text-[12px] text-faint">위에서 아래로 그대로</span>
           </div>
 
           <ActionsBlock groups={pkg.actions} />
@@ -592,16 +638,17 @@ export function PackageView({
           <QaBlock pkg={pkg} />
           <StakeholdersBlock pkg={pkg} />
           <OutlookBlock pkg={pkg} />
+          <SimilarCasesBlock pkg={pkg} onOpenCase={onOpenCase} />
         </div>
 
         <div className="mt-3 rounded-xl border border-line bg-surface px-3.5 py-3">
           <div className="flex items-center gap-1.5">
             <ShieldAlert size={12} className="text-warn" />
-            <span className="text-[10.5px] font-semibold text-ink-2">이 유형에서만 생기는 함정</span>
+            <span className="text-[12.5px] font-semibold text-ink-2">이 유형에서만 생기는 함정</span>
           </div>
           <ul className="mt-1.5 space-y-1">
             {pkg.watchouts.map((w) => (
-              <li key={w} className="flex gap-1.5 text-[10.5px] leading-relaxed text-muted">
+              <li key={w} className="flex gap-1.5 text-[12.5px] leading-relaxed text-muted">
                 <span className="mt-[6px] h-1 w-1 shrink-0 rounded-full bg-warn/60" />
                 <span>{w}</span>
               </li>
@@ -610,10 +657,10 @@ export function PackageView({
         </div>
 
         <div className="mt-4 flex flex-wrap items-center justify-between gap-2 px-1">
-          <button type="button" onClick={onOpenManual} className="btn btn-ghost h-8 px-2 text-[10.5px] text-muted hover:text-ink">
+          <button type="button" onClick={onOpenManual} className="btn btn-ghost h-8 px-2 text-[12.5px] text-muted hover:text-ink">
             <BookOpen size={12} /> 참고 매뉴얼·실제 사례 보기
           </button>
-          <span className="text-[9.5px] leading-relaxed text-faint">
+          <span className="text-[12px] leading-relaxed text-faint">
             확인되지 않은 사실은 만들지 않습니다. [확인 필요] 값은 담당자가 확인해 채우세요.
           </span>
         </div>
@@ -631,16 +678,16 @@ export function PackageSkeleton({ stage, note }: { stage: string; note: string }
             <span className="absolute inline-flex h-full w-full animate-pulse-ring rounded-full bg-accent" />
             <span className="relative inline-flex h-2 w-2 rounded-full bg-accent" />
           </span>
-          <span className="text-[12px] font-semibold text-ink">대응 패키지를 만드는 중</span>
-          <span className="ml-auto text-[10px] text-faint">보통 20~40초</span>
+          <span className="text-[13.5px] font-semibold text-ink">대응 패키지를 만드는 중</span>
+          <span className="ml-auto text-[12px] text-faint">보통 20~40초</span>
         </div>
-        <p className="mt-2 text-[11.5px] text-muted">{stage}</p>
-        <p className="mt-0.5 text-[10px] text-faint">{note}</p>
+        <p className="mt-2 text-[13px] text-muted">{stage}</p>
+        <p className="mt-0.5 text-[12px] text-faint">{note}</p>
         <div className="mt-4 space-y-2">
           {["전체 대응 시스템 정리", "골든타임 체크리스트", "입장문 2종 작성", "압박 질문·답변 스크립트", "유관기관·악화 시나리오"].map((label, i) => (
             <div key={label} className="flex items-center gap-2.5 rounded-lg border border-line bg-[#fcfcfa] px-3 py-2">
-              <span className="num text-[9px] text-faint">{`0${i + 1}`}</span>
-              <span className="text-[11px] text-ink-2">{label}</span>
+              <span className="num text-[11.5px] text-faint">{`0${i + 1}`}</span>
+              <span className="text-[13px] text-ink-2">{label}</span>
               <span className="skeleton-sweep ml-auto h-2 w-16 rounded bg-paper-deep" />
             </div>
           ))}

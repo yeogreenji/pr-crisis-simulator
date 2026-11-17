@@ -1,11 +1,12 @@
 import type { Industry, IndustryId } from "../types";
+import { EXTRA_INDUSTRIES } from "./industries-extra";
 
 /**
  * 업종별 위기관리 매뉴얼.
  * - checks: 초안에 반드시 들어 있어야 하는 업종 고유 항목 (없으면 점수·질문·근거 누락에 반영)
  * - playbook: 트리거·규제 주체·골든타임·금기 표현·필수 요소·이해관계자 톤·증거
  */
-export const INDUSTRIES: Industry[] = [
+const CORE_INDUSTRIES: Industry[] = [
   {
     id: "food",
     label: "식품·외식",
@@ -1210,6 +1211,8 @@ export const INDUSTRIES: Industry[] = [
     },
   },
 ];
+
+export const INDUSTRIES: Industry[] = [...CORE_INDUSTRIES, ...EXTRA_INDUSTRIES];
 
 export const INDUSTRY_BY_ID = new Map(INDUSTRIES.map((i) => [i.id, i]));
 

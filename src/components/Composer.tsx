@@ -3,6 +3,7 @@ import {
   AlertTriangle,
   ArrowRight,
   BookOpen,
+  Library,
   Building2,
   Check,
   ClipboardList,
@@ -45,6 +46,7 @@ export function Composer({
   onChange,
   onSubmit,
   onOpenManual,
+  onOpenLibrary,
   onOpenSettings,
   reviewMode,
   onReviewMode,
@@ -59,6 +61,7 @@ export function Composer({
   onChange: (next: ComposeValue) => void;
   onSubmit: () => void;
   onOpenManual: () => void;
+  onOpenLibrary: () => void;
   onOpenSettings: () => void;
   reviewMode: boolean;
   onReviewMode: (v: boolean) => void;
@@ -101,26 +104,34 @@ export function Composer({
     <div className="mx-auto w-full max-w-[860px] px-4 pb-20 pt-5 sm:px-6 sm:pt-9">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="grid h-7 w-7 place-items-center rounded-lg bg-ink text-[10px] font-bold tracking-tight text-white">
+          <span className="grid h-7 w-7 place-items-center rounded-lg bg-ink text-[12px] font-bold tracking-tight text-white">
             PR
           </span>
           <div className="leading-tight">
-            <div className="text-[12.5px] font-semibold tracking-[-0.02em]">PRISM</div>
-            <div className="text-[9.5px] text-faint">위기 대응 패키지</div>
+            <div className="text-[14px] font-semibold tracking-[-0.02em]">PRISM</div>
+            <div className="text-[12px] text-faint">위기 대응 패키지</div>
           </div>
         </div>
         <div className="flex items-center gap-1">
           <button
             type="button"
             onClick={onOpenManual}
-            className="btn btn-ghost h-8 px-2.5 text-[11px] text-muted hover:text-ink"
+            className="btn btn-ghost h-8 px-2.5 text-[13px] text-muted hover:text-ink"
           >
             <BookOpen size={13} /> 참고 매뉴얼
           </button>
           <button
             type="button"
+            onClick={onOpenLibrary}
+            data-testid="open-library"
+            className="btn btn-outline h-8 px-2.5 text-[13px] text-ink"
+          >
+            <Library size={13} /> 사례 라이브러리
+          </button>
+          <button
+            type="button"
             onClick={onOpenSettings}
-            className="btn btn-ghost h-8 px-2.5 text-[11px] text-muted hover:text-ink"
+            className="btn btn-ghost h-8 px-2.5 text-[13px] text-muted hover:text-ink"
             aria-label="AI 설정"
           >
             <Settings2 size={13} />
@@ -135,7 +146,7 @@ export function Composer({
           상황 한 줄이면,
           <br className="sm:hidden" /> 바로 쓰는 대응 패키지.
         </h1>
-        <p className="mx-auto mt-3 max-w-[520px] text-[12.5px] leading-relaxed text-muted sm:text-[13.5px]">
+        <p className="mx-auto mt-3 max-w-[520px] text-[14px] leading-relaxed text-muted sm:text-[13.5px]">
           기사 URL이나 상황을 넣고 우리 입장을 고르세요. 입장문 2종·기자 답변·골든타임 체크리스트·유관기관
           대응이 한 화면에 나옵니다.
         </p>
@@ -144,11 +155,11 @@ export function Composer({
       <div className="card mt-7 overflow-hidden sm:mt-9">
         <div className="px-4 pb-4 pt-4 sm:px-5 sm:pt-5">
           <div className="flex items-center justify-between gap-2">
-            <span className="flex items-center gap-1.5 text-[11.5px] font-semibold text-ink">
+            <span className="flex items-center gap-1.5 text-[13px] font-semibold text-ink">
               {reviewMode ? <FileText size={13} /> : <AlertTriangle size={13} className="text-warn" />}
               {reviewMode ? "검수할 기존 입장문" : "위기 상황 또는 기사 URL"}
             </span>
-            <span className="chip border border-line bg-paper-deep text-[10px] text-muted">
+            <span className="chip border border-line bg-paper-deep text-[12px] text-muted">
               {reviewMode ? "검수 모드" : "URL 읽기"}
             </span>
           </div>
@@ -171,7 +182,7 @@ export function Composer({
           {url && !reviewMode && (
             <div className="mt-2 flex items-start gap-2 rounded-lg border border-accent/20 bg-accent-soft px-2.5 py-2">
               <Link2 size={12} className="mt-[2px] shrink-0 text-accent" />
-              <div className="min-w-0 text-[10.5px] leading-relaxed text-accent-deep">
+              <div className="min-w-0 text-[12.5px] leading-relaxed text-accent-deep">
                 <span className="font-semibold">기사 본문을 서버가 직접 읽습니다.</span>{" "}
                 <span className="break-all opacity-80">{url.slice(0, 90)}</span>
                 {urlOnly && <span className="mt-0.5 block text-accent-deep/70">URL만으로 분석합니다. 읽지 못하면 붙여넣기로 안내드립니다.</span>}
@@ -179,7 +190,7 @@ export function Composer({
             </div>
           )}
           {error && (
-            <div className="mt-2 flex items-start gap-2 rounded-lg border border-risk/25 bg-risk-soft px-2.5 py-2 text-[10.5px] leading-relaxed text-risk">
+            <div className="mt-2 flex items-start gap-2 rounded-lg border border-risk/25 bg-risk-soft px-2.5 py-2 text-[12.5px] leading-relaxed text-risk">
               <AlertTriangle size={12} className="mt-[2px] shrink-0" />
               <span>{error}</span>
             </div>
@@ -191,8 +202,8 @@ export function Composer({
             <div className="hairline" />
             <div className="px-4 py-4 sm:px-5">
               <div className="flex items-center justify-between">
-                <span className="text-[11.5px] font-semibold text-ink">우리 입장</span>
-                <span className="text-[10px] text-faint">하나를 고르면 문안·전략이 완전히 달라집니다</span>
+                <span className="text-[13px] font-semibold text-ink">우리 입장</span>
+                <span className="text-[12px] text-faint">하나를 고르면 문안·전략이 완전히 달라집니다</span>
               </div>
               <div className="mt-2 grid gap-2 sm:grid-cols-3" role="radiogroup" aria-label="우리 입장">
                 {STANCES.map((s) => {
@@ -212,14 +223,14 @@ export function Composer({
                           : "border-line-strong bg-[#fcfcfa] text-ink-2 hover:border-ink/30 hover:bg-white",
                       )}
                     >
-                      <span className="flex items-center gap-1.5 text-[11.5px] font-semibold">
+                      <span className="flex items-center gap-1.5 text-[13px] font-semibold">
                         <span
                           className="h-1.5 w-1.5 rounded-full"
                           style={{ background: active ? "#fff" : s.accent }}
                         />
                         {s.label}
                       </span>
-                      <span className={cx("mt-1 block text-[10px] leading-snug", active ? "text-white/70" : "text-muted")}>
+                      <span className={cx("mt-1 block text-[12px] leading-snug", active ? "text-white/70" : "text-muted")}>
                         {s.desc}
                       </span>
                     </button>
@@ -231,8 +242,8 @@ export function Composer({
             <div className="hairline" />
             <div className="px-4 py-4 sm:px-5">
               <div className="flex flex-wrap items-center justify-between gap-1">
-                <span className="text-[11.5px] font-semibold text-ink">기업·상황 유형</span>
-                <span className="text-[10px] text-faint">최대 3개 · 첫 선택이 대표 유형</span>
+                <span className="text-[13px] font-semibold text-ink">기업·상황 유형</span>
+                <span className="text-[12px] text-faint">최대 3개 · 첫 선택이 대표 유형</span>
               </div>
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {ENTITY_PROFILES.map((p) => {
@@ -247,7 +258,7 @@ export function Composer({
                       aria-pressed={active}
                       onClick={() => toggleEntity(p.id)}
                       className={cx(
-                        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[11px] font-medium transition-colors",
+                        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[13px] font-medium transition-colors",
                         active
                           ? "border-ink bg-ink text-white"
                           : "border-line-strong bg-white text-ink-2 hover:border-ink/30",
@@ -256,14 +267,14 @@ export function Composer({
                       <Icon size={12} className={active ? "opacity-90" : "opacity-60"} />
                       {p.label}
                       {primary && value.entities.length > 1 && (
-                        <span className="rounded-full bg-white/20 px-1 py-[1px] text-[8.5px] font-semibold">대표</span>
+                        <span className="rounded-full bg-white/20 px-1 py-[1px] text-[11px] font-semibold">대표</span>
                       )}
                       {active && <Check size={11} className="opacity-80" />}
                     </button>
                   );
                 })}
               </div>
-              <p className="mt-2 text-[10.5px] leading-relaxed text-muted">
+              <p className="mt-2 text-[12.5px] leading-relaxed text-muted">
                 <span className="font-semibold text-ink-2">{selectedProfile.short}</span> · {selectedProfile.tagline}
               </p>
             </div>
@@ -277,12 +288,12 @@ export function Composer({
             onChange={(e) => onChange({ ...value, brand: e.target.value })}
             placeholder="브랜드명 (선택)"
             aria-label="브랜드명"
-            className="field h-8 w-[150px] shrink-0 text-[11.5px]"
+            className="field h-8 w-[150px] shrink-0 text-[13px]"
           />
           <button
             type="button"
             onClick={() => setShowAdvanced((v) => !v)}
-            className={cx("btn btn-ghost h-8 px-2 text-[10.5px]", showAdvanced ? "text-ink" : "text-muted")}
+            className={cx("btn btn-ghost h-8 px-2 text-[12.5px]", showAdvanced ? "text-ink" : "text-muted")}
           >
             <ClipboardList size={12} /> {showAdvanced ? "추가 입력 닫기" : "추가 입력"}
           </button>
@@ -290,7 +301,7 @@ export function Composer({
             <button
               type="button"
               onClick={() => onReviewMode(!reviewMode)}
-              className={cx("btn h-8 px-2 text-[10.5px]", reviewMode ? "bg-ink text-white" : "btn-ghost text-muted hover:text-ink")}
+              className={cx("btn h-8 px-2 text-[12.5px]", reviewMode ? "bg-ink text-white" : "btn-ghost text-muted hover:text-ink")}
             >
               <ShieldCheck size={12} /> 기존 입장문 검수
             </button>
@@ -300,7 +311,7 @@ export function Composer({
         {showAdvanced && (
           <div className="border-t border-line bg-[#fcfcfa] px-4 py-3 sm:px-5">
             <div className="flex flex-wrap items-center gap-2">
-              <button type="button" onClick={() => fileRef.current?.click()} className="btn btn-outline h-8 px-2.5 text-[11px]">
+              <button type="button" onClick={() => fileRef.current?.click()} className="btn btn-outline h-8 px-2.5 text-[13px]">
                 <Paperclip size={12} /> .txt/.md 첨부
               </button>
               <input
@@ -319,14 +330,14 @@ export function Composer({
                 <button
                   type="button"
                   onClick={() => onChange({ ...value, situation: "" })}
-                  className="btn btn-ghost h-8 px-2 text-[11px] text-muted hover:text-risk"
+                  className="btn btn-ghost h-8 px-2 text-[13px] text-muted hover:text-risk"
                 >
                   <Trash2 size={12} /> 입력 비우기
                 </button>
               )}
-              <span className="text-[10px] text-faint">{value.situation.trim().length.toLocaleString()}자</span>
+              <span className="text-[12px] text-faint">{value.situation.trim().length.toLocaleString()}자</span>
             </div>
-            <p className="mt-2 text-[10px] leading-relaxed text-faint">
+            <p className="mt-2 text-[12px] leading-relaxed text-faint">
               브랜드명을 비우면 “당사”로 씁니다. 입력은 분석에만 쓰이고 서버에 저장하지 않습니다.
             </p>
           </div>
@@ -345,9 +356,9 @@ export function Composer({
           >
             {reviewMode ? <ShieldCheck size={15} /> : <Sparkles size={15} />}
             {reviewMode ? "입장문 위험 표현 검수하기" : "바로 대응 패키지 만들기"}
-            <span className="ml-1 hidden text-[10px] opacity-60 sm:inline">⌘/Ctrl + Enter</span>
+            <span className="ml-1 hidden text-[12px] opacity-60 sm:inline">⌘/Ctrl + Enter</span>
           </button>
-          <div className="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[10px] text-faint">
+          <div className="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[12px] text-faint">
             <span className="inline-flex items-center gap-1">
               <span className={cx("h-1.5 w-1.5 rounded-full", aiReady ? "bg-ok" : "bg-faint")} />
               {aiReady ? "실시간 AI 연결" : "매뉴얼 엔진 모드"}
@@ -365,10 +376,10 @@ export function Composer({
           { n: "03", t: "그대로 복사", d: "입장문·답변·체크리스트" },
         ].map((s) => (
           <div key={s.n} className="flex items-center gap-2.5 rounded-xl border border-line bg-surface/70 px-3 py-2.5">
-            <span className="num text-[10px] font-semibold text-faint">{s.n}</span>
+            <span className="num text-[12px] font-semibold text-faint">{s.n}</span>
             <div className="min-w-0">
-              <div className="text-[11px] font-semibold text-ink-2">{s.t}</div>
-              <div className="text-[9.5px] text-muted">{s.d}</div>
+              <div className="text-[13px] font-semibold text-ink-2">{s.t}</div>
+              <div className="text-[12px] text-muted">{s.d}</div>
             </div>
           </div>
         ))}
@@ -378,7 +389,7 @@ export function Composer({
         <div className="mt-7">
           <div className="flex items-center justify-between">
             <span className="eyebrow">최근 만든 패키지</span>
-            <span className="text-[9.5px] text-faint">이 브라우저에만 저장</span>
+            <span className="text-[12px] text-faint">이 브라우저에만 저장</span>
           </div>
           <div className="mt-2 space-y-1.5">
             {recent.slice(0, 4).map((pkg) => (
@@ -391,8 +402,8 @@ export function Composer({
                 >
                   <Copy size={12} className="shrink-0 text-faint" />
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[11.5px] font-medium text-ink-2">{pkg.headline}</span>
-                    <span className="mt-0.5 block truncate text-[9.5px] text-faint">
+                    <span className="block truncate text-[13px] font-medium text-ink-2">{pkg.headline}</span>
+                    <span className="mt-0.5 block truncate text-[12px] text-faint">
                       {pkg.brand} · {pkg.statements[0]?.title ?? pkg.situation.slice(0, 40)}
                     </span>
                   </span>
@@ -412,7 +423,7 @@ export function Composer({
         </div>
       )}
 
-      <p className="mt-8 text-center text-[10px] leading-relaxed text-faint">
+      <p className="mt-8 text-center text-[12px] leading-relaxed text-faint">
         PRISM은 확인되지 않은 사실을 만들지 않습니다. <span className="text-muted">[확인 필요]</span> 표시만 실제 값으로
         바꾸면 그대로 배포할 수 있습니다.
       </p>

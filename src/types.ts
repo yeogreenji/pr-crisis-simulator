@@ -7,7 +7,15 @@ export type IssueCategoryId =
   | "safety-accident"
   | "executive-speech";
 
-export type IndustryId = "food" | "retail" | "consumer" | "tech" | "steel" | "entertainment";
+export type IndustryId =
+  | "food"
+  | "retail"
+  | "consumer"
+  | "tech"
+  | "steel"
+  | "entertainment"
+  | "construction"
+  | "pharma";
 
 export interface IndustryCheck {
   id: string;
@@ -70,9 +78,36 @@ export interface Industry {
 
 export type CaseVerdict = "exemplary" | "mixed" | "failure";
 
+/** 사례의 위기 유형 (검색·필터·유사 사례 매칭에 쓰는 분류) */
+export type CaseType =
+  | "product-safety"
+  | "false-claim"
+  | "data-breach"
+  | "outage"
+  | "industrial-accident"
+  | "disaster"
+  | "owner-risk"
+  | "labor"
+  | "celebrity"
+  | "financial"
+  | "governance"
+  | "misconduct"
+  | "statement"
+  | "environment"
+  | "regulatory";
+
+/** 위기 초기에 기업이 취한 입장 */
+export type CaseStance = "apology" | "investigating" | "rebuttal" | "silence";
+
 export interface CrisisCase {
   id: string;
   industry: IndustryId;
+  /** 위기 유형 */
+  type: CaseType;
+  /** 초기 입장. 출처로 확인되지 않으면 비워 둠 */
+  stance?: CaseStance;
+  /** 검색용 키워드 */
+  tags?: string[];
   company: string;
   country: "KR" | "US" | "GLOBAL";
   date: string;

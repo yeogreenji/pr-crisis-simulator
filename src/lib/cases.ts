@@ -1,11 +1,12 @@
-import type { CrisisCase } from "../types";
+import type { CaseStance, CaseType, CrisisCase } from "../types";
+import food from "../data/cases/food.json";
 
 /**
  * 실제 위기관리 사례 라이브러리.
  * 모든 수치·일자는 아래 sources의 공개 보도·공식 자료로 확인한 값만 사용했습니다.
  * 시뮬레이터의 샘플 기업은 가상이지만, 이 라이브러리의 기업·사건은 실명 사례입니다.
  */
-export const CRISIS_CASES: CrisisCase[] = [
+const LEGACY_CASES: Omit<CrisisCase, "type" | "stance" | "tags">[] = [
   // ── 식품·외식 ──────────────────────────────────────────────
   {
     id: "egg-fipronil-2017",
@@ -634,10 +635,69 @@ export const CRISIS_CASES: CrisisCase[] = [
   },
 ];
 
+/** 초기 20건에 유형·입장 분류를 덧붙이는 표. 입장은 출처로 확인되는 경우에만 채웁니다. */
+const LEGACY_META: Record<string, { type: CaseType; stance?: CaseStance; tags: string[] }> = {
+  "egg-fipronil-2017": { type: "product-safety", stance: "investigating", tags: ["살충제", "회수", "전수조사"] },
+  "chipotle-ecoli-2015": { type: "product-safety", stance: "apology", tags: ["E. coli", "식중독", "매장 폐쇄"] },
+  "mcdonalds-onion-2024": { type: "product-safety", stance: "investigating", tags: ["E. coli", "공급사", "양파"] },
+  "timon-wemakep-2024": { type: "financial", tags: ["정산 지연", "판매자", "카드사"] },
+  "coupang-2021": { type: "data-breach", stance: "apology", tags: ["주소 노출", "개인정보"] },
+  "coupang-2025": { type: "data-breach", stance: "apology", tags: ["계정 유출", "개인정보"] },
+  "target-2013": { type: "data-breach", stance: "apology", tags: ["카드정보", "CEO 사임", "협력사"] },
+  "humidifier-2011": { type: "product-safety", stance: "silence", tags: ["가습기 살균제", "사망", "침묵"] },
+  "modamoda-2023": { type: "product-safety", tags: ["염색샴푸", "금지 원료", "회수"] },
+  "note7-2016": { type: "product-safety", stance: "apology", tags: ["배터리", "발화", "단종"] },
+  "sunday-riley-2019": { type: "false-claim", tags: ["가짜 리뷰", "FTC"] },
+  "kakao-2022": { type: "outage", stance: "apology", tags: ["데이터센터", "화재", "보상"] },
+  "kt-2021": { type: "outage", tags: ["통신 장애", "디도스", "라우팅"] },
+  "crowdstrike-2024": { type: "outage", stance: "apology", tags: ["업데이트", "글로벌 장애"] },
+  "kim-yonggyun-2018": { type: "industrial-accident", stance: "rebuttal", tags: ["하청", "원청 책임", "끼임"] },
+  "aricell-2024": { type: "industrial-accident", tags: ["화재", "파견", "리튬"] },
+  "posco-hinnamnor-2022": { type: "disaster", tags: ["태풍", "침수", "고로"] },
+  "hybe-adore-2024": { type: "governance", stance: "rebuttal", tags: ["경영권", "기자회견", "문서 공개"] },
+  "kim-hojoong-2024": { type: "celebrity", stance: "rebuttal", tags: ["음주운전", "부인", "실형"] },
+  "produce101-2019": { type: "misconduct", stance: "silence", tags: ["투표 조작", "방송"] },
+};
+
+const NEW_CASES = [...(food as unknown as CrisisCase[])];
+
+export const CRISIS_CASES: CrisisCase[] = [
+  ...LEGACY_CASES.map((c) => {
+    const meta = LEGACY_META[c.id];
+    return { ...c, type: meta.type, stance: meta.stance, tags: meta.tags } as CrisisCase;
+  }),
+  ...NEW_CASES,
+];
+
 export const CASE_VERDICT_LABEL: Record<CrisisCase["verdict"], string> = {
   exemplary: "모범 대응",
   mixed: "혼합",
   failure: "실패 사례",
+};
+
+export const CASE_TYPE_LABEL: Record<CaseType, string> = {
+  "product-safety": "제품·식품 안전",
+  "false-claim": "허위·과장·조작",
+  "data-breach": "개인정보·보안",
+  outage: "서비스 장애",
+  "industrial-accident": "산업재해·사고",
+  disaster: "재난·자연재해",
+  "owner-risk": "오너·경영진 리스크",
+  labor: "노사·고용",
+  celebrity: "연예·인물",
+  financial: "정산·횡령·금융",
+  governance: "경영권·지배구조",
+  misconduct: "부정·비위",
+  statement: "발언·광고 논란",
+  environment: "환경·주민",
+  regulatory: "규제·제재",
+};
+
+export const CASE_STANCE_LABEL: Record<CaseStance, string> = {
+  apology: "사실 인정·사과",
+  investigating: "경위 확인 중",
+  rebuttal: "반박·부인",
+  silence: "침묵·지연",
 };
 
 export const casesForIndustry = (industry: CrisisCase["industry"]) =>
