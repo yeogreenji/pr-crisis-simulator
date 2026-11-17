@@ -3,6 +3,8 @@ import type { ResponsePackage, ReviewResult, ReviewFinding, QaScript, Stakeholde
 import { buildLocalReview } from "./package";
 import { ENTITY_PROFILES, getProfile } from "./profiles";
 import { getIndustry } from "./industries";
+import type { CrisisCase } from "../types";
+import { normalizeCase } from "./case-store";
 
 const BASE = import.meta.env.BASE_URL || "/";
 export const ANALYZE_ENDPOINT = `${BASE.replace(/\/+$/, "")}/api/analyze`;
@@ -515,3 +517,24 @@ export function describeAiError(error: unknown): string {
 
 export { buildLocalReview };
 export const PROFILE_LABELS = ENTITY_PROFILES.map((p) => p.label);
+
+/** 기사 URL·본문을 사례 카드 초안으로 바꿉니다. 결과는 반드시 사람이 검수해야 합니다. */
+export async function requestCaseDraft(
+  input: string,
+  options: RequestOptions = {},
+): Promise<{ draft: CrisisCase; source?: { url: string; title: string } }> {
+  const data = await post({ mode: "case", situation: input }, options);
+  const row = asRecord(data.result) ?? {};
+  const sourceRow = asRecord(data.source);
+  const urls = [...input.matchAll(/https?:\/\/[^\s<>"'）)\]]+/gi)].map((m) => m[0]);
+  const sources = urls.slice(0, 6).map((url, i) => ({
+    label: i === 0 && sourceRow?.url === url && str(sourceRow?.title, 160) ? str(sourceRow?.title, 160) : url,
+    url,
+  }));
+  const draft = normalizeCase({ ...row, sources, status: "draft" }, undefined);
+  if (!draft) throw new AiError("bad_response", "AI 초안에서 회사명·업종·유형·제목을 확인하지 못했습니다. 본문을 더 붙여 넣거나 직접 입력해 주세요.");
+  return {
+    draft,
+    source: sourceRow && typeof sourceRow.url === "string" ? { url: String(sourceRow.url), title: str(sourceRow.title, 200) } : undefined,
+  };
+}

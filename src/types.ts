@@ -120,6 +120,12 @@ export interface CrisisCase {
   lesson: string;
   verdict: CaseVerdict;
   sources: { label: string; url: string }[];
+  /** verified(기본) = 출처 검수 완료, draft = 검토 대기 초안. 초안은 유사 사례·대응 순서 계산에서 제외 */
+  status?: "verified" | "draft";
+  /** 사용자가 직접 등록한 사례(브라우저 저장) */
+  custom?: boolean;
+  /** AI 초안에서 근거가 부족하다고 표시한 항목 */
+  uncertain?: string[];
 }
 
 export type ChannelId =

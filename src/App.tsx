@@ -18,6 +18,7 @@ import { PackageSkeleton, PackageView } from "./components/PackageView";
 import { ReviewView } from "./components/ReviewView";
 import { ManualModal } from "./components/ManualModal";
 import { CaseLibrary } from "./components/CaseLibrary";
+import { CaseStudio } from "./components/CaseStudio";
 import { SettingsModal } from "./components/SettingsModal";
 import { cx } from "./components/ui";
 
@@ -44,6 +45,8 @@ export default function App() {
   const [aiNote, setAiNote] = useState("AI 연결 확인 중");
   const [manualOpen, setManualOpen] = useState(false);
   const [library, setLibrary] = useState<{ open: boolean; caseId?: string }>({ open: false });
+  const [studioOpen, setStudioOpen] = useState(false);
+  const [caseRev, setCaseRev] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [toast, setToast] = useState<{ id: number; message: string } | null>(null);
   const seq = useRef(0);
@@ -183,10 +186,31 @@ export default function App() {
     setStage("compose");
   };
 
+  if (studioOpen) {
+    return (
+      <div className="min-h-screen bg-paper">
+        <CaseStudio
+          onBack={() => setStudioOpen(false)}
+          aiReady={aiReady}
+          apiKey={apiConfig.apiKey}
+          notify={notify}
+          onChanged={() => setCaseRev((n) => n + 1)}
+        />
+        {toast && (
+          <div className="fixed bottom-5 left-1/2 z-50 -translate-x-1/2 rounded-xl bg-ink px-4 py-2.5 text-[13px] text-white shadow-lg" role="status">
+            {toast.message}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   if (library.open) {
     return (
       <div className="min-h-screen bg-paper">
         <CaseLibrary
+          key={caseRev}
+          onOpenStudio={() => setStudioOpen(true)}
           initialCaseId={library.caseId}
           onBack={() => {
             setLibrary({ open: false });

@@ -40,7 +40,7 @@ const GEMINI_BASE = (ENV.GEMINI_BASE_URL || "https://generativelanguage.googleap
 
 type Provider = "gemini" | "openai";
 type Stance = "apology" | "investigating" | "rebuttal";
-type Mode = "package" | "review";
+type Mode = "package" | "review" | "case";
 
 const isGeminiKey = (key: string): boolean => key.length > 0 && !key.startsWith("sk-");
 const STANCES: Stance[] = ["apology", "investigating", "rebuttal"];
@@ -203,6 +203,33 @@ JSON 스키마:
 }
 분량: findings 5개, checklist 5개.`;
 
+const SYSTEM_CASE = `당신은 기업 위기관리 사례를 정리하는 리서치 편집자입니다. 제공된 기사 원문·메모만을 근거로 사례 카드 초안을 JSON으로 만듭니다.
+절대 규칙:
+- 입력에 없는 사실·숫자·날짜를 추가하지 마세요. 모르면 빈 문자열이나 빈 배열로 두고 "uncertain"에 무엇이 비었는지 적으세요.
+- 기사에서 확인되는 사실과 당신의 해석(교훈·평가)을 분리하세요. 교훈은 "lesson"에만 쓰고 근거가 기사에 있는 만큼만 쓰세요.
+- sources에는 입력으로 받은 URL만 넣으세요. 새 URL을 만들지 마세요.
+- 문체는 담백한 한국어 평서문. 감탄·수식 금지.
+JSON 스키마:
+{
+  "company": "회사명(브랜드)",
+  "country": "KR" | "US" | "GLOBAL",
+  "date": "YYYY-MM 또는 YYYY-MM~YYYY-MM",
+  "industry": "food|retail|consumer|tech|steel|entertainment|construction|pharma 중 하나",
+  "type": "product-safety|false-claim|data-breach|outage|industrial-accident|disaster|owner-risk|labor|celebrity|financial|governance|misconduct|statement|environment|regulatory 중 하나",
+  "stance": "apology|investigating|rebuttal|silence 중 하나 (초기 입장이 기사로 확인될 때만, 아니면 빈 문자열)",
+  "title": "회사 — 한 줄 요지",
+  "trigger": "발단 한두 문장",
+  "scale": ["피해·규모 수치 (기사에 있는 것만)"],
+  "timeline": [{"when": "날짜", "what": "사실"}],
+  "response": ["회사가 실제로 취한 대응"],
+  "outcome": "결과(기사에 있는 범위만)",
+  "lesson": "실무 교훈 2~3문장",
+  "verdict": "exemplary|mixed|failure 중 하나 (근거가 약하면 mixed)",
+  "tags": ["검색 키워드 4~8개"],
+  "uncertain": ["기사만으로 확인되지 않은 항목"]
+}
+timeline 4~8개, response 3~6개.`;
+
 function buildPackagePrompt(input: {
   situation: string;
   brand: string;
@@ -250,6 +277,22 @@ function buildPackagePrompt(input: {
   lines.push(
     `\n위 내용으로 스키마에 맞는 대응 패키지 JSON을 만들어 주세요. 입장(${input.stance})과 유형(${input.entities.join(", ") || "general"})에 따라 모든 섹션이 달라져야 합니다.`,
   );
+  return lines.join("\n");
+}
+
+function buildCasePrompt(input: { situation: string; article: FetchedArticle | null; articleError: string }): string {
+  const rest = input.situation.replace(URL_RE, " ").replace(/\s+/g, " ").trim();
+  const lines: string[] = [];
+  if (input.article) {
+    lines.push(`[기사 원문 — 서버가 직접 읽음]\nURL: ${input.article.url}`);
+    if (input.article.title) lines.push(`제목: ${input.article.title}`);
+    if (input.article.description) lines.push(`요약: ${input.article.description}`);
+    lines.push(`본문:\n${input.article.body}`);
+  } else if (input.articleError) {
+    lines.push(`[기사 원문 읽기 실패]\n${input.articleError}`);
+  }
+  if (rest) lines.push(`\n[붙여넣은 메모·본문]\n${rest}`);
+  lines.push("\n위 자료만 근거로 사례 카드 초안 JSON을 만들어 주세요. 자료에 없는 내용은 비워 두세요.");
   return lines.join("\n");
 }
 
@@ -612,7 +655,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  const mode: Mode = body.mode === "review" ? "review" : "package";
+  const mode: Mode = body.mode === "review" ? "review" : body.mode === "case" ? "case" : "package";
   const stance: Stance = STANCES.includes(body.stance as Stance) ? (body.stance as Stance) : "investigating";
   const brand = clean(body.brand, 60);
   // 길이 판정은 자르기 전 원문으로 합니다. 잘라 놓고 검사하면 초과 입력이 통과합니다.
@@ -664,7 +707,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   let article: FetchedArticle | null = null;
   let articleError = "";
   let sourceInfo: { url: string; title: string; chars: number; ok: boolean; note?: string } | undefined;
-  const url = mode === "package" ? extractUrl(situation) : null;
+  const url = mode !== "review" ? extractUrl(situation) : null;
   if (url) {
     const rest = situation.replace(URL_RE, " ").replace(/\s+/g, " ").trim();
     const controller = new AbortController();
@@ -693,9 +736,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
   }
 
-  const system = mode === "review" ? SYSTEM_REVIEW : SYSTEM_PACKAGE;
+  const system = mode === "review" ? SYSTEM_REVIEW : mode === "case" ? SYSTEM_CASE : SYSTEM_PACKAGE;
   const user =
-    mode === "review"
+    mode === "case"
+      ? buildCasePrompt({ situation, article, articleError })
+      : mode === "review"
       ? [
           brand ? `[브랜드]\n${brand}` : "",
           `[검수할 입장문 초안]\n${draft}`,
@@ -705,8 +750,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           .join("\n\n")
       : buildPackagePrompt({ situation, brand, stance, entities, article, articleError, context });
 
-  const maxTokens = mode === "review" ? 3_500 : 6_000;
-  const temperature = mode === "review" ? 0.3 : 0.45;
+  const maxTokens = mode === "review" ? 3_500 : mode === "case" ? 5_000 : 6_000;
+  const temperature = mode === "review" ? 0.3 : mode === "case" ? 0.15 : 0.45;
 
   const controller = new AbortController();
   const remaining = Math.max(8_000, UPSTREAM_TIMEOUT_MS - (Date.now() - startedAt));

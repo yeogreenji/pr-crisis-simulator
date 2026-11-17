@@ -284,6 +284,18 @@ def main() -> int:
             f"{status} {body.get('source')}",
         )
 
+        # 사례 초안 모드
+        status, body = api(4197, {"mode": "case", "situation": "http://127.0.0.1:4199/article/recall"})
+        case_raw = body.get("result") or {}
+        case_prompt = json.loads((TMP / "gemini-last.json").read_text(encoding="utf-8"))
+        check(
+            "API: 사례 초안 모드 200 — 스키마·기사 본문 전달",
+            status == 200 and case_raw.get("company") == "모의식품" and "사례 카드 초안" in case_prompt.get("system", "") and "[기사 원문" in case_prompt.get("user", ""),
+            f"{status} {str(body)[:140]}",
+        )
+        status, body = api(4197, {"mode": "case", "situation": "짧다"})
+        check("API: 사례 초안 8자 미만 400", status == 400 and body.get("error") == "input_too_short", f"{status} {body.get('error')}")
+
         # 검수 모드
         status, body = api(4197, {"mode": "review", "draft": DRAFT, "brand": "한결푸드"})
         review_raw = body.get("result") or {}
@@ -350,6 +362,8 @@ def main() -> int:
             body_text = page.locator("[data-testid='package-view']").inner_text()
             check("결과: 5개 블록 + 전체 시스템", all(page.locator(f"[data-testid='{k}']").count() == 1 for k in ["overview", "block-actions", "block-statements", "block-qa", "block-stakeholders", "block-outlook"]))
             check("결과: 위험도·입장·유형 칩", "위험도 높음" in body_text and "즉시 사과" in body_text and "소비재" in body_text)
+            check("결과: 유사 사례 대응 순서 블록", page.locator("[data-testid='block-playbook']").count() == 1 and page.locator("[data-testid^='playbook-phase-']").count() >= 3, str(page.locator("[data-testid^='playbook-phase-']").count()))
+            check("결과: 대응 순서에 근거 사례 표시", "건에서 실행" in page.locator("[data-testid='block-playbook']").inner_text())
             check("결과: 실시간 AI 표시", "실시간 AI" in body_text)
             check("결과: 입장문 2종", page.locator("[data-testid^='statement-body-']").count() == 2)
             check("결과: Q&A 5개 이상", page.locator("[data-testid='qa-item']").count() >= 5, str(page.locator("[data-testid='qa-item']").count()))
@@ -389,6 +403,24 @@ def main() -> int:
             page.locator("[data-testid^='case-card-']").first.click()
             page.wait_for_timeout(300)
             check("사례 라이브러리: 상세에 출처 표시", "출처" in page.inner_text("[data-testid='case-detail']"))
+            page.click("[data-testid='open-studio']")
+            page.wait_for_timeout(300)
+            check("사례 등록: 화면 열림", page.locator("[data-testid='case-studio']").count() == 1)
+            page.fill("[data-testid='studio-input']", "http://127.0.0.1:4199/article/recall")
+            page.click("[data-testid='studio-draft']")
+            page.wait_for_selector("[data-testid='studio-form']", timeout=30000)
+            check("사례 등록: AI 초안이 폼에 채워짐", page.input_value("[data-testid='f-company']") == "모의식품" and "근거 부족" in page.inner_text("[data-testid='studio-form']"))
+            check("사례 등록: 출처 URL이 입력한 주소로 고정", "127.0.0.1:4199/article/recall" in page.input_value("[data-testid='f-sources']"))
+            check("사례 등록: 대조 확인 전 ‘검수 완료’ 저장 비활성", page.locator("[data-testid='f-save-verified']").is_disabled())
+            page.check("[data-testid='f-confirm']")
+            page.click("[data-testid='f-save-verified']")
+            page.wait_for_timeout(300)
+            check("사례 등록: 저장 후 내 목록에 표시", "원료 중금속 검출로 전량 회수" in page.inner_text("[data-testid='studio-mine']") and "검수 완료" in page.inner_text("[data-testid='studio-mine']"))
+            page.click("[data-testid='studio-back']")
+            page.wait_for_timeout(300)
+            page.fill("[data-testid='library-search']", "모의식품")
+            page.wait_for_timeout(200)
+            check("사례 등록: 라이브러리에 즉시 반영", page.locator("[data-testid^='case-card-']").count() == 1)
             page.click("[data-testid='library-back']")
             page.wait_for_timeout(300)
 

@@ -50,7 +50,14 @@ const server = http.createServer((req, res) => {
     const model = decodeURIComponent((url.pathname.split("/models/")[1] || "").split(":")[0]);
     const system = (body.systemInstruction?.parts || []).map((p) => p.text || "").join("\n");
     const user = (body.contents || []).map((c) => (c.parts || []).map((p) => p.text || "").join("\n")).join("\n");
-    const result = system.includes("입장문을 감수") ? REVIEW_RESULT : buildPackageResult(user);
+    const CASE_RESULT = {
+      company: "모의식품", country: "KR", date: "2024-05", industry: "food", type: "product-safety", stance: "apology",
+      title: "모의식품 — 원료 중금속 검출로 전량 회수", trigger: "협력사 원료에서 기준치 초과 중금속이 검출됐다는 보도.",
+      scale: ["완제품 3종"], timeline: [{ when: "5/1", what: "보도 발생" }, { when: "5/2", what: "회수 결정" }],
+      response: ["판매 중지와 회수", "대표 명의 사과문"], outcome: "회수 완료.", lesson: "범위를 먼저 밝혔다.",
+      verdict: "mixed", tags: ["중금속", "회수"], uncertain: ["회수 비용은 기사에 없음"],
+    };
+    const result = system.includes("사례 카드 초안") ? CASE_RESULT : system.includes("입장문을 감수") ? REVIEW_RESULT : buildPackageResult(user);
 
     if (capture) {
       writeFileSync(

@@ -1,5 +1,5 @@
 import type { CaseType, CrisisCase, IndustryId } from "../types";
-import { CRISIS_CASES } from "./cases";
+import { verifiedCases } from "./cases";
 
 /** 상황 문장에서 위기 유형을 추정하는 키워드 표 */
 const TYPE_PATTERNS: Record<CaseType, RegExp> = {
@@ -38,7 +38,7 @@ export function findSimilarCases(
 ): SimilarCase[] {
   const types = inferTypes(text);
   const result: SimilarCase[] = [];
-  for (const c of CRISIS_CASES) {
+  for (const c of verifiedCases()) {
     let score = 0;
     const reasons: string[] = [];
     if (c.industry === industry) {

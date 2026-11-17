@@ -38,6 +38,7 @@ function CaseDetail({ c }: { c: CrisisCase }) {
         <span className="chip border border-line bg-surface px-2 py-0.5 text-[12px] text-ink-2">{industry?.label}</span>
         <span className="chip border border-line bg-surface px-2 py-0.5 text-[12px] text-ink-2">{CASE_TYPE_LABEL[c.type]}</span>
         {c.stance && <span className="chip border border-line bg-surface px-2 py-0.5 text-[12px] text-muted">초기 입장 · {CASE_STANCE_LABEL[c.stance]}</span>}
+        {c.status === "draft" && <span className="chip border border-amber-300 bg-amber-50 px-2 py-0.5 text-[12px] text-amber-900">검토 대기 · 출처 확인 전</span>}
       </div>
       <h3 className="mt-2.5 text-[19px] font-semibold leading-snug tracking-[-0.03em] text-ink">{c.title}</h3>
       <p className="mt-1 text-[13px] text-faint">
@@ -122,7 +123,7 @@ function CaseDetail({ c }: { c: CrisisCase }) {
   );
 }
 
-export function CaseLibrary({ onBack, initialCaseId }: { onBack: () => void; initialCaseId?: string }) {
+export function CaseLibrary({ onBack, initialCaseId, onOpenStudio }: { onBack: () => void; initialCaseId?: string; onOpenStudio?: () => void }) {
   const [query, setQuery] = useState("");
   const [industry, setIndustry] = useState<IndustryId | "all">("all");
   const [type, setType] = useState<CaseType | "all">("all");
@@ -182,8 +183,13 @@ export function CaseLibrary({ onBack, initialCaseId }: { onBack: () => void; ini
           <h1 className="text-[22px] font-semibold tracking-[-0.03em] text-ink">위기 사례 라이브러리</h1>
         </div>
         <span className="ml-auto text-[13px] text-muted">
-          전체 <b className="num text-ink">{CRISIS_CASES.length}</b>건 · 출처 확인된 사례만 수록
+          전체 <b className="num text-ink">{CRISIS_CASES.length}</b>건 · 검수 완료 <b className="num text-ink">{CRISIS_CASES.filter((c) => c.status !== "draft").length}</b>건
         </span>
+        {onOpenStudio && (
+          <button type="button" onClick={onOpenStudio} className="btn btn-outline h-9 px-3 text-[13px]" data-testid="open-studio">
+            사례 등록
+          </button>
+        )}
       </div>
 
       <div className="mt-4 rounded-2xl border border-line bg-surface p-4">

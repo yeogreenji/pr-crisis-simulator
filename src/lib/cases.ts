@@ -2,6 +2,10 @@ import type { CaseStance, CaseType, CrisisCase } from "../types";
 import food from "../data/cases/food.json";
 import construction from "../data/cases/construction.json";
 import pharma from "../data/cases/pharma.json";
+import { loadCustomCases, loadReviewState, normalizeCase } from "./case-store";
+
+/** 주간 자동 수집이 쌓는 후보 사례(검토 대기). src/data/candidates/*.json */
+const CANDIDATE_FILES = import.meta.glob("../data/candidates/*.json", { eager: true, import: "default" }) as Record<string, unknown>;
 
 /**
  * 실제 위기관리 사례 라이브러리.
@@ -667,13 +671,51 @@ const NEW_CASES = [
   ...(pharma as unknown as CrisisCase[]),
 ];
 
-export const CRISIS_CASES: CrisisCase[] = [
+const BASE_CASES: CrisisCase[] = [
   ...LEGACY_CASES.map((c) => {
     const meta = LEGACY_META[c.id];
     return { ...c, type: meta.type, stance: meta.stance, tags: meta.tags } as CrisisCase;
   }),
   ...NEW_CASES,
 ];
+
+const CANDIDATES: CrisisCase[] = Object.values(CANDIDATE_FILES)
+  .flatMap((v) => (Array.isArray(v) ? v : []))
+  .map((raw) => normalizeCase({ ...(raw as object), status: "draft" }))
+  .filter((c): c is CrisisCase => Boolean(c));
+
+export const CANDIDATE_IDS = new Set(CANDIDATES.map((c) => c.id));
+
+function buildAll(): CrisisCase[] {
+  const review = loadReviewState();
+  const taken = new Set(BASE_CASES.map((c) => c.id));
+  const out: CrisisCase[] = [...BASE_CASES];
+  for (const c of CANDIDATES) {
+    if (taken.has(c.id) || review.rejected.includes(c.id)) continue;
+    taken.add(c.id);
+    out.push(review.approved.includes(c.id) ? { ...c, status: "verified" } : c);
+  }
+  for (const c of loadCustomCases()) {
+    if (taken.has(c.id)) continue;
+    taken.add(c.id);
+    out.push(c);
+  }
+  return out;
+}
+
+/** 라이브러리 전체 사례. 직접 등록·승인 후에는 refreshCases()로 같은 배열을 갱신합니다. */
+export const CRISIS_CASES: CrisisCase[] = buildAll();
+export const CASE_BY_ID = new Map(CRISIS_CASES.map((c) => [c.id, c]));
+
+export function refreshCases() {
+  const next = buildAll();
+  CRISIS_CASES.splice(0, CRISIS_CASES.length, ...next);
+  CASE_BY_ID.clear();
+  for (const c of CRISIS_CASES) CASE_BY_ID.set(c.id, c);
+}
+
+/** 유사 사례·대응 순서 계산에 쓰는 검수 완료 사례 */
+export const verifiedCases = () => CRISIS_CASES.filter((c) => c.status !== "draft");
 
 export const CASE_VERDICT_LABEL: Record<CrisisCase["verdict"], string> = {
   exemplary: "모범 대응",
@@ -709,4 +751,3 @@ export const CASE_STANCE_LABEL: Record<CaseStance, string> = {
 export const casesForIndustry = (industry: CrisisCase["industry"]) =>
   CRISIS_CASES.filter((c) => c.industry === industry);
 
-export const CASE_BY_ID = new Map(CRISIS_CASES.map((c) => [c.id, c]));

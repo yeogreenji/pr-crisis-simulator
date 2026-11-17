@@ -7,6 +7,7 @@ import {
   Check,
   ChevronDown,
   ClipboardList,
+  ListChecks,
   Copy,
   Gauge,
   Info,
@@ -32,6 +33,7 @@ import {
 } from "../lib/package";
 import { ENTITY_PROFILES } from "../lib/profiles";
 import { findSimilarCases } from "../lib/similar";
+import { buildCasePlaybook } from "../lib/case-playbook";
 import { CASE_TYPE_LABEL, CASE_VERDICT_LABEL } from "../lib/cases";
 import { CopyButton, cx } from "./ui";
 
@@ -492,6 +494,72 @@ function SimilarCasesBlock({ pkg, onOpenCase }: { pkg: ResponsePackage; onOpenCa
   );
 }
 
+function CasePlaybookBlock({ pkg, onOpenCase }: { pkg: ResponsePackage; onOpenCase: (id: string) => void }) {
+  const book = useMemo(
+    () => buildCasePlaybook(`${pkg.situation} ${pkg.eventLabel}`, pkg.industry),
+    [pkg.situation, pkg.eventLabel, pkg.industry],
+  );
+  if (!book || book.phases.length === 0) return null;
+  const { counts } = book;
+  const basis =
+    counts.exemplary > 0
+      ? `유사 사례 ${book.cases.length}건(모범 ${counts.exemplary}·혼합 ${counts.mixed}·실패 ${counts.failure}) 중 모범 사례의 절반 이상이 실행한 단계에 ★를 붙였습니다.`
+      : `유사 사례 ${book.cases.length}건 중 모범 사례가 없어, 절반 이상이 실행한 단계에 ★를 붙였습니다.`;
+  return (
+    <section className="card overflow-hidden" data-testid="block-playbook">
+      <BlockHeader
+        n="07"
+        icon={ListChecks}
+        title="유사 사례에서 뽑은 대응 순서"
+        desc={`${basis} 사례 대응 문장을 키워드로 분류한 집계이므로 실행 전 원 사례를 확인하세요.`}
+      />
+      <ol className="space-y-2 px-4 pb-4 sm:px-5">
+        {book.phases.map(({ phase, doers, core }, i) => (
+          <li key={phase.id} className="rounded-xl border border-line bg-white p-3" data-testid={`playbook-phase-${phase.id}`}>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="num grid h-6 w-6 place-items-center rounded-md bg-paper-deep text-[12px] font-semibold text-ink">{i + 1}</span>
+              <span className="text-[14px] font-semibold text-ink">
+                {core && <span className="mr-1 text-warn">★</span>}
+                {phase.label}
+              </span>
+              <span className="ml-auto text-[12.5px] text-muted">
+                {doers.length}/{book.cases.length}건에서 실행
+              </span>
+            </div>
+            <p className="mt-1 text-[13.5px] leading-relaxed text-ink-2">{phase.advice}</p>
+            <ul className="mt-1.5 space-y-1">
+              {doers.slice(0, 2).map(({ c, line }) => (
+                <li key={c.id} className="text-[13px] leading-relaxed text-muted">
+                  <button type="button" onClick={() => onOpenCase(c.id)} className="font-medium text-accent hover:underline">
+                    {c.company}
+                  </button>
+                  <span className={cx("chip ml-1 px-1.5 py-0 text-[12px]", SIMILAR_VERDICT_STYLE[c.verdict])}>{CASE_VERDICT_LABEL[c.verdict]}</span>
+                  <span className="ml-1">{line}</span>
+                </li>
+              ))}
+            </ul>
+          </li>
+        ))}
+      </ol>
+      {book.pitfalls.length > 0 && (
+        <div className="mx-4 mb-4 rounded-xl border border-warn/30 bg-warn-soft px-3.5 py-3 sm:mx-5">
+          <div className="text-[13px] font-semibold text-warn">반복된 실수</div>
+          <ul className="mt-1 space-y-1">
+            {book.pitfalls.map(({ c, text }) => (
+              <li key={c.id} className="text-[13px] leading-relaxed text-ink-2">
+                <button type="button" onClick={() => onOpenCase(c.id)} className="font-medium text-accent hover:underline">
+                  {c.company}
+                </button>
+                <span className="ml-1">{text}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </section>
+  );
+}
+
 export function PackageView({
   pkg,
   onEdit,
@@ -639,6 +707,7 @@ export function PackageView({
           <StakeholdersBlock pkg={pkg} />
           <OutlookBlock pkg={pkg} />
           <SimilarCasesBlock pkg={pkg} onOpenCase={onOpenCase} />
+          <CasePlaybookBlock pkg={pkg} onOpenCase={onOpenCase} />
         </div>
 
         <div className="mt-3 rounded-xl border border-line bg-surface px-3.5 py-3">
