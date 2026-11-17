@@ -1,5 +1,7 @@
 import type { CaseStance, CaseType, CrisisCase } from "../types";
 import food from "../data/cases/food.json";
+import construction from "../data/cases/construction.json";
+import pharma from "../data/cases/pharma.json";
 
 /**
  * 실제 위기관리 사례 라이브러리.
@@ -659,7 +661,11 @@ const LEGACY_META: Record<string, { type: CaseType; stance?: CaseStance; tags: s
   "produce101-2019": { type: "misconduct", stance: "silence", tags: ["투표 조작", "방송"] },
 };
 
-const NEW_CASES = [...(food as unknown as CrisisCase[])];
+const NEW_CASES = [
+  ...(food as unknown as CrisisCase[]),
+  ...(construction as unknown as CrisisCase[]),
+  ...(pharma as unknown as CrisisCase[]),
+];
 
 export const CRISIS_CASES: CrisisCase[] = [
   ...LEGACY_CASES.map((c) => {
