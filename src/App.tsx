@@ -29,6 +29,8 @@ const EMPTY_FORM: ComposeValue = {
   brand: "",
   stance: "investigating",
   entities: ["general"],
+  industry: "auto",
+  caseType: "auto",
 };
 
 export default function App() {
@@ -82,18 +84,19 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [stage]);
 
-  const submit = useCallback(async () => {
+  const submit = useCallback(async (override?: ComposeValue) => {
     setError(null);
     const my = seq.current + 1;
     seq.current = my;
-    const text = form.situation.replace(/\r\n/g, "\n");
+    const current = override ?? form;
+    const text = current.situation.replace(/\r\n/g, "\n");
 
     if (reviewMode) {
       if (text.trim().length < 20) {
         setError("검수할 입장문은 20자 이상 붙여넣어 주세요.");
         return;
       }
-      const local = buildLocalReview(text, form.brand);
+      const local = buildLocalReview(text, current.brand);
       setStage("reviewLoading");
       setStageNote("초안의 위험 표현을 짚는 중");
       if (!apiConfig.enabled) {
@@ -102,7 +105,7 @@ export default function App() {
         return;
       }
       try {
-        const result = await requestReview(text, form.brand, {
+        const result = await requestReview(text, current.brand, {
           apiKey: apiConfig.apiKey,
           onStage: setStageNote,
         });
@@ -124,9 +127,11 @@ export default function App() {
 
     const local = buildLocalPackage({
       situation: text,
-      brand: form.brand,
-      stance: form.stance,
-      entities: form.entities as EntityId[],
+      brand: current.brand,
+      stance: current.stance,
+      entities: current.entities as EntityId[],
+      industry: current.industry,
+      caseType: current.caseType,
     });
 
     setStage("loading");
@@ -165,20 +170,42 @@ export default function App() {
   const openRecent = (item: ResponsePackage) => {
     seq.current += 1;
     setPkg(item);
-    setForm({ situation: item.situation, brand: item.brand, stance: item.stance, entities: item.entities });
+    setForm({
+      situation: item.situation,
+      brand: item.brand,
+      stance: item.stance,
+      entities: item.entities,
+      industry: item.industrySource === "manual" ? item.industry : "auto",
+      caseType: item.caseTypeSource === "manual" && item.caseType ? item.caseType : "auto",
+    });
     setReviewMode(false);
     setStage("package");
   };
 
   const regenerate = () => {
     if (!pkg) return;
-    setForm({ situation: pkg.situation, brand: pkg.brand, stance: pkg.stance, entities: pkg.entities });
-    void submit();
+    const next: ComposeValue = {
+      situation: pkg.situation,
+      brand: pkg.brand,
+      stance: pkg.stance,
+      entities: pkg.entities,
+      industry: pkg.industrySource === "manual" ? pkg.industry : "auto",
+      caseType: pkg.caseTypeSource === "manual" && pkg.caseType ? pkg.caseType : "auto",
+    };
+    setForm(next);
+    void submit(next);
   };
 
   const newSituation = () => {
     seq.current += 1;
-    setForm({ ...EMPTY_FORM, brand: form.brand, entities: form.entities, stance: form.stance });
+    setForm({
+      ...EMPTY_FORM,
+      brand: form.brand,
+      entities: form.entities,
+      stance: form.stance,
+      industry: form.industry,
+      caseType: form.caseType,
+    });
     setPkg(null);
     setReview(null);
     setError(null);

@@ -5,6 +5,8 @@ import { ENTITY_PROFILES, getProfile } from "./profiles";
 import { getIndustry } from "./industries";
 import type { CrisisCase } from "../types";
 import { normalizeCase } from "./case-store";
+import { findSimilarCases } from "./similar";
+import { CASE_VERDICT_LABEL } from "./cases";
 
 const BASE = import.meta.env.BASE_URL || "/";
 export const ANALYZE_ENDPOINT = `${BASE.replace(/\/+$/, "")}/api/analyze`;
@@ -134,7 +136,30 @@ export function buildAiContext(pkg: ResponsePackage): Record<string, string> {
     })
     .join("\n\n");
 
-  return { industryLabel: industry.label, playbook: playbook.slice(0, 3_000), entityDigest: entityDigest.slice(0, 2_500) };
+  const similar = findSimilarCases(`${pkg.situation} ${pkg.eventLabel}`, pkg.industry, {
+    limit: 5,
+    types: pkg.caseType ? [pkg.caseType] : undefined,
+  });
+  const caseDigest = similar
+    .map(({ case: c, reasons }, i) => {
+      const lines = [
+        `■ 사례 ${i + 1}. ${c.company} (${c.date}, ${CASE_VERDICT_LABEL[c.verdict]}${c.custom ? ", 사용자 직접 등록" : ""})`,
+        `사건: ${c.title}`,
+        `대응: ${c.response.slice(0, 3).join(" / ")}`,
+        `교훈: ${c.lesson}`,
+        `매칭 이유: ${reasons.join(" · ")}`,
+      ];
+      return lines.join("\n");
+    })
+    .join("\n\n");
+
+  return {
+    industryLabel: industry.label,
+    playbook: playbook.slice(0, 3_000),
+    entityDigest: entityDigest.slice(0, 2_500),
+    caseTypeLabel: pkg.caseTypeLabel ?? (pkg.caseType ? pkg.caseType : "자동 판별 불가"),
+    caseDigest: caseDigest.slice(0, 3_500),
+  };
 }
 
 /* ------------------------------------------------------------------ */

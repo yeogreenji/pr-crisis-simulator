@@ -210,7 +210,7 @@ const CORE_INDUSTRIES: Industry[] = [
   },
   {
     id: "retail",
-    label: "유통·이커머스",
+    label: "유통·물류·이커머스",
     short: "유통",
     tagline: "정산·환불·개인정보 — '언제, 얼마, 누구에게'",
     description:

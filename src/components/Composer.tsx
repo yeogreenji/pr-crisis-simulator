@@ -23,6 +23,10 @@ import {
 } from "lucide-react";
 import { ENTITY_PROFILES, type EntityId } from "../lib/profiles";
 import { STANCES, extractUrl, type ResponsePackage, type Stance } from "../lib/package";
+import { INDUSTRIES } from "../lib/industries";
+import { CASE_TYPES } from "../lib/case-store";
+import { CASE_TYPE_LABEL } from "../lib/cases";
+import type { CaseType, IndustryId } from "../types";
 import { cx } from "./ui";
 
 export interface ComposeValue {
@@ -30,6 +34,9 @@ export interface ComposeValue {
   brand: string;
   stance: Stance;
   entities: EntityId[];
+  /** "auto"면 문장에서 자동 판별 */
+  industry: IndustryId | "auto";
+  caseType: CaseType | "auto";
 }
 
 const ENTITY_ICON: Record<EntityId, typeof Building2> = {
@@ -237,6 +244,55 @@ export function Composer({
                   );
                 })}
               </div>
+            </div>
+
+            <div className="hairline" />
+            <div className="px-4 py-4 sm:px-5" data-testid="classify-row">
+              <div className="flex flex-wrap items-center justify-between gap-1">
+                <span className="text-[13px] font-semibold text-ink">업종·이슈 유형</span>
+                <span className="text-[12px] text-faint">비워 두면 자동 판별 · 잘못 잡히면 직접 고르세요</span>
+              </div>
+              <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                <label className="flex items-center gap-2 rounded-xl border border-line-strong bg-[#fcfcfa] px-2.5 py-2">
+                  <span className="shrink-0 text-[12.5px] font-medium text-muted">업종</span>
+                  <select
+                    value={value.industry}
+                    onChange={(e) => onChange({ ...value, industry: e.target.value as IndustryId | "auto" })}
+                    data-testid="industry-select"
+                    aria-label="업종 선택"
+                    className="min-w-0 flex-1 bg-transparent text-[13px] font-medium text-ink outline-none"
+                  >
+                    <option value="auto">자동 판별</option>
+                    {INDUSTRIES.map((industry) => (
+                      <option key={industry.id} value={industry.id}>
+                        {industry.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="flex items-center gap-2 rounded-xl border border-line-strong bg-[#fcfcfa] px-2.5 py-2">
+                  <span className="shrink-0 text-[12.5px] font-medium text-muted">이슈 유형</span>
+                  <select
+                    value={value.caseType}
+                    onChange={(e) => onChange({ ...value, caseType: e.target.value as CaseType | "auto" })}
+                    data-testid="type-select"
+                    aria-label="이슈 유형 선택"
+                    className="min-w-0 flex-1 bg-transparent text-[13px] font-medium text-ink outline-none"
+                  >
+                    <option value="auto">자동 판별</option>
+                    {CASE_TYPES.map((type) => (
+                      <option key={type} value={type}>
+                        {CASE_TYPE_LABEL[type]}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              {value.caseType !== "auto" && (
+                <p className="mt-1.5 text-[12px] leading-relaxed text-accent-deep">
+                  직접 고른 유형으로 유사 사례·대응 순서를 계산합니다. 업종도 함께 맞춰 주세요.
+                </p>
+              )}
             </div>
 
             <div className="hairline" />

@@ -1,5 +1,7 @@
-import type { IndustryId, Severity } from "../types";
+import type { CaseType, IndustryId, Severity } from "../types";
 import { getIndustry } from "./industries";
+import { CASE_TYPE_EVENT, classifyIndustry, detectEvent, primaryCaseType } from "./classify";
+import { CASE_TYPE_LABEL } from "./cases";
 import { getChannel } from "./presets";
 import { RISK_RULES } from "./rules";
 import { ENTITY_PROFILES, getProfiles, type EntityId, type EntityProfile } from "./profiles";
@@ -125,6 +127,11 @@ export interface ResponsePackage {
   industry: IndustryId;
   industryLabel: string;
   eventLabel: string;
+  /** 자동 판별된(또는 직접 고른) 위기 유형 */
+  caseType?: CaseType;
+  caseTypeLabel?: string;
+  caseTypeSource?: "manual" | "auto";
+  industrySource?: "manual" | "auto";
   risk: RiskLevel;
   headline: string;
   strategy: string;
@@ -168,6 +175,10 @@ export interface PackageInput {
   brand: string;
   stance: Stance;
   entities: EntityId[];
+  /** 사용자가 직접 고른 업종. 없으면 자동 판별 */
+  industry?: IndustryId | "auto";
+  /** 사용자가 직접 고른 위기 유형. 없으면 자동 판별 */
+  caseType?: CaseType | "auto";
 }
 
 /* ------------------------------------------------------------------ */
@@ -185,53 +196,12 @@ export function stripUrl(text: string): string {
   return text.replace(URL_RE, " ").replace(/\s{2,}/g, " ").trim();
 }
 
-const INDUSTRY_KEYWORDS: Record<IndustryId, RegExp> = {
-  food: /식품|식당|외식|음식|만두|라면|과자|음료|원재료|원료|이물|식중독|식약처|유통기한|소비기한|리콜|회수|급식|납품|중금속|잔류|위생|알레르기|커피|베이커리|도시락|반찬|정육|수산|농산/g,
-  tech: /서비스|장애|서버|접속|개인정보|유출|해킹|랜섬|결제|데이터|앱|플랫폼|업데이트|API|로그|계정|비밀번호|클라우드|보안|침해|이용자|가입자|구독/g,
-  retail: /배송|택배|환불|교환|가격|인상|판촉|입점|수수료|정산|판매|매장|유통|마트|쿠폰|멤버십|주문|재고/g,
-  consumer: /제품|품질|성분|부작용|피부|화장품|생활용품|가전|리뷰|사용감|파손|불량|AS|보증|교체|향|색상|사이즈/g,
-  steel: /공장|제조|생산|설비|안전|사고|끼임|추락|화재|폭발|협력사|하청|중대재해|노조|파업|임금|해고|산재|근로|노동|조합|고발|횡령|배임|오너|경영진|감사/g,
-  construction: /건설|시공|공사|현장|붕괴|아파트|입주|분양|하자|철근|콘크리트|감리|하도급|재건축|재개발|타워크레인|부실시공|건축|착공|준공|입주민|분양가/g,
-  pharma: /의약품|제약|약사|복용|처방|식약처|회수|부작용|이상반응|임상|허가|바이오|백신|의료기기|환자|병원|약국|성분|함량|불순물|리베이트|치료제/g,
-  entertainment: /아티스트|연예인|배우|가수|아이돌|팬덤|팬|소속사|전속|광고|방송|드라마|앨범|콘서트|표절|논란|발언|사생활|열애|학폭|크리에이터|유튜버|인플루언서|커뮤니티/g,
-};
-
+/** 기업 유형(엔티티)의 기본 업종으로 시작해, 문장에 도메인 단서가 3점 이상 쌓일 때만 바꿉니다. */
 export function inferIndustry(text: string, fallback: IndustryId): IndustryId {
-  let best: IndustryId = fallback;
-  let bestScore = 0;
-  for (const [id, re] of Object.entries(INDUSTRY_KEYWORDS) as [IndustryId, RegExp][]) {
-    const hits = text.match(re)?.length ?? 0;
-    const weighted = hits + (id === fallback ? 0.5 : 0);
-    if (weighted > bestScore) {
-      bestScore = weighted;
-      best = id;
-    }
-  }
-  return bestScore >= 1 ? best : fallback;
+  return classifyIndustry(text, fallback).industry;
 }
 
-const EVENT_RULES: { re: RegExp; label: string; risk: RiskLevel }[] = [
-  { re: /사망|숨(?:지|졌)|중상|끼임|추락|폭발|화재|중대재해/, label: "중대재해", risk: "높음" },
-  { re: /개인정보|유출|해킹|랜섬|침해/, label: "개인정보 유출 의혹", risk: "높음" },
-  { re: /이물|식중독|중금속|잔류|기준치\s?초과|발암|부적합/, label: "안전성 논란", risk: "높음" },
-  { re: /리콜|회수|판매\s?중지|폐기/, label: "회수·리콜 사태", risk: "높음" },
-  { re: /횡령|배임|사기|성(?:범죄|폭력)|갑질|괴롭힘|학폭/, label: "경영진·조직 리스크", risk: "높음" },
-  { re: /아티스트|전속|사생활|팬덤|아이돌|연예인|배우|가수/, label: "소속사·아티스트 논란", risk: "높음" },
-  { re: /장애|먹통|접속\s?불가|서비스\s?중단|결제\s?오류/, label: "서비스 장애", risk: "보통" },
-  { re: /주가|공시|자사주|미공개|내부자\s?거래/, label: "공시·주가 리스크", risk: "높음" },
-  { re: /가격\s?인상|인상|수수료|요금/, label: "가격·요금 논란", risk: "보통" },
-  { re: /의혹|폭로|고발/, label: "의혹 보도", risk: "높음" },
-  { re: /논란|비판|항의|불만|민원|댓글|여론/, label: "여론 논란", risk: "보통" },
-  { re: /노조|파업|교섭|임금|해고|고발|내부고발/, label: "노사 갈등", risk: "높음" },
-  { re: /광고|협찬|표절|저작권|계약\s?분쟁/, label: "계약·콘텐츠 논란", risk: "보통" },
-];
-
-export function detectEvent(text: string): { label: string; risk: RiskLevel } {
-  for (const rule of EVENT_RULES) {
-    if (rule.re.test(text)) return { label: rule.label, risk: rule.risk };
-  }
-  return { label: "위기 상황", risk: "보통" };
-}
+export { detectEvent };
 
 function summarize(text: string, max = 260): string {
   const clean = text.replace(/\s+/g, " ").trim();
@@ -734,13 +704,20 @@ export function buildLocalPackage(input: PackageInput): ResponsePackage {
   const primary = ENTITY_PROFILES[profileIdx];
   const extras = getProfiles(input.entities).extras;
   const situationText = stripUrl(input.situation) || input.situation.trim();
-  const industryId = inferIndustry(situationText || input.situation, primary.industry);
+  const raw = situationText || input.situation;
+  const manualIndustry = input.industry && input.industry !== "auto" ? input.industry : null;
+  const industryId = manualIndustry ?? classifyIndustry(raw, primary.industry).industry;
   const industry = getIndustry(industryId);
-  const event = detectEvent(situationText || input.situation);
+  const manualType = input.caseType && input.caseType !== "auto" ? input.caseType : null;
+  const autoType = primaryCaseType(raw);
+  const caseType = manualType ?? autoType;
+  const event = caseType
+    ? { ...CASE_TYPE_EVENT[caseType], type: caseType }
+    : detectEvent(raw);
   const stance = getStance(input.stance);
   const brand = input.brand.trim() || "당사";
-  const summary = summarize(situationText || input.situation, 240);
-  const grave = /사망|숨(?:지|졌)|중대재해|끼임|추락|폭발|화재/.test(situationText || input.situation);
+  const summary = summarize(raw, 240);
+  const grave = /사망|숨(?:지|졌)|중대재해|끼임|추락|폭발|화재|유가족|애도/.test(raw);
 
   const headlineByStance: Record<Stance, string> = {
     apology: `${event.label} — 피해 범위와 보상 기준을 첫 6시간 안에 확정해야 합니다.`,
@@ -771,6 +748,10 @@ export function buildLocalPackage(input: PackageInput): ResponsePackage {
     entities: input.entities.length ? input.entities.slice(0, 3) : ["general"],
     industry: industryId,
     industryLabel: industry.label,
+    industrySource: manualIndustry ? "manual" : "auto",
+    caseType,
+    caseTypeLabel: caseType ? CASE_TYPE_LABEL[caseType] : undefined,
+    caseTypeSource: manualType ? "manual" : autoType ? "auto" : undefined,
     eventLabel: event.label,
     risk: event.risk,
     headline: headlineByStance[input.stance],
@@ -865,6 +846,7 @@ export function packageToText(pkg: ResponsePackage): string {
     `[PRISM 대응 패키지] ${pkg.brand}`,
     `상황: ${pkg.situation}`,
     `유형: ${pkg.entities.map((id) => ENTITY_PROFILES.find((p) => p.id === id)?.label ?? id).join(" · ")} / 입장: ${stance.label}`,
+    `업종: ${pkg.industryLabel}${pkg.industrySource === "manual" ? "(직접 선택)" : "(자동 판별)"} / 이슈 유형: ${pkg.caseTypeLabel ?? "자동 판별 불가"}`,
     `진단: ${pkg.headline}`,
     "",
     "■ 전체 대응 시스템",

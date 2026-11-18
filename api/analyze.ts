@@ -146,6 +146,7 @@ const SYSTEM_PACKAGE = `당신은 한국 기업의 위기 커뮤니케이션을 
   · investigating(경위 확인 중·선제 안내): 확정되지 않은 사실은 인정하지 않되, 확인 항목과 '공개 시각'을 약속. 사과는 확인된 사실에만 한정. 선제 조치를 반드시 포함.
   · rebuttal(사실무근·강경 반박): 근거 자료와 사실관계 중심. 감정 표현·“루머/악플러”·근거 없는 단정 금지. 정당한 비판은 수용한다는 문장 포함.
 - 기업 유형(entities)의 지침을 모든 섹션에 구체적으로 반영하세요. 유형이 여러 개면 첫 번째를 대표로 삼고 나머지는 해당 섹션에 보강 항목으로 넣습니다.
+- [유사 사례]가 주어지면 그 사례들의 실제 대응 순서와 교훈을 참고해 이번 상황에 맞게 다시 씁니다. 사례의 회사명·수치·날짜를 이번 사안의 사실처럼 옮기지 말고, 참고한 사례는 qa.guide나 watchouts에 "OO 사례에서는 …" 형태로만 표시하세요.
 - 전체 대응 시스템(roadmap)은 1시간 → 6시간 → 24시간~ 3단계로, 각 단계에 목표(goal)와 다음 단계로 넘어가기 위한 통과 기준(gate)을 씁니다.
 - 출력은 아래 스키마의 JSON 객체 하나뿐입니다. 코드블록, 설명, 인사말을 붙이지 마세요.
 
@@ -261,8 +262,15 @@ function buildPackagePrompt(input: {
   }
   const c = input.context;
   if (c.industryLabel) lines.push(`\n[업종]\n${c.industryLabel}`);
+  if (c.caseTypeLabel) lines.push(`\n[이슈 유형]\n${c.caseTypeLabel}`);
   if (c.playbook) lines.push(`\n[업종 매뉴얼]\n${c.playbook}`);
   if (c.entityDigest) lines.push(`\n[선택한 유형의 상세 지침]\n${c.entityDigest}`);
+  if (c.caseDigest) {
+    lines.push(
+      `\n[유사 사례 — 검수 완료 실제 사례의 대응·교훈]\n${c.caseDigest}\n` +
+        "위 사례들의 대응 순서와 실수를 참고하되, 사례의 고유 사실(회사명·수치·날짜)을 이번 사안의 사실로 쓰지 마세요.",
+    );
+  }
 
   if (input.article) {
     lines.push(`\n[기사 원문 — 서버가 직접 읽음]`);
@@ -572,6 +580,41 @@ async function completeGemini(input: CompletionInput): Promise<CompletionOutcome
 }
 
 /* ------------------------------------------------------------------ */
+/* 재시도                                                              */
+/* ------------------------------------------------------------------ */
+
+/** Gemini가 과부하(503)·한도(429)로 거절할 때만 한 번 더 시도합니다. */
+const RETRYABLE_STATUS = new Set([429, 503]);
+const RETRY_DELAY_MS = 700;
+
+async function completeWithRetry(
+  provider: Provider,
+  input: CompletionInput,
+  startedAt: number,
+): Promise<{ outcome: CompletionOutcome; attempts: number }> {
+  const call = provider === "gemini" ? completeGemini : completeOpenAI;
+  const first = await call(input);
+  if (first.ok || !RETRYABLE_STATUS.has(first.status)) return { outcome: first, attempts: 1 };
+
+  // 남은 시간이 짧으면(3초 미만) 재시도 대신 깔끔하게 실패를 돌려줍니다.
+  if (UPSTREAM_TIMEOUT_MS - (Date.now() - startedAt) < 3_000) return { outcome: first, attempts: 1 };
+  await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
+  if (input.signal.aborted) return { outcome: first, attempts: 1 };
+
+  const second = await call(input);
+  if (!second.ok) {
+    return {
+      outcome: {
+        ...second,
+        message: `${second.message} (자동 재시도 1회 후 실패)`,
+      },
+      attempts: 2,
+    };
+  }
+  return { outcome: second, attempts: 2 };
+}
+
+/* ------------------------------------------------------------------ */
 /* 유틸                                                                */
 /* ------------------------------------------------------------------ */
 
@@ -596,6 +639,8 @@ interface PackageContext {
   industryLabel?: string;
   playbook?: string;
   entityDigest?: string;
+  caseTypeLabel?: string;
+  caseDigest?: string;
 }
 
 function sanitizeContext(raw: unknown): PackageContext {
@@ -605,6 +650,8 @@ function sanitizeContext(raw: unknown): PackageContext {
     industryLabel: clean(r.industryLabel, 60) || undefined,
     playbook: clean(r.playbook, 3_000) || undefined,
     entityDigest: clean(r.entityDigest, 2_500) || undefined,
+    caseTypeLabel: clean(r.caseTypeLabel, 60) || undefined,
+    caseDigest: clean(r.caseDigest, 3_500) || undefined,
   };
 }
 
@@ -758,12 +805,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const timer = setTimeout(() => controller.abort(), remaining);
 
   try {
-    const outcome =
-      provider === "gemini"
-        ? await completeGemini({ apiKey, model, system, user, maxTokens, temperature, signal: controller.signal })
-        : await completeOpenAI({ apiKey, model, system, user, maxTokens, temperature: temperature - 0.1, signal: controller.signal });
+    const { outcome, attempts } = await completeWithRetry(
+      provider,
+      {
+        apiKey,
+        model,
+        system,
+        user,
+        maxTokens,
+        temperature: provider === "gemini" ? temperature : temperature - 0.1,
+        signal: controller.signal,
+      },
+      startedAt,
+    );
     if (!outcome.ok) {
-      res.status(502).json({ error: outcome.error, status: outcome.status, message: outcome.message });
+      res.status(502).json({ error: outcome.error, status: outcome.status, message: outcome.message, attempts });
       return;
     }
 
@@ -780,6 +836,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       provider,
       model: outcome.value.model,
       latencyMs: Date.now() - startedAt,
+      attempts,
       usage: outcome.value.usage,
       mode,
       source: sourceInfo,

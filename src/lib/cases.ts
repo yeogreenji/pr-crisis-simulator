@@ -2,6 +2,7 @@ import type { CaseStance, CaseType, CrisisCase } from "../types";
 import food from "../data/cases/food.json";
 import construction from "../data/cases/construction.json";
 import pharma from "../data/cases/pharma.json";
+import extra from "../data/cases/extra.json";
 import { loadCustomCases, loadReviewState, normalizeCase } from "./case-store";
 
 /** 주간 자동 수집이 쌓는 후보 사례(검토 대기). src/data/candidates/*.json */
@@ -669,6 +670,7 @@ const NEW_CASES = [
   ...(food as unknown as CrisisCase[]),
   ...(construction as unknown as CrisisCase[]),
   ...(pharma as unknown as CrisisCase[]),
+  ...(extra as unknown as CrisisCase[]),
 ];
 
 const BASE_CASES: CrisisCase[] = [

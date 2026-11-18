@@ -460,8 +460,12 @@ const SIMILAR_VERDICT_STYLE: Record<string, string> = {
 
 function SimilarCasesBlock({ pkg, onOpenCase }: { pkg: ResponsePackage; onOpenCase: (id: string) => void }) {
   const similar = useMemo(
-    () => findSimilarCases(`${pkg.situation} ${pkg.eventLabel}`, pkg.industry, { limit: 4 }),
-    [pkg.situation, pkg.eventLabel, pkg.industry],
+    () =>
+      findSimilarCases(`${pkg.situation} ${pkg.eventLabel}`, pkg.industry, {
+        limit: 4,
+        types: pkg.caseType ? [pkg.caseType] : undefined,
+      }),
+    [pkg.situation, pkg.eventLabel, pkg.industry, pkg.caseType],
   );
   if (similar.length === 0) return null;
   return (
@@ -470,7 +474,7 @@ function SimilarCasesBlock({ pkg, onOpenCase }: { pkg: ResponsePackage; onOpenCa
         n="06"
         icon={BookOpen}
         title="비슷한 실제 사례와 교훈"
-        desc="같은 업종·유형·키워드의 사례입니다. 잘된 대응은 따라 하고, 실패 사례는 피할 말과 시점을 확인하세요."
+        desc={`${pkg.caseTypeLabel ? `${pkg.caseTypeLabel}${pkg.caseTypeSource === "manual" ? "(직접 선택)" : "(자동 판별)"} 유형` : "업종"} 기준으로 찾은 사례입니다. 잘된 대응은 따라 하고, 실패 사례는 피할 말과 시점을 확인하세요.`}
       />
       <div className="grid gap-2.5 px-4 pb-4 sm:grid-cols-2">
         {similar.map(({ case: c, reasons }) => (
@@ -496,8 +500,11 @@ function SimilarCasesBlock({ pkg, onOpenCase }: { pkg: ResponsePackage; onOpenCa
 
 function CasePlaybookBlock({ pkg, onOpenCase }: { pkg: ResponsePackage; onOpenCase: (id: string) => void }) {
   const book = useMemo(
-    () => buildCasePlaybook(`${pkg.situation} ${pkg.eventLabel}`, pkg.industry),
-    [pkg.situation, pkg.eventLabel, pkg.industry],
+    () =>
+      buildCasePlaybook(`${pkg.situation} ${pkg.eventLabel}`, pkg.industry, {
+        types: pkg.caseType ? [pkg.caseType] : undefined,
+      }),
+    [pkg.situation, pkg.eventLabel, pkg.industry, pkg.caseType],
   );
   if (!book || book.phases.length === 0) return null;
   const { counts } = book;
@@ -633,7 +640,16 @@ export function PackageView({
                 {label}
               </span>
             ))}
-            <span className="chip border border-line bg-surface text-muted">{pkg.industryLabel}</span>
+            <span className="chip border border-line bg-surface text-muted">
+              {pkg.industryLabel}
+              {pkg.industrySource === "manual" && <span className="text-[10px] text-accent">직접 선택</span>}
+            </span>
+            {pkg.caseTypeLabel && (
+              <span className="chip border border-line bg-surface text-muted">
+                {pkg.caseTypeLabel}
+                <span className="text-[10px] text-faint">{pkg.caseTypeSource === "manual" ? "직접 선택" : "자동"}</span>
+              </span>
+            )}
             <span
               className={cx(
                 "chip",

@@ -1,4 +1,4 @@
-import type { CrisisCase, IndustryId } from "../types";
+import type { CaseType, CrisisCase, IndustryId } from "../types";
 import { findSimilarCases, type SimilarCase } from "./similar";
 
 export interface PhaseDef {
@@ -39,8 +39,12 @@ export interface CasePlaybook {
 const clip = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
 
 /** 비슷한 검수 완료 사례의 실제 대응을 집계해 단계별 순서와 근거를 만듭니다. */
-export function buildCasePlaybook(text: string, industry: IndustryId, limit = 8): CasePlaybook | null {
-  const cases = findSimilarCases(text, industry, { limit });
+export function buildCasePlaybook(
+  text: string,
+  industry: IndustryId,
+  opts: { limit?: number; types?: CaseType[] } = {},
+): CasePlaybook | null {
+  const cases = findSimilarCases(text, industry, { limit: opts.limit ?? 8, types: opts.types });
   if (cases.length < 2) return null;
   const counts = { exemplary: 0, mixed: 0, failure: 0 };
   for (const s of cases) counts[s.case.verdict] += 1;

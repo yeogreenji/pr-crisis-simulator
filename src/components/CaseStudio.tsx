@@ -474,6 +474,7 @@ export function CaseStudio({
           <div className="mt-2 flex flex-wrap gap-2">
             <button
               type="button"
+              data-testid="studio-export-copy"
               disabled={exportable.length === 0}
               onClick={async () => {
                 try {
@@ -500,10 +501,11 @@ export function CaseStudio({
             value={importText}
             onChange={(e) => setImportText(e.target.value)}
             rows={3}
+            data-testid="studio-import"
             placeholder="사례 JSON 배열을 붙여 넣으면 검토 대기 초안으로 가져옵니다."
             className="field mt-2 text-[12.5px]"
           />
-          <button type="button" onClick={importJson} disabled={!importText.trim()} className="btn btn-outline mt-2 h-8 px-2 text-[12.5px] disabled:opacity-50">
+          <button type="button" data-testid="studio-import-btn" onClick={importJson} disabled={!importText.trim()} className="btn btn-outline mt-2 h-8 px-2 text-[12.5px] disabled:opacity-50">
             <Upload size={12} /> 가져오기
           </button>
         </div>

@@ -1,27 +1,10 @@
 import type { CaseType, CrisisCase, IndustryId } from "../types";
 import { verifiedCases } from "./cases";
+import { classifyCaseTypes } from "./classify";
 
-/** 상황 문장에서 위기 유형을 추정하는 키워드 표 */
-const TYPE_PATTERNS: Record<CaseType, RegExp> = {
-  "product-safety": /이물|식중독|중금속|잔류|회수|리콜|부작용|결함|발화|독성|오염|부적합|기준치/,
-  "false-claim": /허위|과장|표시|광고|조작|리뷰|원산지|효능|효과/,
-  "data-breach": /개인정보|유출|해킹|랜섬|침해|계정|노출/,
-  outage: /장애|먹통|접속|서버|중단|마비|복구/,
-  "industrial-accident": /사망|끼임|추락|폭발|화재|중대재해|붕괴|산재|사고/,
-  disaster: /태풍|침수|지진|폭우|홍수|재난/,
-  "owner-risk": /회장|오너|총수|갑질|폭언|폭행|일가/,
-  labor: /노조|파업|해고|임금|파견|하청|근로/,
-  celebrity: /연예인|아티스트|배우|가수|아이돌|팬|소속사|음주|열애|학폭/,
-  financial: /정산|횡령|배임|환불|결제|자금|부도|지급/,
-  governance: /경영권|주주|분쟁|지배구조|이사회|인수/,
-  misconduct: /비위|부정|비리|담합|뇌물|리베이트/,
-  statement: /발언|막말|논란|사과문|SNS|게시물/,
-  environment: /누출|배출|민원|주민|환경|소음|분진/,
-  regulatory: /과징금|제재|조사|고발|처분|영업정지|검찰|공정위/,
-};
-
+/** 상황 문장에서 위기 유형을 추정합니다(가중치·우선순위 적용). */
 export function inferTypes(text: string): CaseType[] {
-  return (Object.keys(TYPE_PATTERNS) as CaseType[]).filter((t) => TYPE_PATTERNS[t].test(text));
+  return classifyCaseTypes(text);
 }
 
 export interface SimilarCase {
@@ -30,13 +13,23 @@ export interface SimilarCase {
   reasons: string[];
 }
 
-/** 같은 업종·같은 유형·겹치는 키워드가 많은 사례를 점수로 정렬해 돌려줍니다. */
-export function findSimilarCases(
-  text: string,
-  industry: IndustryId,
-  opts: { limit?: number; industries?: IndustryId[] } = {},
-): SimilarCase[] {
-  const types = inferTypes(text);
+export interface SimilarOptions {
+  limit?: number;
+  industries?: IndustryId[];
+  /** 사용자가 직접 고른 유형이 있으면 추정 대신 이 목록을 씁니다. */
+  types?: CaseType[];
+  /** 같은 업종만 맞아도 후보로 볼지 (유형을 못 정한 경우) */
+  minScore?: number;
+}
+
+/**
+ * 같은 업종·같은 유형·겹치는 키워드가 많은 사례를 점수로 정렬해 돌려줍니다.
+ * 유형이 정해지면 유형 일치(5점)가 최소 기준이 되어, 모든 유형에서 최소 3건이 잡힙니다.
+ */
+export function findSimilarCases(text: string, industry: IndustryId, opts: SimilarOptions = {}): SimilarCase[] {
+  const types = opts.types ?? inferTypes(text);
+  const limit = opts.limit ?? 4;
+  const threshold = opts.minScore ?? (types.length ? 5 : 4);
   const result: SimilarCase[] = [];
   for (const c of verifiedCases()) {
     let score = 0;
@@ -46,6 +39,7 @@ export function findSimilarCases(
       reasons.push("같은 업종");
     } else if (opts.industries?.includes(c.industry)) {
       score += 2;
+      reasons.push("인접 업종");
     }
     if (types.includes(c.type)) {
       score += 5;
@@ -56,8 +50,8 @@ export function findSimilarCases(
       score += Math.min(hit.length, 3) * 2;
       reasons.push(`키워드 ${hit.slice(0, 3).join("·")}`);
     }
-    if (score >= 5) result.push({ case: c, score, reasons });
+    if (score >= threshold) result.push({ case: c, score, reasons });
   }
   result.sort((a, b) => b.score - a.score || b.case.date.localeCompare(a.case.date));
-  return result.slice(0, opts.limit ?? 4);
+  return result.slice(0, limit);
 }

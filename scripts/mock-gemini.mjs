@@ -12,6 +12,9 @@ import { buildPackageResult, REVIEW_RESULT } from "./mock-result.mjs";
 
 const port = Number(process.env.PORT || 4196);
 const capture = process.env.MOCK_CAPTURE || "";
+/** MOCK_503_TIMES=2면 처음 두 generateContent 요청에 503을 돌려줍니다(재시도 검증용). */
+let fail503Left = Number(process.env.MOCK_503_TIMES || 0);
+let requestCount = 0;
 
 const send = (res, status, payload) => {
   res.statusCode = status;
@@ -40,6 +43,12 @@ const server = http.createServer((req, res) => {
       send(res, 500, { error: { message: "mock gemini upstream failure" } });
       return;
     }
+    requestCount += 1;
+    if (fail503Left > 0) {
+      fail503Left -= 1;
+      send(res, 503, { error: { message: "mock gemini overloaded (503)" } });
+      return;
+    }
 
     let body = {};
     try {
@@ -62,7 +71,7 @@ const server = http.createServer((req, res) => {
     if (capture) {
       writeFileSync(
         capture,
-        JSON.stringify({ model, key: key.slice(0, 8), system, user, body }, null, 2),
+        JSON.stringify({ model, key: key.slice(0, 8), system, user, body, requestCount }, null, 2),
         "utf-8",
       );
     }
