@@ -160,6 +160,17 @@ const TYPE_RULES: Record<CaseType, WeightedRule[]> = {
     { re: /과징금|제재|처분|영업정지|시정명령|공정위|방통위|금감원|검찰|고발/g, w: 2 },
     { re: /조사|위반|행정/g, w: 1 },
   ],
+  pricing: [
+    {
+      re: /가격\s?(?:을|를)?\s?(?:인상|올리|올려|올린)|요금\s?(?:을|를)?\s?(?:인상|올리|올린)|구독료\s?(?:인상|조정|개편|변경)|멤버십\s?(?:요금|회비|가격)|요금제\s?(?:개편|변경|인상|출시)|가격표|판가|출고가|인상률|가격\s?인상안/g,
+      w: 3,
+    },
+    {
+      re: /인상|가격\s?(?:조정|개편|변경|논란|저항|반발)|요금\s?(?:조정|개편|변경|논란|저항|반발)|수수료\s?(?:인상|개편|변경|논란)|배달비|중개수수료|할인\s?(?:축소|종료)|무료\s?(?:서비스\s?)?(?:종료|유료)/g,
+      w: 2,
+    },
+    { re: /구독|멤버십|프리미엄\s?요금|정기\s?결제|가입자|해지|가격\s?비교/g, w: 1 },
+  ],
 };
 
 /** 동점일 때 더 구체적인 유형이 이기도록 하는 순서 */
@@ -174,6 +185,7 @@ const TYPE_PRIORITY: CaseType[] = [
   "celebrity",
   "owner-risk",
   "financial",
+  "pricing",
   "governance",
   "misconduct",
   "regulatory",
@@ -229,6 +241,7 @@ export const CASE_TYPE_EVENT: Record<CaseType, { label: string; risk: "높음" |
   statement: { label: "발언·광고 논란", risk: "보통" },
   environment: { label: "환경·오염 논란", risk: "높음" },
   regulatory: { label: "규제·제재", risk: "높음" },
+  pricing: { label: "가격·요금 인상 논란", risk: "보통" },
 };
 
 export function detectEvent(text: string): { label: string; risk: "높음" | "보통" | "낮음"; type?: CaseType } {

@@ -7,6 +7,7 @@ import type { CrisisCase } from "../types";
 import { normalizeCase } from "./case-store";
 import { findSimilarCases } from "./similar";
 import { CASE_VERDICT_LABEL } from "./cases";
+import { getProtocol, STAGE_META, SCALE_META, type IssueBrief } from "./issue-protocols";
 
 const BASE = import.meta.env.BASE_URL || "/";
 export const ANALYZE_ENDPOINT = `${BASE.replace(/\/+$/, "")}/api/analyze`;
@@ -136,6 +137,7 @@ export function buildAiContext(pkg: ResponsePackage): Record<string, string> {
     })
     .join("\n\n");
 
+  // 관련도가 엄격한 기준을 넘는 사례만 보냅니다. 없으면 빈 문자열 → 프롬프트가 표준 프로토콜을 씁니다.
   const similar = findSimilarCases(`${pkg.situation} ${pkg.eventLabel}`, pkg.industry, {
     limit: 5,
     types: pkg.caseType ? [pkg.caseType] : undefined,
@@ -153,11 +155,30 @@ export function buildAiContext(pkg: ResponsePackage): Record<string, string> {
     })
     .join("\n\n");
 
+  const protocol = getProtocol(pkg.caseType);
+  const protocolDigest = protocol
+    ? [
+        `■ ${protocol.label} — ${protocol.summary}`,
+        `핵심 쟁점: ${protocol.issues.map((i) => `${i.title}(${i.detail})`).join(" / ")}`,
+        `반드시 숫자로 알릴 것: ${protocol.facts.join(" / ")}`,
+        `보호·완화 조치: ${protocol.measures.join(" / ")}`,
+        `언론 보도 포인트: ${protocol.mediaPoints.join(" / ")}`,
+        `금기: ${protocol.banned.map((b) => b.phrase).join(", ")}`,
+        `함정: ${protocol.watchouts.join(" / ")}`,
+      ].join("\n")
+    : "";
+
+  const stageLine = pkg.stage
+    ? `현재 단계: ${STAGE_META[pkg.stage].label} — ${STAGE_META[pkg.stage].note}`
+    : "";
+  const scaleLine = pkg.scale ? `기업 규모: ${SCALE_META[pkg.scale].label} — ${SCALE_META[pkg.scale].note}` : "";
+
   return {
     industryLabel: industry.label,
-    playbook: playbook.slice(0, 3_000),
-    entityDigest: entityDigest.slice(0, 2_500),
+    playbook: playbook.slice(0, 2_600),
+    entityDigest: entityDigest.slice(0, 2_000),
     caseTypeLabel: pkg.caseTypeLabel ?? (pkg.caseType ? pkg.caseType : "자동 판별 불가"),
+    protocolDigest: [protocolDigest, stageLine, scaleLine].filter(Boolean).join("\n").slice(0, 3_500),
     caseDigest: caseDigest.slice(0, 3_500),
   };
 }
@@ -314,6 +335,38 @@ function mergeStakeholders(base: StakeholderPlan[], raw: unknown): StakeholderPl
   return out;
 }
 
+function mergeIssueBrief(base: IssueBrief | undefined, raw: unknown): IssueBrief | undefined {
+  const row = asRecord(raw);
+  if (!row) return base;
+  const issues = (Array.isArray(row.issues) ? row.issues : [])
+    .map((item) => {
+      const rec = asRecord(item);
+      if (!rec) return null;
+      const title = str(rec.title, 120);
+      const detail = str(rec.detail ?? rec.why ?? rec.description, 600);
+      return title && detail ? { title, detail } : null;
+    })
+    .filter((v): v is { title: string; detail: string } => Boolean(v))
+    .slice(0, 7);
+  const facts = strList(row.factsToConfirm ?? row.facts, 8, 300);
+  const media = strList(row.mediaPoints, 6, 300);
+  const assumptions = strList(row.assumptions, 5, 300);
+  const summary = str(row.summary, 500);
+  if (!issues.length && !facts.length && !summary) return base;
+  return {
+    label: base?.label ?? str(row.label, 60) ?? "이슈 유형",
+    summary: summary || base?.summary || "",
+    stageLabel: base?.stageLabel,
+    scaleLabel: base?.scaleLabel,
+    stageNote: base?.stageNote,
+    scaleNote: base?.scaleNote,
+    issues: issues.length ? issues : base?.issues ?? [],
+    factsToConfirm: facts.length ? facts : base?.factsToConfirm ?? [],
+    mediaPoints: media.length ? media : base?.mediaPoints ?? [],
+    assumptions: assumptions.length ? assumptions : base?.assumptions ?? [],
+  };
+}
+
 function mergeOutlook(base: ResponsePackage["outlook"], raw: unknown): ResponsePackage["outlook"] {
   const row = asRecord(raw);
   if (!row) return base;
@@ -364,6 +417,7 @@ export function mergePackage(
     stakeholders: mergeStakeholders(base.stakeholders, row.stakeholders),
     outlook: mergeOutlook(base.outlook, row.outlook),
     watchouts: strList(row.watchouts, 4, 300).length ? strList(row.watchouts, 4, 300) : base.watchouts,
+    issueBrief: mergeIssueBrief(base.issueBrief, row.issueBrief),
     fetch: source ?? base.fetch,
     ai: { model: meta.model, latencyMs: meta.latencyMs, provider: meta.provider },
   };
@@ -432,6 +486,10 @@ export async function requestPackage(base: ResponsePackage, options: RequestOpti
       brand: base.brand,
       stance: base.stance,
       entities: base.entities,
+      caseType: base.caseType ?? "auto",
+      stage: base.stage,
+      scale: base.scale,
+      issueBrief: base.issueBrief,
       context: buildAiContext(base),
     },
     options,

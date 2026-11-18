@@ -6,7 +6,7 @@ const REVIEW_KEY = "prism.cases.review.v1";
 export const INDUSTRY_IDS: IndustryId[] = ["food", "retail", "consumer", "tech", "steel", "entertainment", "construction", "pharma"];
 export const CASE_TYPES: CaseType[] = [
   "product-safety", "false-claim", "data-breach", "outage", "industrial-accident", "disaster", "owner-risk",
-  "labor", "celebrity", "financial", "governance", "misconduct", "statement", "environment", "regulatory",
+  "labor", "celebrity", "financial", "governance", "misconduct", "statement", "environment", "regulatory", "pricing",
 ];
 const STANCES: CaseStance[] = ["apology", "investigating", "rebuttal", "silence"];
 const VERDICTS: CaseVerdict[] = ["exemplary", "mixed", "failure"];

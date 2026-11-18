@@ -741,6 +741,7 @@ export const CASE_TYPE_LABEL: Record<CaseType, string> = {
   statement: "발언·광고 논란",
   environment: "환경·주민",
   regulatory: "규제·제재",
+  pricing: "가격·요금 인상",
 };
 
 export const CASE_STANCE_LABEL: Record<CaseStance, string> = {

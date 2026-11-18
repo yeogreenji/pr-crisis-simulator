@@ -24,6 +24,7 @@ import {
   actionsToText,
   countPlaceholders,
   getStance,
+  packageToMarkdown,
   packageToText,
   statementToText,
   type ActionGroup,
@@ -31,6 +32,7 @@ import {
   type ResponsePackage,
   type Statement,
 } from "../lib/package";
+import { getProtocol } from "../lib/issue-protocols";
 import { ENTITY_PROFILES } from "../lib/profiles";
 import { findSimilarCases } from "../lib/similar";
 import { buildCasePlaybook } from "../lib/case-playbook";
@@ -70,6 +72,98 @@ function BlockHeader({
       </div>
       {copy && <CopyButton text={copy} label="블록 전체 복사" className="btn btn-outline h-7 shrink-0 px-2 text-[12.5px]" />}
     </div>
+  );
+}
+
+function IssueBriefBlock({ pkg }: { pkg: ResponsePackage }) {
+  const brief = pkg.issueBrief;
+  if (!brief) return null;
+  return (
+    <section className="card overflow-hidden" data-testid="block-issue-brief">
+      <div className="flex flex-wrap items-start gap-3 border-b border-line bg-[#fbfbf8] px-4 py-3.5 sm:px-5">
+        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-accent text-[12px] font-semibold text-white">
+          00
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <h2 className="text-[14px] font-semibold tracking-[-0.02em] text-ink">쟁점 확장 — 이 상황을 이렇게 읽었습니다</h2>
+            <span className="chip border border-accent/20 bg-accent-soft px-1.5 py-0 text-[11.5px] text-accent-deep">{brief.label}</span>
+            {brief.stageLabel && <span className="chip border border-line bg-white px-1.5 py-0 text-[11.5px] text-muted">{brief.stageLabel}</span>}
+            {brief.scaleLabel && <span className="chip border border-line bg-white px-1.5 py-0 text-[11.5px] text-muted">{brief.scaleLabel}</span>}
+          </div>
+          <p className="mt-1 text-[13px] leading-[1.7] text-ink-2">{brief.summary}</p>
+          {brief.stageNote && (
+            <p className="mt-1 text-[12px] leading-relaxed text-faint">
+              <span className="font-semibold text-muted">단계</span> · {brief.stageNote}
+            </p>
+          )}
+          {brief.scaleNote && (
+            <p className="mt-0.5 text-[12px] leading-relaxed text-faint">
+              <span className="font-semibold text-muted">규모</span> · {brief.scaleNote}
+            </p>
+          )}
+        </div>
+      </div>
+      <div className="grid gap-0 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
+        <div className="px-4 py-3.5 sm:px-5">
+          <div className="flex items-center gap-1.5">
+            <Target size={12} className="text-muted" />
+            <span className="text-[12.5px] font-semibold text-ink">먼저 잡아야 할 쟁점 {brief.issues.length}개</span>
+          </div>
+          <ol className="mt-2 grid gap-2 sm:grid-cols-2">
+            {brief.issues.map((issue, i) => (
+              <li key={issue.title} className="rounded-xl border border-line bg-[#fcfcfa] px-3 py-2.5">
+                <div className="flex items-start gap-2">
+                  <span className="num mt-[1px] text-[11.5px] font-semibold text-accent">{String(i + 1).padStart(2, "0")}</span>
+                  <div className="min-w-0">
+                    <div className="text-[13px] font-semibold text-ink">{issue.title}</div>
+                    <p className="mt-0.5 text-[12.5px] leading-relaxed text-muted">{issue.detail}</p>
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </div>
+        <div className="border-t border-line px-4 py-3.5 sm:px-5 lg:border-l lg:border-t-0">
+          <div className="flex items-center gap-1.5">
+            <ClipboardList size={12} className="text-warn" />
+            <span className="text-[12.5px] font-semibold text-ink">숫자로 채워야 할 항목</span>
+          </div>
+          <ul className="mt-1.5 space-y-1">
+            {brief.factsToConfirm.map((fact) => (
+              <li key={fact} className="flex gap-1.5 text-[12px] leading-relaxed text-ink-2">
+                <span className="mt-[6px] h-1 w-1 shrink-0 rounded-full bg-warn/70" />
+                <span>{fact}</span>
+              </li>
+            ))}
+          </ul>
+          <div className="mt-3 flex items-center gap-1.5">
+            <Newspaper size={12} className="text-muted" />
+            <span className="text-[12.5px] font-semibold text-ink">언론이 파고들 지점</span>
+          </div>
+          <ul className="mt-1.5 space-y-1">
+            {brief.mediaPoints.map((point) => (
+              <li key={point} className="flex gap-1.5 text-[12px] leading-relaxed text-muted">
+                <span className="mt-[6px] h-1 w-1 shrink-0 rounded-full bg-faint" />
+                <span>{point}</span>
+              </li>
+            ))}
+          </ul>
+          {brief.assumptions.length > 0 && (
+            <div className="mt-3 rounded-lg border border-line bg-white px-2.5 py-2">
+              <span className="text-[11.5px] font-semibold text-faint">입력에 없어 가정한 부분</span>
+              <ul className="mt-1 space-y-0.5">
+                {brief.assumptions.map((a) => (
+                  <li key={a} className="text-[11.5px] leading-relaxed text-muted">
+                    · {a}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -467,33 +561,78 @@ function SimilarCasesBlock({ pkg, onOpenCase }: { pkg: ResponsePackage; onOpenCa
       }),
     [pkg.situation, pkg.eventLabel, pkg.industry, pkg.caseType],
   );
-  if (similar.length === 0) return null;
+  const protocol = getProtocol(pkg.caseType);
   return (
     <section className="card overflow-hidden" data-testid="block-similar">
       <BlockHeader
         n="06"
         icon={BookOpen}
-        title="비슷한 실제 사례와 교훈"
-        desc={`${pkg.caseTypeLabel ? `${pkg.caseTypeLabel}${pkg.caseTypeSource === "manual" ? "(직접 선택)" : "(자동 판별)"} 유형` : "업종"} 기준으로 찾은 사례입니다. 잘된 대응은 따라 하고, 실패 사례는 피할 말과 시점을 확인하세요.`}
+        title={similar.length ? "같은 유형의 실제 사례" : "표준 대응 프로토콜"}
+        desc={
+          similar.length
+            ? `${pkg.caseTypeLabel ? `${pkg.caseTypeLabel}${pkg.caseTypeSource === "manual" ? "(직접 선택)" : "(자동 판별)"} 유형` : "업종"}과 업종·키워드가 맞는 사례만 골랐습니다. 잘된 대응은 따라 하고, 실패 사례는 피할 말과 시점을 확인하세요.`
+            : "관련도 기준(같은 유형 + 같은 업종 또는 키워드)을 넘는 검수 완료 사례가 없습니다. 무관한 사례를 붙이는 대신, 이 유형의 표준 절차를 그대로 적용합니다."
+        }
       />
-      <div className="grid gap-2.5 px-4 pb-4 sm:grid-cols-2">
-        {similar.map(({ case: c, reasons }) => (
-          <button
-            key={c.id}
-            type="button"
-            onClick={() => onOpenCase(c.id)}
-            className="rounded-xl border border-line bg-white p-3 text-left transition-colors hover:border-ink/40"
-          >
+      {similar.length > 0 ? (
+        <div className="grid gap-2.5 px-4 pb-4 sm:grid-cols-2">
+          {similar.map(({ case: c, reasons }) => (
+            <button
+              key={c.id}
+              type="button"
+              data-testid={`similar-case-${c.type}`}
+              onClick={() => onOpenCase(c.id)}
+              className="rounded-xl border border-line bg-white p-3 text-left transition-colors hover:border-ink/40"
+            >
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className={cx("chip px-1.5 py-0 text-[13px]", SIMILAR_VERDICT_STYLE[c.verdict])}>{CASE_VERDICT_LABEL[c.verdict]}</span>
+                <span className="text-[13px] text-faint">{CASE_TYPE_LABEL[c.type]} · {c.date}</span>
+              </div>
+              <div className="mt-1.5 text-[13.5px] font-semibold leading-snug text-ink">{c.title}</div>
+              <p className="mt-1 line-clamp-3 text-[14px] leading-relaxed text-muted">{c.lesson}</p>
+              <div className="mt-1.5 text-[13px] text-accent">{reasons.join(" · ")} · 전체 보기 →</div>
+            </button>
+          ))}
+        </div>
+      ) : protocol ? (
+        <div className="px-4 pb-4 sm:px-5" data-testid="protocol-fallback">
+          <div className="rounded-xl border border-accent/20 bg-accent-soft/60 px-3.5 py-3">
             <div className="flex flex-wrap items-center gap-1.5">
-              <span className={cx("chip px-1.5 py-0 text-[13px]", SIMILAR_VERDICT_STYLE[c.verdict])}>{CASE_VERDICT_LABEL[c.verdict]}</span>
-              <span className="text-[13px] text-faint">{CASE_TYPE_LABEL[c.type]} · {c.date}</span>
+              <span className="chip bg-white px-1.5 py-0 text-[12px] font-semibold text-accent-deep">{protocol.label} 표준 프로토콜</span>
+              <span className="text-[12px] text-accent-deep/70">검수 사례가 쌓이면 이 자리에 실제 사례가 표시됩니다</span>
             </div>
-            <div className="mt-1.5 text-[13.5px] font-semibold leading-snug text-ink">{c.title}</div>
-            <p className="mt-1 line-clamp-3 text-[14px] leading-relaxed text-muted">{c.lesson}</p>
-            <div className="mt-1.5 text-[13px] text-accent">{reasons.join(" · ")} · 전체 보기 →</div>
-          </button>
-        ))}
-      </div>
+            <p className="mt-1.5 text-[13px] leading-relaxed text-ink-2">{protocol.summary}</p>
+          </div>
+          <div className="mt-2 grid gap-2 sm:grid-cols-2">
+            <div className="rounded-xl border border-line bg-[#fcfcfa] p-3">
+              <div className="text-[12.5px] font-semibold text-ink">반드시 숫자로 알릴 것</div>
+              <ul className="mt-1 space-y-1">
+                {protocol.facts.map((f) => (
+                  <li key={f} className="flex gap-1.5 text-[12.5px] leading-relaxed text-ink-2">
+                    <span className="mt-[6px] h-1 w-1 shrink-0 rounded-full bg-warn/70" />
+                    <span>{f}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="rounded-xl border border-line bg-[#fcfcfa] p-3">
+              <div className="text-[12.5px] font-semibold text-ink">고객·거래처 보호 조치</div>
+              <ul className="mt-1 space-y-1">
+                {protocol.measures.map((m) => (
+                  <li key={m} className="flex gap-1.5 text-[12.5px] leading-relaxed text-ink-2">
+                    <span className="mt-[6px] h-1 w-1 shrink-0 rounded-full bg-ok/70" />
+                    <span>{m}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="px-4 pb-4 text-[12.5px] text-muted sm:px-5">
+          이 유형은 아직 검수 사례가 없습니다. 업종 매뉴얼과 01~05 블록을 기준으로 대응하세요.
+        </div>
+      )}
     </section>
   );
 }
@@ -506,62 +645,102 @@ function CasePlaybookBlock({ pkg, onOpenCase }: { pkg: ResponsePackage; onOpenCa
       }),
     [pkg.situation, pkg.eventLabel, pkg.industry, pkg.caseType],
   );
-  if (!book || book.phases.length === 0) return null;
-  const { counts } = book;
-  const basis =
-    counts.exemplary > 0
-      ? `유사 사례 ${book.cases.length}건(모범 ${counts.exemplary}·혼합 ${counts.mixed}·실패 ${counts.failure}) 중 모범 사례의 절반 이상이 실행한 단계에 ★를 붙였습니다.`
-      : `유사 사례 ${book.cases.length}건 중 모범 사례가 없어, 절반 이상이 실행한 단계에 ★를 붙였습니다.`;
+  const protocol = getProtocol(pkg.caseType);
+  if (!book && !protocol) return null;
   return (
     <section className="card overflow-hidden" data-testid="block-playbook">
       <BlockHeader
         n="07"
         icon={ListChecks}
-        title="유사 사례에서 뽑은 대응 순서"
-        desc={`${basis} 사례 대응 문장을 키워드로 분류한 집계이므로 실행 전 원 사례를 확인하세요.`}
+        title={book ? "같은 유형 사례에서 뽑은 대응 순서" : `${protocol?.label ?? ""} 표준 대응 순서`}
+        desc={
+          book
+            ? (() => {
+                const { counts } = book;
+                return counts.exemplary > 0
+                  ? `같은 유형 사례 ${book.cases.length}건(모범 ${counts.exemplary}·혼합 ${counts.mixed}·실패 ${counts.failure}) 중 모범 사례의 절반 이상이 실행한 단계에 ★를 붙였습니다.`
+                  : `같은 유형 사례 ${book.cases.length}건 중 모범 사례가 없어, 절반 이상이 실행한 단계에 ★를 붙였습니다.`;
+              })()
+            : "관련 사례가 부족해 사례를 억지로 끌어오지 않았습니다. 이 유형에서 검증된 표준 실행 순서를 그대로 씁니다."
+        }
       />
-      <ol className="space-y-2 px-4 pb-4 sm:px-5">
-        {book.phases.map(({ phase, doers, core }, i) => (
-          <li key={phase.id} className="rounded-xl border border-line bg-white p-3" data-testid={`playbook-phase-${phase.id}`}>
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="num grid h-6 w-6 place-items-center rounded-md bg-paper-deep text-[12px] font-semibold text-ink">{i + 1}</span>
-              <span className="text-[14px] font-semibold text-ink">
-                {core && <span className="mr-1 text-warn">★</span>}
-                {phase.label}
-              </span>
-              <span className="ml-auto text-[12.5px] text-muted">
-                {doers.length}/{book.cases.length}건에서 실행
-              </span>
-            </div>
-            <p className="mt-1 text-[13.5px] leading-relaxed text-ink-2">{phase.advice}</p>
-            <ul className="mt-1.5 space-y-1">
-              {doers.slice(0, 2).map(({ c, line }) => (
-                <li key={c.id} className="text-[13px] leading-relaxed text-muted">
-                  <button type="button" onClick={() => onOpenCase(c.id)} className="font-medium text-accent hover:underline">
-                    {c.company}
-                  </button>
-                  <span className={cx("chip ml-1 px-1.5 py-0 text-[12px]", SIMILAR_VERDICT_STYLE[c.verdict])}>{CASE_VERDICT_LABEL[c.verdict]}</span>
-                  <span className="ml-1">{line}</span>
-                </li>
-              ))}
-            </ul>
-          </li>
-        ))}
-      </ol>
-      {book.pitfalls.length > 0 && (
-        <div className="mx-4 mb-4 rounded-xl border border-warn/30 bg-warn-soft px-3.5 py-3 sm:mx-5">
-          <div className="text-[13px] font-semibold text-warn">반복된 실수</div>
-          <ul className="mt-1 space-y-1">
-            {book.pitfalls.map(({ c, text }) => (
-              <li key={c.id} className="text-[13px] leading-relaxed text-ink-2">
-                <button type="button" onClick={() => onOpenCase(c.id)} className="font-medium text-accent hover:underline">
-                  {c.company}
-                </button>
-                <span className="ml-1">{text}</span>
+      {book ? (
+        <>
+          <ol className="space-y-2 px-4 pb-4 sm:px-5">
+            {book.phases.map(({ phase, doers, core }, i) => (
+              <li key={phase.id} className="rounded-xl border border-line bg-white p-3" data-testid={`playbook-phase-${phase.id}`}>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="num grid h-6 w-6 place-items-center rounded-md bg-paper-deep text-[12px] font-semibold text-ink">{i + 1}</span>
+                  <span className="text-[14px] font-semibold text-ink">
+                    {core && <span className="mr-1 text-warn">★</span>}
+                    {phase.label}
+                  </span>
+                  <span className="ml-auto text-[12.5px] text-muted">
+                    {doers.length}/{book.cases.length}건에서 실행
+                  </span>
+                </div>
+                <p className="mt-1 text-[13.5px] leading-relaxed text-ink-2">{phase.advice}</p>
+                <ul className="mt-1.5 space-y-1">
+                  {doers.slice(0, 2).map(({ c, line }) => (
+                    <li key={c.id} className="text-[13px] leading-relaxed text-muted">
+                      <button type="button" onClick={() => onOpenCase(c.id)} className="font-medium text-accent hover:underline">
+                        {c.company}
+                      </button>
+                      <span className={cx("chip ml-1 px-1.5 py-0 text-[12px]", SIMILAR_VERDICT_STYLE[c.verdict])}>{CASE_VERDICT_LABEL[c.verdict]}</span>
+                      <span className="ml-1">{line}</span>
+                    </li>
+                  ))}
+                </ul>
               </li>
             ))}
-          </ul>
-        </div>
+          </ol>
+          {book.pitfalls.length > 0 && (
+            <div className="mx-4 mb-4 rounded-xl border border-warn/30 bg-warn-soft px-3.5 py-3 sm:mx-5">
+              <div className="text-[13px] font-semibold text-warn">반복된 실수</div>
+              <ul className="mt-1 space-y-1">
+                {book.pitfalls.map(({ c, text }) => (
+                  <li key={c.id} className="text-[13px] leading-relaxed text-ink-2">
+                    <button type="button" onClick={() => onOpenCase(c.id)} className="font-medium text-accent hover:underline">
+                      {c.company}
+                    </button>
+                    <span className="ml-1">{text}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </>
+      ) : (
+        protocol && (
+          <ol className="space-y-2 px-4 pb-4 sm:px-5">
+            {protocol.roadmap.map((phase, i) => (
+              <li key={phase.title} className="rounded-xl border border-line bg-white p-3" data-testid={`playbook-phase-step-${i}`}>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="num grid h-6 w-6 place-items-center rounded-md bg-paper-deep text-[12px] font-semibold text-ink">{i + 1}</span>
+                  <span className="text-[14px] font-semibold text-ink">{["1시간", "6시간", "24시간~"][i]} · {phase.title}</span>
+                  <span className="ml-auto text-[12px] text-muted">통과 기준: {phase.gate}</span>
+                </div>
+                <p className="mt-1 text-[13.5px] leading-relaxed text-ink-2">{phase.goal}</p>
+                <ul className="mt-1.5 space-y-1">
+                  {phase.items.map((item) => (
+                    <li key={item} className="flex gap-1.5 text-[13px] leading-relaxed text-muted">
+                      <span className="mt-[6px] h-1 w-1 shrink-0 rounded-full bg-ink/30" />
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </li>
+            ))}
+            <li className="rounded-xl border border-warn/30 bg-warn-soft px-3.5 py-3">
+              <div className="text-[13px] font-semibold text-warn">이 유형에서 반복되는 실수</div>
+              <ul className="mt-1 space-y-1">
+                {protocol.watchouts.map((w) => (
+                  <li key={w} className="text-[13px] leading-relaxed text-ink-2">· {w}</li>
+                ))}
+              </ul>
+            </li>
+          </ol>
+        )
       )}
     </section>
   );
@@ -599,6 +778,15 @@ export function PackageView({
     }
   };
 
+  const copyMarkdown = async () => {
+    try {
+      await navigator.clipboard.writeText(packageToMarkdown(pkg));
+      onNotice("팀 공유용 마크다운을 복사했습니다. 노션·슬랙에 붙여넣으세요.");
+    } catch {
+      onNotice("복사가 막혀 있습니다. 브라우저 권한을 확인해 주세요.");
+    }
+  };
+
   return (
     <div className="mx-auto w-full max-w-[960px] px-3 pb-20 pt-0 sm:px-5">
       <div className="sticky top-0 z-30 -mx-3 mb-3 flex items-center gap-2 border-b border-line bg-paper/95 px-3 py-2 backdrop-blur print:hidden sm:-mx-5 sm:px-5">
@@ -619,8 +807,22 @@ export function PackageView({
           >
             <Copy size={12} /> <span className="hidden sm:inline">전체 복사</span>
           </button>
-          <button type="button" onClick={() => window.print()} className="btn btn-outline h-8 px-2 text-[12.5px]">
-            <Printer size={12} /> <span className="hidden sm:inline">인쇄</span>
+          <button
+            type="button"
+            onClick={copyMarkdown}
+            data-testid="copy-markdown"
+            className="btn btn-outline h-8 px-2 text-[12.5px]"
+          >
+            <ClipboardList size={12} /> <span className="hidden sm:inline">Markdown</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => window.print()}
+            data-testid="print-pdf"
+            className="btn btn-outline h-8 px-2 text-[12.5px]"
+            title="인쇄 대화상자에서 ‘PDF로 저장’을 선택하세요"
+          >
+            <Printer size={12} /> <span className="hidden sm:inline">PDF 저장</span>
           </button>
         </div>
       </div>
@@ -658,6 +860,12 @@ export function PackageView({
             >
               {pkg.mode === "ai" ? `실시간 AI${pkg.ai?.model ? ` · ${pkg.ai.model}` : ""}` : "매뉴얼 엔진"}
             </span>
+            {pkg.issueBrief?.stageLabel && (
+              <span className="chip border border-line bg-surface text-muted">단계 · {pkg.issueBrief.stageLabel}</span>
+            )}
+            {pkg.issueBrief?.scaleLabel && (
+              <span className="chip border border-line bg-surface text-muted">규모 · {pkg.issueBrief.scaleLabel}</span>
+            )}
           </div>
 
           <h1 className="mt-2.5 text-[20px] font-semibold leading-[1.28] tracking-[-0.035em] text-ink sm:text-[27px]">
@@ -709,6 +917,7 @@ export function PackageView({
         </div>
 
         <div className="mt-3 space-y-2.5">
+          <IssueBriefBlock pkg={pkg} />
           <Overview pkg={pkg} />
 
           <div className="flex items-center gap-2 px-1 pt-1">

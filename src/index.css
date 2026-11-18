@@ -355,6 +355,23 @@
   .btn {
     display: none;
   }
+  .animate-rise {
+    animation: none !important;
+  }
+  section.card {
+    page-break-inside: avoid;
+  }
+  section.card:nth-of-type(n + 3) {
+    page-break-before: auto;
+  }
+  h1,
+  h2 {
+    break-after: avoid;
+  }
+  .whitespace-pre-wrap {
+    font-size: 10.5pt;
+    line-height: 1.55;
+  }
 }
 
 @media print {

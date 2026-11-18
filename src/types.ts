@@ -94,7 +94,8 @@ export type CaseType =
   | "misconduct"
   | "statement"
   | "environment"
-  | "regulatory";
+  | "regulatory"
+  | "pricing";
 
 /** 위기 초기에 기업이 취한 입장 */
 export type CaseStance = "apology" | "investigating" | "rebuttal" | "silence";

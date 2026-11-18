@@ -27,7 +27,9 @@ const OPENAI_MODEL = "gpt-4o-mini";
 const GEMINI_MODEL = (ENV.GEMINI_MODEL || "").trim() || "gemini-3.5-flash-lite";
 const MAX_SITUATION_CHARS = 8_000;
 const MAX_DRAFT_CHARS = 8_000;
-const MIN_INPUT_CHARS = 8;
+/** "가격 인상"처럼 4~15자 키워드만 넣어도 분석합니다. */
+const MIN_PACKAGE_CHARS = 4;
+const MIN_REVIEW_CHARS = 20;
 const UPSTREAM_TIMEOUT_MS = 55_000;
 const ARTICLE_TIMEOUT_MS = 12_000;
 const ARTICLE_MAX_BYTES = 1_800_000;
@@ -43,6 +45,46 @@ type Stance = "apology" | "investigating" | "rebuttal";
 type Mode = "package" | "review" | "case";
 
 const isGeminiKey = (key: string): boolean => key.length > 0 && !key.startsWith("sk-");
+
+/** 이슈 유형별 서버 지침 — 클라이언트 컨텍스트가 없어도 유형 차이가 남도록. */
+const TYPE_GUIDE: Record<string, { label: string; directive: string; banned: string }> = {
+  pricing: {
+    label: "가격·요금 인상",
+    directive:
+      "인상 시점·폭·적용 대상·기존 고객 적용일 네 숫자를 먼저 확정하세요. 명분(원가·환율·인건비·투자)은 인상률과 비교한 수치로만 말하고, 기존 고객 유예·동결·할인, 해지·환불·위약금 처리, 경쟁사·대안 요금제 비교표를 반드시 포함하세요. 커뮤니티의 ‘월 N원=연 N만원’ 환산, 해지 인증, 총선·실적 발표 직후 타이밍 보도를 예상해 Q&A를 만드세요. 규제(공정위·방통위·소비자원, 약관 고지)도 확인하세요.",
+    banned: "숫자 없는 ‘원가 상승으로 불가피’, ‘고객님들의 이해를 부탁드립니다’, 검증 없는 ‘업계 평균보다 낮다’, ‘서비스 개선을 위해’",
+  },
+  "product-safety": {
+    label: "제품·서비스 안전",
+    directive: "사용 중단·회수 범위(로트·유통기한·채널), 검사 기관·항목·결과 공개 시각, 2차 유통 추적, 환불 창구를 첫 시간에 확정하세요.",
+    banned: "‘단순한 이물’, ‘섭취해도 문제없다’, 범위 없는 ‘전량 회수’",
+  },
+  "false-claim": {
+    label: "허위·과장·조작",
+    directive: "문제 문장을 원문으로 특정하고, 사실관계·검증 근거, 게시 중단·정정 노출, 환불 기준, 규제 대응을 함께 내세요.",
+    banned: "‘오해의 소지’, ‘일부 표현이 부적절’, ‘법적 문제없다’",
+  },
+  "data-breach": {
+    label: "개인정보·보안",
+    directive: "침해 경로 차단·세션 무효화, 유출 항목·규모·기간, 정보주체 통지와 개인정보보호위원회/KISA 신고(1,000명 이상·민감정보 72시간), 비밀번호 재설정·2단계 인증을 포함하세요.",
+    banned: "‘유출 아니다’, ‘규모 미미’, ‘해킹 시도는 흔한 일’",
+  },
+  outage: {
+    label: "서비스 장애",
+    directive: "발생·인지·복구 시각, 영향 범위(기능·지역·이용자), 데이터 손실 여부, 보상 기준과 재발 방지 보고서 일정을 포함하세요.",
+    banned: "‘일시적 오류’, ‘정상화됐다’만 반복, 확인 전 외부 공격 단정",
+  },
+  labor: {
+    label: "노사·고용",
+    directive: "교섭 일정·쟁점, 안전·처우 사실관계, 고객·거래처 영향과 대체 계획, 노동청 대응 창구를 포함하세요.",
+    banned: "‘생산 차질 없다’만 반복, ‘내부 사정’, ‘법대로 하겠다’",
+  },
+  regulatory: {
+    label: "규제·제재",
+    directive: "처분 기관·유형·금액, 대상 행위, 이의·시정 절차와 일정, 소비자 보상·서비스 영향을 포함하세요.",
+    banned: "‘규제 과도’, ‘혁신을 막는 처분’, ‘즉시 소송’",
+  },
+};
 const STANCES: Stance[] = ["apology", "investigating", "rebuttal"];
 
 /**
@@ -146,12 +188,25 @@ const SYSTEM_PACKAGE = `당신은 한국 기업의 위기 커뮤니케이션을 
   · investigating(경위 확인 중·선제 안내): 확정되지 않은 사실은 인정하지 않되, 확인 항목과 '공개 시각'을 약속. 사과는 확인된 사실에만 한정. 선제 조치를 반드시 포함.
   · rebuttal(사실무근·강경 반박): 근거 자료와 사실관계 중심. 감정 표현·“루머/악플러”·근거 없는 단정 금지. 정당한 비판은 수용한다는 문장 포함.
 - 기업 유형(entities)의 지침을 모든 섹션에 구체적으로 반영하세요. 유형이 여러 개면 첫 번째를 대표로 삼고 나머지는 해당 섹션에 보강 항목으로 넣습니다.
+- 입력이 20자 이하로 짧으면(예: "가격 인상 이슈"), 곧바로 일반론을 쓰지 말고 아래 5축으로 쟁점을 먼저 구체화하세요.
+  ① 소비자·이용자 반발(해지·환산·인증샷) ② 명분(원가·품질·투자·환율) ③ 커뮤니티·SNS 여론 ④ 경쟁사·대안 비교 ⑤ 언론 보도 포인트(수치·타이밍·규제).
+  이 5축을 issueBrief.issues에 넣고, 입력에 없는 배경은 단정하지 말고 assumptions에 ‘가정’으로 적으세요.
+- 이슈 유형(caseType)이 주어지면 그 유형의 표준 프로토콜을 따르세요. 특히 가격·요금 인상은 ‘인상 시점·폭·적용 대상·기존 고객 적용일’ 네 숫자와 기존 고객 보호·해지 방법을 모든 문안에 넣으세요.
+- [유사 사례]가 없으면 사례를 만들어내지 말고, [이슈 유형 표준 프로토콜]의 절차를 그대로 이 상황에 적용하세요.
 - [유사 사례]가 주어지면 그 사례들의 실제 대응 순서와 교훈을 참고해 이번 상황에 맞게 다시 씁니다. 사례의 회사명·수치·날짜를 이번 사안의 사실처럼 옮기지 말고, 참고한 사례는 qa.guide나 watchouts에 "OO 사례에서는 …" 형태로만 표시하세요.
 - 전체 대응 시스템(roadmap)은 1시간 → 6시간 → 24시간~ 3단계로, 각 단계에 목표(goal)와 다음 단계로 넘어가기 위한 통과 기준(gate)을 씁니다.
 - 출력은 아래 스키마의 JSON 객체 하나뿐입니다. 코드블록, 설명, 인사말을 붙이지 마세요.
 
 JSON 스키마:
 {
+  "issueBrief": {
+    "label": "이슈 유형 이름",
+    "summary": "이 상황을 한 문장으로 진단",
+    "issues": [{"title": "핵심 쟁점", "detail": "왜 문제인지·무엇을 확인해야 하는지 2문장"}],
+    "factsToConfirm": ["대외 문안에 숫자로 들어가야 할 항목"],
+    "mediaPoints": ["언론이 파고들 지점"],
+    "assumptions": ["입력에 없어 가정한 배경"]
+  },
   "headline": "이 상황의 가장 큰 리스크를 짚는 한 문장 (상황에 특화)",
   "risk": "높음" | "보통" | "낮음",
   "strategy": "이 입장을 유지하기 위한 원칙 한 문장",
@@ -182,7 +237,7 @@ JSON 스키마:
   "watchouts": ["이 유형에서만 생기는 함정 3개"]
 }
 
-분량: roadmap 3개(1시간·6시간·24시간~), actions 3개(각 5~7항목), statements 정확히 2개(public·press), qa 5개, banned 5개, stakeholders 4~6개, outlook.reactions 4개, triggers 3개, escalation 3개, watchouts 3개.
+분량: issueBrief.issues 5~7개(짧은 입력일수록 구체적으로), roadmap 3개(1시간·6시간·24시간~), actions 3개(각 5~7항목), statements 정확히 2개(public·press), qa 5~7개, banned 5개, stakeholders 4~6개, outlook.reactions 4개, triggers 3개, escalation 3개, watchouts 3개.
 기사 URL 원문이 주어지면 그 기사에 나온 사실(수치·기관·주장)을 우선 인용하고, 기사에 없는 내용은 [확인 필요]로 둡니다.`;
 
 const SYSTEM_REVIEW = `당신은 한국 기업의 위기 대응 입장문을 감수하는 수석 PR 전략가입니다.
@@ -236,12 +291,21 @@ function buildPackagePrompt(input: {
   brand: string;
   stance: Stance;
   entities: string[];
+  caseType: string;
+  stage: string;
+  scale: string;
   article: FetchedArticle | null;
   articleError: string;
   context: PackageContext;
 }): string {
   const lines: string[] = [];
   lines.push(`[위기 상황]\n${input.situation || "(본문 없음 — 아래 기사 원문 참고)"}`);
+  const shortInput = input.situation.replace(/\s/g, "").length <= 20 && !input.article;
+  if (shortInput) {
+    lines.push(
+      "\n[짧은 입력 — 쟁점 확장 필요]\n입력이 짧습니다. 일반론을 쓰지 말고 소비자 반발·명분·커뮤니티 여론·경쟁사 비교·언론 보도 포인트 5축으로 쟁점을 먼저 구체화한 뒤, 이 상황에만 맞는 문안을 쓰세요. 입력에 없는 업종·수치·시점은 assumptions에 ‘가정’으로 표시하세요.",
+    );
+  }
   if (input.brand) lines.push(`\n[브랜드]\n${input.brand}`);
   lines.push(
     `\n[우리 입장]\n${input.stance} — ${
@@ -261,15 +325,41 @@ function buildPackagePrompt(input: {
     }
   }
   const c = input.context;
+  const typeGuide = TYPE_GUIDE[input.caseType];
+  if (typeGuide) {
+    lines.push(`\n[이슈 유형 — ${typeGuide.label}]\n${typeGuide.directive} (금기: ${typeGuide.banned})`);
+  } else if (input.caseType && input.caseType !== "auto") {
+    lines.push(`\n[이슈 유형]\n${input.caseType}`);
+  }
+  if (input.stage) {
+    const stageNote =
+      input.stage === "planned"
+        ? "사전(공지 전) — 아직 통제 가능. 공지 전 숫자·보호안·비교표를 먼저 완성하는 순서로 쓰세요."
+        : input.stage === "breaking"
+          ? "보도 직후 — 확인된 숫자와 공식 입장을 같은 시각 기준으로 내는 순서로 쓰세요."
+          : "여론 확산 — 해지·불매·2차 보도에 대응하는 실행 순서로 쓰세요.";
+    lines.push(`\n[현재 단계]\n${stageNote}`);
+  }
+  if (input.scale) {
+    const scaleNote =
+      input.scale === "small" ? "스타트업·중소 — 대표가 직접 설명, 인력·예산 한계를 일정으로 약속"
+        : input.scale === "mid" ? "중견 — 부서 간 창구 단일화, 대표·실무 역할 분리"
+          : input.scale === "large" ? "대기업 — 계열사·해외법인까지 동일 숫자, 승인선 사전 확정"
+            : "글로벌 — 본사·현지 법인 가격·고지 기준 차이, 현지 규제 확인";
+    lines.push(`\n[기업 규모]\n${scaleNote}`);
+  }
   if (c.industryLabel) lines.push(`\n[업종]\n${c.industryLabel}`);
   if (c.caseTypeLabel) lines.push(`\n[이슈 유형]\n${c.caseTypeLabel}`);
   if (c.playbook) lines.push(`\n[업종 매뉴얼]\n${c.playbook}`);
   if (c.entityDigest) lines.push(`\n[선택한 유형의 상세 지침]\n${c.entityDigest}`);
+  if (c.protocolDigest) lines.push(`\n[이슈 유형 표준 프로토콜]\n${c.protocolDigest}`);
   if (c.caseDigest) {
     lines.push(
       `\n[유사 사례 — 검수 완료 실제 사례의 대응·교훈]\n${c.caseDigest}\n` +
         "위 사례들의 대응 순서와 실수를 참고하되, 사례의 고유 사실(회사명·수치·날짜)을 이번 사안의 사실로 쓰지 마세요.",
     );
+  } else {
+    lines.push("\n[유사 사례]\n관련도 기준을 넘는 사례가 없습니다. 사례를 만들어내지 말고 표준 프로토콜로만 쓰세요.");
   }
 
   if (input.article) {
@@ -640,6 +730,7 @@ interface PackageContext {
   playbook?: string;
   entityDigest?: string;
   caseTypeLabel?: string;
+  protocolDigest?: string;
   caseDigest?: string;
 }
 
@@ -651,6 +742,7 @@ function sanitizeContext(raw: unknown): PackageContext {
     playbook: clean(r.playbook, 3_000) || undefined,
     entityDigest: clean(r.entityDigest, 2_500) || undefined,
     caseTypeLabel: clean(r.caseTypeLabel, 60) || undefined,
+    protocolDigest: clean(r.protocolDigest, 3_500) || undefined,
     caseDigest: clean(r.caseDigest, 3_500) || undefined,
   };
 }
@@ -712,13 +804,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const draft = rawDraft.slice(0, MAX_DRAFT_CHARS);
   const target = mode === "review" ? draft : situation;
 
-  if (target.length < MIN_INPUT_CHARS) {
+  if (target.length < (mode === "review" ? MIN_REVIEW_CHARS : MIN_PACKAGE_CHARS)) {
     res.status(400).json({
       error: "input_too_short",
       message:
         mode === "review"
-          ? `검수할 입장문은 최소 ${MIN_INPUT_CHARS}자 이상이어야 합니다.`
-          : "위기 상황을 한 줄 이상 적어 주세요(기사 URL만 넣어도 됩니다).",
+          ? `검수할 입장문은 최소 ${MIN_REVIEW_CHARS}자 이상이어야 합니다.`
+          : "위기 상황을 한 줄 이상 적어 주세요(기사 URL만 넣어도 됩니다). ‘가격 인상’처럼 짧은 키워드도 됩니다.",
     });
     return;
   }
@@ -730,6 +822,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const entities = Array.isArray(body.entities)
     ? body.entities.filter((e): e is string => typeof e === "string" && Boolean(ENTITY_GUIDE[e])).slice(0, 3)
     : [];
+  const caseType = clean(body.caseType, 40) || "auto";
+  const stage = ["planned", "breaking", "spreading"].includes(clean(body.stage, 20)) ? clean(body.stage, 20) : "";
+  const scale = ["small", "mid", "large", "global"].includes(clean(body.scale, 20)) ? clean(body.scale, 20) : "";
   const context = sanitizeContext(body.context);
 
   /* 서버 키 → 요청 개인 키 순서, 키 앞자리로 제공자 판별 */
@@ -795,9 +890,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         ]
           .filter(Boolean)
           .join("\n\n")
-      : buildPackagePrompt({ situation, brand, stance, entities, article, articleError, context });
+      : buildPackagePrompt({ situation, brand, stance, entities, caseType, stage, scale, article, articleError, context });
 
-  const maxTokens = mode === "review" ? 3_500 : mode === "case" ? 5_000 : 6_000;
+  const maxTokens = mode === "review" ? 3_500 : mode === "case" ? 5_000 : 7_000;
   const temperature = mode === "review" ? 0.3 : mode === "case" ? 0.15 : 0.45;
 
   const controller = new AbortController();

@@ -31,6 +31,8 @@ const EMPTY_FORM: ComposeValue = {
   entities: ["general"],
   industry: "auto",
   caseType: "auto",
+  stage: "breaking",
+  scale: "mid",
 };
 
 export default function App() {
@@ -120,8 +122,8 @@ export default function App() {
       return;
     }
 
-    if (text.trim().length < 8) {
-      setError("위기 상황을 한 줄 이상 적어 주세요. 기사 URL만 넣어도 됩니다.");
+    if (text.trim().length < 4) {
+      setError("위기 상황을 한 줄 이상 적어 주세요. ‘가격 인상’처럼 짧은 키워드도 됩니다.");
       return;
     }
 
@@ -132,6 +134,8 @@ export default function App() {
       entities: current.entities as EntityId[],
       industry: current.industry,
       caseType: current.caseType,
+      stage: current.stage,
+      scale: current.scale,
     });
 
     setStage("loading");
@@ -177,6 +181,8 @@ export default function App() {
       entities: item.entities,
       industry: item.industrySource === "manual" ? item.industry : "auto",
       caseType: item.caseTypeSource === "manual" && item.caseType ? item.caseType : "auto",
+      stage: item.stage ?? "breaking",
+      scale: item.scale ?? "mid",
     });
     setReviewMode(false);
     setStage("package");
@@ -191,6 +197,8 @@ export default function App() {
       entities: pkg.entities,
       industry: pkg.industrySource === "manual" ? pkg.industry : "auto",
       caseType: pkg.caseTypeSource === "manual" && pkg.caseType ? pkg.caseType : "auto",
+      stage: pkg.stage ?? "breaking",
+      scale: pkg.scale ?? "mid",
     };
     setForm(next);
     void submit(next);
@@ -205,6 +213,8 @@ export default function App() {
       stance: form.stance,
       industry: form.industry,
       caseType: form.caseType,
+      stage: form.stage,
+      scale: form.scale,
     });
     setPkg(null);
     setReview(null);

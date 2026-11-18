@@ -130,6 +130,7 @@ CASE_TYPE_OPTIONS = [
     ("statement", "발언·광고 논란"),
     ("environment", "환경·주민"),
     ("regulatory", "규제·제재"),
+  ("pricing", "가격·요금 인상"),
 ]
 
 AIRLINE_PET = (
@@ -313,7 +314,7 @@ def main() -> int:
         user_prompt = captured.get("user") or ""
         check(
             "Gemini 요청: JSON 모드·temperature 0.45·출력 한도",
-            gen.get("responseMimeType") == "application/json" and gen.get("temperature") == 0.45 and gen.get("maxOutputTokens") == 6000 * 3 + 1024,
+            gen.get("responseMimeType") == "application/json" and gen.get("temperature") == 0.45 and gen.get("maxOutputTokens") == 7000 * 3 + 1024,
             json.dumps(gen, ensure_ascii=False)[:200],
         )
         check("Gemini 프롬프트: 상황·입장·유형 전달", "[우리 입장]" in user_prompt and "apology" in user_prompt and "소비재·식품" in user_prompt, user_prompt[:120])
@@ -339,6 +340,45 @@ def main() -> int:
             prompt_after[-600:][:200],
         )
         check("유형 반영: 결과 라벨이 상장사", "상장사" in str(listed_result.get("headline", "")), str(listed_result.get("headline"))[:60])
+
+        # 짧은 키워드 + 가격 인상 유형: 쟁점 확장 지침이 프롬프트에 들어가는지
+        status, body = api(
+            4197,
+            {
+                "mode": "package",
+                "situation": "가격 인상 이슈",
+                "stance": "investigating",
+                "brand": "모의구독",
+                "entities": ["general"],
+                "caseType": "pricing",
+                "stage": "breaking",
+                "scale": "mid",
+            },
+        )
+        pricing_prompt = ""
+        try:
+            pricing_prompt = json.loads((TMP / "gemini-last.json").read_text(encoding="utf-8")).get("user") or ""
+        except (OSError, json.JSONDecodeError):
+            pricing_prompt = ""
+        check(
+            "가격 인상: 5자 키워드도 200 + 유형 지침·단계·규모 전달",
+            status == 200
+            and "[이슈 유형 — 가격·요금 인상]" in pricing_prompt
+            and "인상 시점·폭·적용 대상·기존 고객 적용일" in pricing_prompt
+            and "[현재 단계]" in pricing_prompt
+            and "[기업 규모]" in pricing_prompt,
+            f"{status} {pricing_prompt[:240]}",
+        )
+        check(
+            "가격 인상: 짧은 입력이면 쟁점 5축 확장 지시",
+            "[짧은 입력 — 쟁점 확장 필요]" in pricing_prompt and "소비자 반발" in pricing_prompt and "경쟁사" in pricing_prompt,
+            pricing_prompt[:260],
+        )
+        check(
+            "가격 인상: 관련 사례가 없으면 사례 창작 금지",
+            "[유사 사례]\n관련도 기준을 넘는 사례가 없습니다" in pricing_prompt,
+            pricing_prompt[-300:],
+        )
 
         # URL 읽기
         status, body = api(4197, make_package_payload(situation="http://127.0.0.1:4199/article/recall"))
@@ -428,7 +468,7 @@ def main() -> int:
         )
 
         status, body = api(4197, {"mode": "package", "situation": "짧음", "stance": "apology"})
-        check("API: 8자 미만 400", status == 400 and body.get("error") == "input_too_short", f"{status} {body.get('error')}")
+        check("API: 4자 미만 400", status == 400 and body.get("error") == "input_too_short", f"{status} {body.get('error')}")
 
         status, body = api(4197, {"mode": "review", "draft": "짧음"})
         check("API: 검수 20자 미만 400", status == 400 and body.get("error") == "input_too_short", f"{status} {body.get('error')}")
@@ -469,7 +509,7 @@ def main() -> int:
                 page.input_value("[data-testid='industry-select']") == "auto"
                 and page.input_value("[data-testid='type-select']") == "auto"
                 and page.locator("[data-testid='industry-select'] option").count() == 9
-                and page.locator("[data-testid='type-select'] option").count() == 16,
+                and page.locator("[data-testid='type-select'] option").count() == 17,
                 f"industry={page.input_value('[data-testid=industry-select]')} type={page.input_value('[data-testid=type-select]')}",
             )
             check("첫 화면: 빈 입력이면 버튼 비활성", page.locator("[data-testid='submit']").is_disabled())
@@ -559,6 +599,10 @@ def main() -> int:
             page.wait_for_timeout(300)
             clip = page.evaluate("navigator.clipboard.readText()")
             check("복사: 패키지 전체", "PRISM 대응 패키지" in clip and "전체 대응 시스템" in clip and "유관기관" in clip, str(len(clip)))
+            page.click("[data-testid='copy-markdown']")
+            page.wait_for_timeout(300)
+            md = page.evaluate("navigator.clipboard.readText()")
+            check("복사: 팀 공유용 Markdown", md.startswith("# ") and "## 01. 골든타임 체크리스트" in md and "| 단계 | 목표 |" in md, md[:120])
             page.screenshot(path=str(SHOTS / "32-package-desktop.png"))
 
             page.locator("button:has-text('참고 매뉴얼')").first.click()
@@ -749,7 +793,60 @@ def main() -> int:
                 shown = type_label in page.locator("[data-testid='package-view']").inner_text()
                 if not (has_similar and has_playbook and shown):
                     type_failures.append(f"{type_id}({type_label}): similar={has_similar} playbook={has_playbook} label={shown}")
-            check("전 15개 유형: 06·07 블록과 선택 라벨 모두 표시", not type_failures, " / ".join(type_failures[:5]))
+            check("전 16개 유형: 06·07 블록(사례 또는 표준 프로토콜)과 선택 라벨 모두 표시", not type_failures, " / ".join(type_failures[:5]))
+
+            # ── "가격 인상 이슈" 단독 입력: 엉뚱한 사례 없이 가격 매뉴얼 ──
+            page.click("button:has-text('새 상황')")
+            page.wait_for_timeout(250)
+            page.select_option("[data-testid='industry-select']", "auto")
+            page.select_option("[data-testid='type-select']", "auto")
+            page.click("[data-testid='entity-general']")
+            page.fill("[data-testid='situation-input']", "가격 인상 이슈")
+            page.click("[data-testid='stance-investigating']")
+            page.click("[data-testid='submit']")
+            page.wait_for_selector("[data-testid='package-view']", timeout=15000)
+            page.wait_for_timeout(300)
+            pricing_text = page.locator("[data-testid='package-view']").inner_text()
+            check(
+                "가격 인상 단독 입력: 유형 자동 판별",
+                "가격·요금 인상" in pricing_text and "가격 인상 —" in pricing_text,
+                pricing_text[:220],
+            )
+            check(
+                "가격 인상: 00 쟁점 확장에 기존 고객·언론 포인트",
+                page.locator("[data-testid='block-issue-brief']").count() == 1
+                and "기존 고객 vs 신규 고객" in page.locator("[data-testid='block-issue-brief']").inner_text()
+                and "언론이 파고들 지점" in page.locator("[data-testid='block-issue-brief']").inner_text(),
+                page.locator("[data-testid='block-issue-brief']").inner_text()[:200] if page.locator("[data-testid='block-issue-brief']").count() else "none",
+            )
+            pricing_actions = page.locator("[data-testid='block-actions']").inner_text()
+            check(
+                "가격 인상: 체크리스트가 인상 숫자·기존 고객 보호를 먼저",
+                "시점·폭·대상·기존 고객 적용일" in pricing_actions and "기존 고객 보호" in pricing_actions and "해지" in pricing_actions,
+                pricing_actions[:200],
+            )
+            pricing_stmt = page.locator("[data-testid='statement-body-public']").inner_text()
+            check(
+                "가격 인상: 입장문에 인상·기존 고객·해지 안내",
+                "인상" in pricing_stmt and "기존" in pricing_stmt and "해지" in pricing_stmt,
+                pricing_stmt[:200],
+            )
+            similar_text = page.locator("[data-testid='block-similar']").inner_text()
+            similar_cards = page.locator("[data-testid^='similar-case-']").count()
+            irrelevant = [w for w in ["산업재해", "연예·인물", "개인정보·보안", "노사·고용", "환경·주민", "규제·제재"] if w in similar_text]
+            check(
+                "가격 인상: 06에 무관 사례 0건(가격 사례만)",
+                similar_cards >= 1 and not irrelevant and similar_text.count("가격·요금 인상") >= similar_cards,
+                f"cards={similar_cards} irrelevant={irrelevant} {similar_text[:220]}",
+            )
+            check(
+                "가격 인상: 07이 가격 유형 대응 순서",
+                page.locator("[data-testid^='playbook-phase-']").count() >= 4
+                and ("적용 시점·대상 확정" in page.locator("[data-testid='block-playbook']").inner_text()
+                     or "표준 대응 순서" in page.locator("[data-testid='block-playbook']").inner_text()),
+                str(page.locator("[data-testid^='playbook-phase-']").count()),
+            )
+            page.screenshot(path=str(SHOTS / "39-pricing-package.png"))
 
             # 모바일 390 (데스크톱 페이지를 닫아 메모리를 확보)
             page.close()
@@ -759,7 +856,19 @@ def main() -> int:
             mobile.wait_for_timeout(400)
             check("모바일: 첫 화면 가로 넘침 0", mobile.evaluate("document.documentElement.scrollWidth") <= 391, str(mobile.evaluate("document.documentElement.scrollWidth")))
             mobile.screenshot(path=str(SHOTS / "36-compose-mobile.png"))
-            mobile.fill("[data-testid='situation-input']", SITUATION)
+            mobile_ready = False
+            for attempt in range(3):
+                try:
+                    mobile.wait_for_selector("[data-testid='situation-input']", timeout=8000)
+                    mobile.fill("[data-testid='situation-input']", SITUATION, timeout=8000)
+                    mobile_ready = True
+                    break
+                except Exception:
+                    if attempt == 2:
+                        raise
+                    mobile.reload(wait_until="networkidle")
+                    mobile.wait_for_timeout(1200)
+            check("모바일: 입력창 사용 가능", mobile_ready)
             mobile.click("[data-testid='stance-investigating']")
             mobile.click("[data-testid='entity-platform']")
             mobile.click("[data-testid='submit']")

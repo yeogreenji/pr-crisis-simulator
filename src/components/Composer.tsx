@@ -22,7 +22,7 @@ import {
   Users2,
 } from "lucide-react";
 import { ENTITY_PROFILES, type EntityId } from "../lib/profiles";
-import { STANCES, extractUrl, type ResponsePackage, type Stance } from "../lib/package";
+import { STANCES, extractUrl, type ResponsePackage, type Stance, type CompanyScale, type ProtocolStage } from "../lib/package";
 import { INDUSTRIES } from "../lib/industries";
 import { CASE_TYPES } from "../lib/case-store";
 import { CASE_TYPE_LABEL } from "../lib/cases";
@@ -37,7 +37,24 @@ export interface ComposeValue {
   /** "auto"면 문장에서 자동 판별 */
   industry: IndustryId | "auto";
   caseType: CaseType | "auto";
+  /** 지금 어느 단계인지 */
+  stage: ProtocolStage;
+  /** 기업 규모 */
+  scale: CompanyScale;
 }
+
+const STAGES: { id: ProtocolStage; label: string; hint: string }[] = [
+  { id: "planned", label: "공지 전", hint: "아직 통제 가능한 구간" },
+  { id: "breaking", label: "보도 직후", hint: "첫 보도가 나간 상태" },
+  { id: "spreading", label: "여론 확산", hint: "커뮤니티·기사로 번지는 중" },
+];
+
+const SCALES: { id: CompanyScale; label: string }[] = [
+  { id: "small", label: "스타트업·중소" },
+  { id: "mid", label: "중견" },
+  { id: "large", label: "대기업" },
+  { id: "global", label: "글로벌" },
+];
 
 const ENTITY_ICON: Record<EntityId, typeof Building2> = {
   general: Building2,
@@ -87,7 +104,7 @@ export function Composer({
     return value.situation.replace(url, "").replace(/\s+/g, "").length < 6;
   }, [url, value.situation]);
   const selectedProfile = ENTITY_PROFILES.find((p) => p.id === value.entities[0]) ?? ENTITY_PROFILES[0];
-  const tooShort = reviewMode ? value.situation.trim().length < 20 : value.situation.trim().length < 8;
+  const tooShort = reviewMode ? value.situation.trim().length < 20 : value.situation.trim().length < 4;
 
   const toggleEntity = (id: EntityId) => {
     // 기본값 general만 선택된 상태에서 다른 유형을 고르면, 그 유형을 대표로 삼습니다.
@@ -183,9 +200,19 @@ export function Composer({
             placeholder={
               reviewMode
                 ? "지금 올릴 예정인 입장문·보도자료 전문을 붙여넣으세요. 위험 표현과 빠진 요소를 짚어 드립니다."
-                : "예) 협력사에서 납품한 원재료에서 기준치를 넘는 중금속이 검출됐다는 보도가 나갔습니다. 완제품 3종에 쓰였고, 온라인 커뮤니티에 인증샷이 확산 중입니다.\n\n또는  https://news.example.com/article/12345"
+                : "가격 인상 이슈\n\n또는 상황을 한 줄로: ‘넷플릭스가 구독료를 올린다는 보도가 나갔고, 커뮤니티에 해지 인증이 확산 중입니다.’\n\n또는  https://news.example.com/article/12345"
             }
           />
+          {!reviewMode && (
+            <p className="mt-1.5 flex items-start gap-1.5 text-[12px] leading-relaxed text-accent-deep">
+              <Sparkles size={11} className="mt-[3px] shrink-0" />
+              <span>
+                <span className="font-semibold">짧게 입력해도 AI가 쟁점을 자동 확장합니다.</span>{" "}
+                ‘가격 인상’처럼 2~6단어만 넣어도 소비자 반발·명분·커뮤니티·경쟁사·언론 포인트로 먼저 나눠
+                매뉴얼을 만듭니다.
+              </span>
+            </p>
+          )}
           {url && !reviewMode && (
             <div className="mt-2 flex items-start gap-2 rounded-lg border border-accent/20 bg-accent-soft px-2.5 py-2">
               <Link2 size={12} className="mt-[2px] shrink-0 text-accent" />
@@ -290,9 +317,69 @@ export function Composer({
               </div>
               {value.caseType !== "auto" && (
                 <p className="mt-1.5 text-[12px] leading-relaxed text-accent-deep">
-                  직접 고른 유형으로 유사 사례·대응 순서를 계산합니다. 업종도 함께 맞춰 주세요.
+                  직접 고른 유형으로 유사 사례·대응 순서·표준 프로토콜을 계산합니다. 업종도 함께 맞춰 주세요.
                 </p>
               )}
+
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[12.5px] font-medium text-muted">현재 단계</span>
+                    <span className="text-[11.5px] text-faint">체크리스트 순서가 달라집니다</span>
+                  </div>
+                  <div className="mt-1 flex flex-wrap gap-1.5">
+                    {STAGES.map((s) => {
+                      const active = value.stage === s.id;
+                      return (
+                        <button
+                          key={s.id}
+                          type="button"
+                          aria-pressed={active}
+                          data-testid={`stage-${s.id}`}
+                          onClick={() => onChange({ ...value, stage: s.id })}
+                          className={cx(
+                            "rounded-full border px-2.5 py-1 text-[12.5px] font-medium transition-colors",
+                            active
+                              ? "border-ink bg-ink text-white"
+                              : "border-line-strong bg-white text-ink-2 hover:border-ink/30",
+                          )}
+                          title={s.hint}
+                        >
+                          {s.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[12.5px] font-medium text-muted">기업 규모</span>
+                    <span className="text-[11.5px] text-faint">이해관계자 접점 보정</span>
+                  </div>
+                  <div className="mt-1 flex flex-wrap gap-1.5">
+                    {SCALES.map((s) => {
+                      const active = value.scale === s.id;
+                      return (
+                        <button
+                          key={s.id}
+                          type="button"
+                          aria-pressed={active}
+                          data-testid={`scale-${s.id}`}
+                          onClick={() => onChange({ ...value, scale: s.id })}
+                          className={cx(
+                            "rounded-full border px-2.5 py-1 text-[12.5px] font-medium transition-colors",
+                            active
+                              ? "border-accent bg-accent-soft text-accent-deep"
+                              : "border-line-strong bg-white text-ink-2 hover:border-ink/30",
+                          )}
+                        >
+                          {s.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div className="hairline" />
