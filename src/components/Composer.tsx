@@ -22,8 +22,11 @@ import {
   Users2,
 } from "lucide-react";
 import { ENTITY_PROFILES, type EntityId } from "../lib/profiles";
-import { STANCES, extractUrl, type ResponsePackage, type Stance, type CompanyScale, type ProtocolStage } from "../lib/package";
+import { STANCES, extractUrl, getStance, type ResponsePackage, type Stance, type CompanyScale, type ProtocolStage } from "../lib/package";
 import { INDUSTRIES } from "../lib/industries";
+import { classifyIndustry } from "../lib/classify";
+import { SITUATIONS, SITUATION_GROUPS, getSituation, type SituationTagId } from "../lib/situations";
+import { DEFAULT_EXAMPLES, INDUSTRY_EXAMPLES, INDUSTRY_GROUPS } from "../lib/sector-examples";
 import { CASE_TYPES } from "../lib/case-store";
 import { CASE_TYPE_LABEL } from "../lib/cases";
 import type { CaseType, IndustryId } from "../types";
@@ -33,6 +36,12 @@ export interface ComposeValue {
   situation: string;
   brand: string;
   stance: Stance;
+  /** stance === "custom"일 때 직접 적은 입장 */
+  stanceCustom: string;
+  /** 기업 상황 태그 */
+  situations: SituationTagId[];
+  /** 기업 상황 직접 입력 */
+  situationNote: string;
   entities: EntityId[];
   /** "auto"면 문장에서 자동 판별 */
   industry: IndustryId | "auto";
@@ -105,6 +114,28 @@ export function Composer({
   }, [url, value.situation]);
   const selectedProfile = ENTITY_PROFILES.find((p) => p.id === value.entities[0]) ?? ENTITY_PROFILES[0];
   const tooShort = reviewMode ? value.situation.trim().length < 20 : value.situation.trim().length < 4;
+  const activeStance = getStance(value.stance, value.stanceCustom);
+  /** 업종을 고르지 않았으면 지금 입력에서 추정한 업종의 예시를 보여 줍니다. */
+  const exampleIndustry = useMemo(
+    () =>
+      value.industry !== "auto"
+        ? value.industry
+        : classifyIndustry(value.situation, selectedProfile.industry).industry,
+    [value.industry, value.situation, selectedProfile.industry],
+  );
+  const exampleLabel = INDUSTRIES.find((i) => i.id === exampleIndustry)?.label ?? "업종";
+  const examples = INDUSTRY_EXAMPLES[exampleIndustry] ?? DEFAULT_EXAMPLES;
+
+  const toggleSituation = (id: SituationTagId) => {
+    const has = value.situations.includes(id);
+    const next = has ? value.situations.filter((s) => s !== id) : [...value.situations, id].slice(0, 3);
+    onChange({ ...value, situations: next });
+  };
+
+  const insertExample = (text: string) => {
+    const current = value.situation.trim();
+    onChange({ ...value, situation: current ? `${current}\n${text}` : text });
+  };
 
   const toggleEntity = (id: EntityId) => {
     // 기본값 general만 선택된 상태에서 다른 유형을 고르면, 그 유형을 대표로 삼습니다.
@@ -242,6 +273,7 @@ export function Composer({
               <div className="mt-2 grid gap-2 sm:grid-cols-3" role="radiogroup" aria-label="우리 입장">
                 {STANCES.map((s) => {
                   const active = value.stance === s.id;
+                  const custom = s.id === "custom";
                   return (
                     <button
                       key={s.id}
@@ -249,9 +281,11 @@ export function Composer({
                       role="radio"
                       aria-checked={active}
                       data-testid={`stance-${s.id}`}
+                      title={`${s.bestFor} / 주의: ${s.caution}`}
                       onClick={() => onChange({ ...value, stance: s.id })}
                       className={cx(
                         "rounded-xl border px-3 py-2.5 text-left transition-all",
+                        custom && "sm:col-span-3",
                         active
                           ? "border-ink bg-ink text-white shadow-[0_10px_24px_-16px_rgba(16,19,25,0.9)]"
                           : "border-line-strong bg-[#fcfcfa] text-ink-2 hover:border-ink/30 hover:bg-white",
@@ -263,6 +297,11 @@ export function Composer({
                           style={{ background: active ? "#fff" : s.accent }}
                         />
                         {s.label}
+                        {custom && !active && (
+                          <span className="ml-1 rounded-full border border-line px-1.5 py-[1px] text-[11px] font-medium text-faint">
+                            현장 판단
+                          </span>
+                        )}
                       </span>
                       <span className={cx("mt-1 block text-[12px] leading-snug", active ? "text-white/70" : "text-muted")}>
                         {s.desc}
@@ -271,6 +310,32 @@ export function Composer({
                   );
                 })}
               </div>
+              {value.stance === "custom" && (
+                <div className="mt-2 rounded-xl border border-line-strong bg-white px-3 py-2.5" data-testid="custom-stance-box">
+                  <label className="block text-[12.5px] font-medium text-ink-2" htmlFor="stance-custom">
+                    우리 입장을 한 줄로
+                  </label>
+                  <textarea
+                    id="stance-custom"
+                    data-testid="custom-stance-input"
+                    value={value.stanceCustom}
+                    onChange={(e) => onChange({ ...value, stanceCustom: e.target.value })}
+                    rows={2}
+                    maxLength={200}
+                    placeholder="예: 사실관계는 인정하되 형사 책임은 부인하고, 피해 고객 보상과 재발 방지부터 진행한다."
+                    className="field mt-1.5 resize-y text-[13px] leading-relaxed"
+                  />
+                  <p className="mt-1 text-[12px] leading-relaxed text-faint">
+                    이 문장이 문안 첫 문단과 톤의 기준이 됩니다. ‘무엇을 인정하고 무엇을 부인하는지’를 넣으면 정확해집니다.
+                  </p>
+                </div>
+              )}
+              <p className="mt-1.5 text-[12px] leading-relaxed text-muted" data-testid="active-stance-note">
+                <span className="font-semibold text-ink-2">{activeStance.label}</span>
+                {value.stance === "custom" && value.stanceCustom.trim() ? ` — “${value.stanceCustom.trim()}”` : ""} — 고르는 상황:{" "}
+                {activeStance.bestFor}
+                <span className="block text-warn">주의: {activeStance.caution}</span>
+              </p>
             </div>
 
             <div className="hairline" />
@@ -290,10 +355,18 @@ export function Composer({
                     className="min-w-0 flex-1 bg-transparent text-[13px] font-medium text-ink outline-none"
                   >
                     <option value="auto">자동 판별</option>
-                    {INDUSTRIES.map((industry) => (
-                      <option key={industry.id} value={industry.id}>
-                        {industry.label}
-                      </option>
+                    {INDUSTRY_GROUPS.map((group) => (
+                      <optgroup key={group.label} label={group.label}>
+                        {group.ids.map((id) => {
+                          const industry = INDUSTRIES.find((i) => i.id === id);
+                          if (!industry) return null;
+                          return (
+                            <option key={id} value={id}>
+                              {industry.label}
+                            </option>
+                          );
+                        })}
+                      </optgroup>
                     ))}
                   </select>
                 </label>
@@ -380,12 +453,103 @@ export function Composer({
                   </div>
                 </div>
               </div>
+
+              <div className="mt-3 rounded-xl border border-line bg-[#fbfbf8] px-3 py-2.5" data-testid="industry-examples">
+                <div className="flex flex-wrap items-center justify-between gap-1">
+                  <span className="text-[12.5px] font-medium text-ink-2">
+                    사업분야 예시 <span className="text-faint">· {exampleLabel}</span>
+                  </span>
+                  <span className="text-[11.5px] text-faint">누르면 입력란에 들어갑니다</span>
+                </div>
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  {examples.map((text) => (
+                    <button
+                      key={text}
+                      type="button"
+                      data-testid="industry-example"
+                      onClick={() => insertExample(text)}
+                      title="입력란에 넣기"
+                      className="max-w-full rounded-lg border border-line-strong bg-white px-2 py-1 text-left text-[12px] leading-snug text-ink-2 transition-colors hover:border-ink/40 hover:bg-accent-soft"
+                    >
+                      <span className="line-clamp-1">{text}</span>
+                    </button>
+                  ))}
+                </div>
+                <p className="mt-1.5 text-[11.5px] leading-relaxed text-faint">
+                  업종을 직접 고르면 그 분야 예시로 바뀝니다. 숫자·기관은 실제 사안에 맞게 고쳐 쓰세요.
+                </p>
+              </div>
+            </div>
+
+            <div className="hairline" />
+            <div className="px-4 py-4 sm:px-5" data-testid="situation-tags">
+              <div className="flex flex-wrap items-center justify-between gap-1">
+                <span className="text-[13px] font-semibold text-ink">기업 상황</span>
+                <span className="text-[12px] text-faint">최대 3개 · 순서와 이해관계자가 달라집니다</span>
+              </div>
+              <div className="mt-2 space-y-2">
+                {SITUATION_GROUPS.map((group) => (
+                  <div key={group.label}>
+                    <div className="text-[11.5px] font-medium uppercase tracking-wide text-faint">{group.label}</div>
+                    <div className="mt-1 flex flex-wrap gap-1.5">
+                      {group.ids.map((id) => {
+                        const tag = SITUATIONS.find((t) => t.id === id);
+                        if (!tag) return null;
+                        const active = value.situations.includes(id);
+                        return (
+                          <button
+                            key={id}
+                            type="button"
+                            data-testid={`situation-tag-${id}`}
+                            aria-pressed={active}
+                            title={tag.hint}
+                            onClick={() => toggleSituation(id)}
+                            className={cx(
+                              "rounded-full border px-2.5 py-1 text-[12.5px] font-medium transition-colors",
+                              active
+                                ? "border-accent bg-accent-soft text-accent-deep"
+                                : "border-line-strong bg-white text-ink-2 hover:border-ink/30",
+                            )}
+                          >
+                            {tag.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {value.situations.length > 0 && (
+                <ul className="mt-2 space-y-1">
+                  {value.situations.map((id) => {
+                    const tag = getSituation(id);
+                    if (!tag) return null;
+                    return (
+                      <li key={id} className="flex gap-1.5 text-[12px] leading-relaxed text-muted">
+                        <span className="mt-[6px] h-1 w-1 shrink-0 rounded-full bg-accent/60" />
+                        <span>
+                          <span className="font-medium text-ink-2">{tag.label}</span> — {tag.hint}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+              <input
+                value={value.situationNote}
+                onChange={(e) => onChange({ ...value, situationNote: e.target.value })}
+                placeholder="직접 입력 (선택) — 예: 투자사 요청으로 확인 중, 사내 제보 1건 접수"
+                aria-label="기업 상황 직접 입력"
+                data-testid="situation-note"
+                maxLength={300}
+                className="field mt-2 h-8 text-[12.5px]"
+              />
             </div>
 
             <div className="hairline" />
             <div className="px-4 py-4 sm:px-5">
               <div className="flex flex-wrap items-center justify-between gap-1">
-                <span className="text-[13px] font-semibold text-ink">기업·상황 유형</span>
+                <span className="text-[13px] font-semibold text-ink">기업 유형</span>
                 <span className="text-[12px] text-faint">최대 3개 · 첫 선택이 대표 유형</span>
               </div>
               <div className="mt-2 flex flex-wrap gap-1.5">
@@ -515,7 +679,7 @@ export function Composer({
       <div className="mt-4 grid gap-2 sm:grid-cols-3">
         {[
           { n: "01", t: "상황 넣기", d: "한 줄 설명 또는 기사 URL" },
-          { n: "02", t: "입장·유형 선택", d: "사과 / 확인 중 / 반박" },
+          { n: "02", t: "대안·상황 선택", d: "사과·사실 적시·보상·무대응·반박" },
           { n: "03", t: "그대로 복사", d: "입장문·답변·체크리스트" },
         ].map((s) => (
           <div key={s.n} className="flex items-center gap-2.5 rounded-xl border border-line bg-surface/70 px-3 py-2.5">

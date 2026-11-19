@@ -16,7 +16,9 @@ import {
   Newspaper,
   Printer,
   RotateCcw,
+  Scale,
   ShieldAlert,
+  X,
   Target,
   Users,
 } from "lucide-react";
@@ -36,8 +38,11 @@ import { getProtocol } from "../lib/issue-protocols";
 import { ENTITY_PROFILES } from "../lib/profiles";
 import { findSimilarCases } from "../lib/similar";
 import { buildCasePlaybook } from "../lib/case-playbook";
+import { findCaseCompare, type CompareRow } from "../lib/case-compare";
 import { CASE_TYPE_LABEL, CASE_VERDICT_LABEL } from "../lib/cases";
+import { getSituation } from "../lib/situations";
 import { CopyButton, cx } from "./ui";
+import type { CrisisCase } from "../types";
 
 const RISK_STYLE: Record<string, { bg: string; color: string; border: string }> = {
   높음: { bg: "#fbedea", color: "#c8352b", border: "rgba(200,53,43,0.25)" },
@@ -359,7 +364,7 @@ function StatementsBlock({ pkg }: { pkg: ResponsePackage }) {
       <div className="flex items-start gap-2 border-t border-line bg-paper/60 px-4 py-2.5 text-[12px] leading-relaxed text-muted sm:px-5">
         <Info size={11} className="mt-[2px] shrink-0" />
         <span>
-          <span className="font-semibold text-ink-2">톤 체크</span> — {getStance(pkg.stance).rule}
+          <span className="font-semibold text-ink-2">톤 체크</span> — {getStance(pkg.stance, pkg.stanceCustom).rule}
         </span>
       </div>
     </section>
@@ -746,6 +751,166 @@ function CasePlaybookBlock({ pkg, onOpenCase }: { pkg: ResponsePackage; onOpenCa
   );
 }
 
+const GAP_STYLE: Record<string, { label: string; cls: string }> = {
+  "good-only": { label: "모범만 실행", cls: "bg-ok-soft text-ok" },
+  "bad-only": { label: "실패만 실행", cls: "bg-risk-soft text-risk" },
+  both: { label: "둘 다 실행", cls: "bg-paper-deep text-muted" },
+  neither: { label: "둘 다 없음", cls: "bg-paper-deep text-faint" },
+};
+
+function CompareHead({ c, tone, onOpenCase }: { c: CaseRow; tone: "good" | "bad"; onOpenCase: (id: string) => void }) {
+  const good = tone === "good";
+  return (
+    <div
+      className={cx(
+        "rounded-xl border px-3 py-2.5",
+        good ? "border-ok/25 bg-ok-soft/50" : "border-risk/20 bg-risk-soft/40",
+      )}
+    >
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className={cx("chip px-1.5 py-0 text-[12px] font-semibold", good ? "bg-ok-soft text-ok" : "bg-risk-soft text-risk")}>
+          {good ? "모범" : "실패"}
+        </span>
+        <span className="text-[12px] text-faint">{CASE_TYPE_LABEL[c.type]} · {c.date}</span>
+      </div>
+      <button
+        type="button"
+        onClick={() => onOpenCase(c.id)}
+        className="mt-1 block text-left text-[13.5px] font-semibold leading-snug text-ink hover:underline"
+      >
+        {c.title}
+      </button>
+      <p className="mt-1 line-clamp-3 text-[12.5px] leading-relaxed text-muted">{c.lesson}</p>
+    </div>
+  );
+}
+
+type CaseRow = CrisisCase;
+
+const BASIS_LABEL: Record<string, string> = {
+  type: "같은 유형",
+  family: "인접 유형",
+  industry: "같은 업종",
+};
+
+function CompareRows({ rows }: { rows: CompareRow[] }) {
+  return (
+    <div className="mt-2 space-y-1.5 px-4 pb-4 sm:px-5">
+      {rows.map((row) => {
+        const gap = GAP_STYLE[row.gap] ?? GAP_STYLE.both;
+        return (
+          <div key={row.label} className="rounded-lg border border-line bg-white px-3 py-2" data-testid="compare-row">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-[13px] font-semibold text-ink">{row.label}</span>
+              <span className={cx("chip px-1.5 py-0 text-[11.5px] font-medium", gap.cls)}>{gap.label}</span>
+              <span className="text-[11.5px] text-faint">{row.hint}</span>
+            </div>
+            <div className="mt-1 grid gap-1 sm:grid-cols-2">
+              <div className="flex gap-1.5 text-[12.5px] leading-relaxed">
+                <Check size={12} className={cx("mt-[3px] shrink-0", row.good.hit ? "text-ok" : "text-faint/50")} />
+                <span className={row.good.hit ? "text-ink-2" : "text-faint"}>
+                  {row.good.hit ? row.good.text : "해당 조치 없음"}
+                </span>
+              </div>
+              <div className="flex gap-1.5 text-[12.5px] leading-relaxed">
+                <X size={12} className={cx("mt-[3px] shrink-0", row.bad.hit ? "text-warn" : "text-faint/50")} />
+                <span className={row.bad.hit ? "text-ink-2" : "text-faint"}>
+                  {row.bad.hit ? row.bad.text : "해당 조치 없음"}
+                </span>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function VerdictCompareBlock({ pkg, onOpenCase }: { pkg: ResponsePackage; onOpenCase: (id: string) => void }) {
+  const compare = useMemo(() => findCaseCompare(pkg.caseType, pkg.industry), [pkg.caseType, pkg.industry]);
+  if (!compare) return null;
+
+  if (compare.mode === "standard") {
+    return (
+      <section className="card overflow-hidden" data-testid="block-compare">
+        <BlockHeader
+          n="08"
+          icon={Scale}
+          title={`실패 사례 vs ${compare.label} 표준`}
+          desc={`검수된 모범 사례가 아직 없는 유형입니다. 대신 ${BASIS_LABEL[compare.basis] ?? ""} 실패 사례를 이 유형의 표준 절차와 비교해, 빠진 항목을 짚었습니다.`}
+        />
+        <div className="px-4 pt-3 sm:px-5">
+          <CompareHead c={compare.bad} tone="bad" onOpenCase={onOpenCase} />
+        </div>
+        <div className="mt-3 grid gap-2 px-4 pb-4 sm:grid-cols-2 sm:px-5">
+          <div className="rounded-xl border border-warn/30 bg-warn-soft/60 p-3" data-testid="compare-missing">
+            <div className="text-[12.5px] font-semibold text-warn">이 실패 사례에서 확인되지 않은 항목</div>
+            {compare.missing.length ? (
+              <ul className="mt-1 space-y-1">
+                {compare.missing.map((m) => (
+                  <li key={m.label} className="flex gap-1.5 text-[12.5px] leading-relaxed text-ink-2">
+                    <X size={12} className="mt-[3px] shrink-0 text-warn" />
+                    <span>
+                      <span className="font-medium">{m.label}</span> — {m.hint}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-1 text-[12.5px] leading-relaxed text-ink-2">
+                다섯 축이 모두 대응에 등장합니다. 문제는 실행 시점·범위였을 가능성이 큽니다 — 타임라인을 보세요.
+              </p>
+            )}
+          </div>
+          <div className="rounded-xl border border-line bg-[#fcfcfa] p-3">
+            <div className="text-[12.5px] font-semibold text-ink">이 유형 표준이 반드시 넣는 것</div>
+            <ul className="mt-1 space-y-1">
+              {[...compare.facts, ...compare.measures].slice(0, 7).map((f) => (
+                <li key={f} className="flex gap-1.5 text-[12.5px] leading-relaxed text-ink-2">
+                  <Check size={12} className="mt-[3px] shrink-0 text-ok" />
+                  <span>{f}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+        <div className="mx-4 mb-4 rounded-xl border border-accent/20 bg-accent-soft/50 px-3.5 py-2.5 sm:mx-5">
+          <p className="text-[12.5px] leading-relaxed text-accent-deep">
+            실패 사례는 남의 일이 아닙니다. 위 ‘확인되지 않은 항목’을 이번 사안의 첫 6시간 체크리스트에 그대로 넣으세요.
+          </p>
+        </div>
+      </section>
+    );
+  }
+
+  const { good, bad, rows, gaps, basis } = compare;
+  return (
+    <section className="card overflow-hidden" data-testid="block-compare">
+      <BlockHeader
+        n="08"
+        icon={Scale}
+        title="모범 사례 vs 실패 사례"
+        desc={`${BASIS_LABEL[basis] ?? ""}에서 결과가 갈린 두 사례를 같은 축으로 나란히 놓았습니다. 사례 원문에 적힌 대응만 표시하고, 없으면 ‘해당 조치 없음’으로 표시합니다.`}
+      />
+      <div className="grid gap-2 px-4 pt-3 sm:grid-cols-2 sm:px-5">
+        <CompareHead c={good} tone="good" onOpenCase={onOpenCase} />
+        <CompareHead c={bad} tone="bad" onOpenCase={onOpenCase} />
+      </div>
+      <CompareRows rows={rows} />
+      <div className="mx-4 mb-4 rounded-xl border border-accent/20 bg-accent-soft/50 px-3.5 py-2.5 sm:mx-5">
+        <div className="text-[12.5px] font-semibold text-accent-deep">
+          {gaps.length ? `결과를 가른 지점 — ${gaps.join(" · ")}` : "두 사례의 조치 구성은 비슷합니다"}
+        </div>
+        <p className="mt-1 text-[12.5px] leading-relaxed text-accent-deep/80">
+          {gaps.length
+            ? "모범 사례는 했고 실패 사례는 하지 않은 항목입니다. 이번 사안의 첫 6시간 체크리스트에 그대로 넣으세요."
+            : "같은 조치를 했는데 결과가 갈렸다면 실행 시점·범위·속도가 달랐다는 뜻입니다. 두 사례의 타임라인을 비교해 보세요."}
+        </p>
+      </div>
+    </section>
+  );
+}
+
 export function PackageView({
   pkg,
   onEdit,
@@ -761,7 +926,8 @@ export function PackageView({
   onOpenCase: (id: string) => void;
   onNotice: (message: string) => void;
 }) {
-  const stance = getStance(pkg.stance);
+  const stance = getStance(pkg.stance, pkg.stanceCustom);
+  const situationLabels = (pkg.situations ?? []).map((id) => getSituation(id)?.label).filter((v): v is string => Boolean(v));
   const risk = RISK_STYLE[pkg.risk] ?? RISK_STYLE["보통"];
   const entityLabels = useMemo(
     () => pkg.entities.map((id) => ENTITY_PROFILES.find((p) => p.id === id)?.short ?? id),
@@ -836,7 +1002,14 @@ export function PackageView({
             >
               위험도 {pkg.risk}
             </span>
-            <span className="chip border border-line bg-surface text-ink-2">{stance.short}</span>
+            <span className="chip border border-line bg-surface text-ink-2" title={pkg.stanceCustom ?? undefined}>
+              {stance.short}
+            </span>
+            {situationLabels.map((label) => (
+              <span key={label} className="chip border border-accent/25 bg-accent-soft/60 text-accent-deep">
+                {label}
+              </span>
+            ))}
             {entityLabels.map((label) => (
               <span key={label} className="chip border border-line bg-surface text-muted">
                 {label}
@@ -933,6 +1106,7 @@ export function PackageView({
           <OutlookBlock pkg={pkg} />
           <SimilarCasesBlock pkg={pkg} onOpenCase={onOpenCase} />
           <CasePlaybookBlock pkg={pkg} onOpenCase={onOpenCase} />
+          <VerdictCompareBlock pkg={pkg} onOpenCase={onOpenCase} />
         </div>
 
         <div className="mt-3 rounded-xl border border-line bg-surface px-3.5 py-3">

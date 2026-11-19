@@ -17,53 +17,17 @@ import {
   type IssueProtocol,
   type ProtocolStage,
 } from "./issue-protocols";
+import { STANCE_BANNED, STANCE_QA, OUTLOOK, STANCES, getStance, type Stance, type StanceSpec } from "./stances";
+import { getSituation, type SituationTagId } from "./situations";
 export type { EntityId, IssueBrief, CompanyScale, ProtocolStage };
+export type { Stance, StanceSpec };
+export { STANCES, getStance };
 
 /* ------------------------------------------------------------------ */
 /* 모델                                                                */
 /* ------------------------------------------------------------------ */
 
-export type Stance = "apology" | "investigating" | "rebuttal";
 export type RiskLevel = "높음" | "보통" | "낮음";
-
-export interface StanceSpec {
-  id: Stance;
-  label: string;
-  short: string;
-  desc: string;
-  /** 이 입장에서 절대 흔들리면 안 되는 한 줄 */
-  rule: string;
-  accent: string;
-}
-
-export const STANCES: StanceSpec[] = [
-  {
-    id: "apology",
-    label: "사실 인정 · 즉시 사과",
-    short: "즉시 사과",
-    desc: "잘못이 확인됐습니다. 사과와 수습이 먼저, 원인 규명은 그다음입니다.",
-    rule: "첫 문단은 사과, 두 번째는 고객이 지금 할 일. 변명은 쓰지 않습니다.",
-    accent: "#c8352b",
-  },
-  {
-    id: "investigating",
-    label: "경위 확인 중 · 선제 안내",
-    short: "확인 중",
-    desc: "아직 사실이 확정되지 않았습니다. 확인 일정과 범위를 먼저 약속합니다.",
-    rule: "추측하지 않는 대신, 확인 시각을 반드시 약속하고 지킵니다.",
-    accent: "#a9660a",
-  },
-  {
-    id: "rebuttal",
-    label: "사실무근 · 강경 반박",
-    short: "강경 반박",
-    desc: "보도·주장이 사실과 다릅니다. 근거 공개와 원칙으로 대응합니다.",
-    rule: "근거 2개 없이 ‘사실무근’만 말하면 태도 논란으로 번집니다.",
-    accent: "#1c2fa8",
-  },
-];
-
-export const getStance = (id: Stance): StanceSpec => STANCES.find((s) => s.id === id) ?? STANCES[0];
 
 export interface RoadmapPhase {
   window: string;
@@ -135,6 +99,12 @@ export interface ResponsePackage {
   situation: string;
   brand: string;
   stance: Stance;
+  /** stance가 custom일 때 사용자가 적은 입장 문장 */
+  stanceCustom?: string;
+  /** 기업 상황 태그 (상장사·B2B·확산 중 등) */
+  situations?: SituationTagId[];
+  /** 기업 상황 직접 입력 */
+  situationNote?: string;
   entities: EntityId[];
   /** 짧은 입력에서 확장한 핵심 쟁점·확인 항목 */
   issueBrief?: IssueBrief;
@@ -190,6 +160,12 @@ export interface PackageInput {
   situation: string;
   brand: string;
   stance: Stance;
+  /** stance가 custom일 때 사용자가 적은 입장 문장 */
+  stanceCustom?: string;
+  /** 기업 상황 태그 */
+  situations?: SituationTagId[];
+  /** 기업 상황 직접 입력 */
+  situationNote?: string;
   entities: EntityId[];
   /** 사용자가 직접 고른 업종. 없으면 자동 판별 */
   industry?: IndustryId | "auto";
@@ -237,150 +213,6 @@ function summarize(text: string, max = 260): string {
 
 const place = (label: string) => `[확인 필요: ${label}]`;
 
-const STANCE_BANNED: Record<Stance, BannedPhrase[]> = {
-  apology: [
-    { phrase: "“유감입니다”로 끝내는 표현", why: "책임을 인정하지 않는 표현으로 읽힙니다. 사과 주체와 대상이 필요합니다." },
-    { phrase: "“확인 중”만 반복", why: "사과를 해놓고 정보를 숨기는 문장이 됩니다. 확인 일정을 함께 붙이세요." },
-  ],
-  investigating: [
-    { phrase: "“전혀 문제 없습니다”", why: "확인 전 단정은 이후 사실이 달라질 때 신뢰 손실로 돌아옵니다." },
-    { phrase: "근거 없는 “사실무근”", why: "확인 전 부인은 ‘은폐’ 프레임을 만듭니다." },
-  ],
-  rebuttal: [
-    { phrase: "“루머·악플러” 같은 감정 표현", why: "사실관계보다 태도가 기사가 됩니다." },
-    { phrase: "근거 없는 “100% 사실”", why: "반박의 근거가 없으면 강경함만 남습니다." },
-  ],
-};
-
-const STANCE_QA: Record<Stance, { question: string; answer: string; guide: string; level: Severity }[]> = {
-  apology: [
-    {
-      question: "왜 이렇게 늦게 알렸습니까?",
-      answer:
-        "최초 인지 시각은 [확인 필요: 시각]이고, 첫 공지는 [확인 필요: 시각]에 나갔습니다. 늦었다면 그 이유도 함께 공개하겠습니다. 타임라인 전체를 숨기지 않고 공개하겠습니다.",
-      guide: "인지·공지 시각을 숫자로 제시합니다. 변명보다 기록이 설득력 있습니다.",
-      level: 3,
-    },
-    {
-      question: "책임은 누구에게 있습니까?",
-      answer:
-        "원인과 책임은 당사에 있습니다. 내부 조사 결과에 따라 담당자와 조직의 책임을 명확히 하고, 그 결과도 같은 채널에 공개하겠습니다.",
-      guide: "책임 주체를 회사로 명확히 합니다. 개인에게 미루는 표현은 금지입니다.",
-      level: 3,
-    },
-    {
-      question: "보상은 어떻게 하십니까?",
-      answer:
-        "보상 기준은 [날짜]까지 확정해 공지하겠습니다. 접수는 [채널]에서 받고, 처리 현황도 정해진 시각에 공개하겠습니다.",
-      guide: "기준·시점·창구 세 가지를 반드시 함께 답합니다.",
-      level: 3,
-    },
-  ],
-  investigating: [
-    {
-      question: "‘확인 중’이라는 말만 반복하십니까?",
-      answer:
-        "확인된 사실과 확인 중인 사항을 구분해 알려드리고 있습니다. 확인 결과는 [확인 필요: 시각]에 공개하겠습니다. 일정을 지키는 것으로 답하겠습니다.",
-      guide: "확인 시각을 반드시 함께 말합니다. 시각 없는 ‘확인 중’은 답이 아닙니다.",
-      level: 3,
-    },
-    {
-      question: "지금이라도 입장을 밝히십시오.",
-      answer:
-        "확인되지 않은 내용을 추측해 말하지 않겠습니다. 지금까지 확인된 사실은 [확인된 사실]이고, 선제 조치로 [조치]를 진행했습니다.",
-      guide: "확인된 사실 1개 + 이미 한 조치 1개로 답합니다. 빈손으로 나가지 않습니다.",
-      level: 2,
-    },
-    {
-      question: "피해가 커지면 책임지겠습니까?",
-      answer:
-        "확인 결과에 따라 책임과 보상을 포함해 필요한 조치를 다 하겠습니다. 지금은 확인 일정과 선제 조치를 먼저 말씀드립니다.",
-      guide: "책임 회피로 읽히지 않게 ‘결과에 따라’가 아니라 ‘필요한 조치를 다 한다’로 답합니다.",
-      level: 3,
-    },
-  ],
-  rebuttal: [
-    {
-      question: "근거를 제시하십시오.",
-      answer:
-        "근거 자료는 [확인 필요: 자료]이며, 공개 가능한 범위에서 [채널]에 게시하겠습니다. 확인되지 않은 주장에는 사실관계로 답하겠습니다.",
-      guide: "근거를 먼저 확보한 뒤 말합니다. 자료 없이 강경하게 나가면 태도 논란이 됩니다.",
-      level: 3,
-    },
-    {
-      question: "왜 이제야 해명합니까?",
-      answer:
-        "보도 시점 이전에는 해당 내용을 인지하지 못했습니다. 인지 시각은 [확인 필요: 시각]이며, 확인 후 즉시 입장을 냈습니다.",
-      guide: "인지 시각과 입장 발표 시각을 분리해 제시합니다.",
-      level: 2,
-    },
-    {
-      question: "법적 대응까지 하겠다는 겁니까?",
-      answer:
-        "허위·왜곡으로 확인되는 내용에 대해서는 절차에 따라 대응하겠습니다. 다만 정당한 비판과 지적은 겸허히 받아들이겠습니다.",
-      guide: "위협이 아니라 원칙으로 읽히게 말합니다. ‘모두 고소’는 역효과입니다.",
-      level: 2,
-    },
-  ],
-};
-
-const OUTLOOK: Record<Stance, Outlook> = {
-  apology: {
-    reactions: [
-      { channel: "consumer-cafe", text: "사과는 봤는데 환불은 언제부터 되나요? 접수 창구부터 알려주세요.", tone: "질문" },
-      { channel: "sns-x", text: "첫 문장이 사과면 일단 읽는다. 보상 기준 나오는지 보자.", tone: "우려" },
-      { channel: "youtube", text: "정리 영상 각 — ‘사과는 했는데 숫자가 없다’.", tone: "냉소" },
-      { channel: "econ-press", text: "보상 규모와 충당금 계상 여부, 재발 방지 일정을 확인해야 합니다.", tone: "질문" },
-    ],
-    triggers: [
-      "보상 기준 공지가 늦어지면 ‘말뿐인 사과’ 프레임이 고정됩니다.",
-      "피해 인증샷이 확산되면 사과 문장보다 사례가 먼저 인용됩니다.",
-      "임직원·매장이 다른 말을 하면 공지 전체의 신뢰가 무너집니다.",
-    ],
-    escalation: [
-      "보상 기준을 조기에 확정·공지 — ‘숫자’가 나오면 사과 프레임이 유지됩니다.",
-      "피해 사례 접수 창구를 개설하고 처리 현황을 시간 단위로 공개합니다.",
-      "현장·매장 대응 스크립트를 재배포하고 본사 문안과 일치시킵니다.",
-    ],
-  },
-  investigating: {
-    reactions: [
-      { channel: "consumer-cafe", text: "‘확인 중’이라는 말이 벌써 세 번째네요. 일정이라도 지켜주세요.", tone: "냉소" },
-      { channel: "sns-x", text: "선제 안내는 했으니 일단 지켜보자. 결과 나올 때까지.", tone: "우려" },
-      { channel: "youtube", text: "해설 영상 — ‘확인 중’ 프레임이 얼마나 버티는지 보는 각.", tone: "질문" },
-      { channel: "econ-press", text: "확인 일정을 못 지키면 그때부터가 진짜 기사입니다.", tone: "질문" },
-    ],
-    triggers: [
-      "약속한 확인 시각을 넘기면 ‘확인 중’이 거짓말이 됩니다.",
-      "선제 조치 없이 공지만 반복하면 ‘무대응’ 프레임이 붙습니다.",
-      "피해 사례가 등장하면 확인보다 즉시 대응 요구가 먼저 옵니다.",
-    ],
-    escalation: [
-      "확인 결과가 나오는 즉시 같은 채널에 먼저 공개 — 입장 전환(사과/반박)을 미루지 않습니다.",
-      "확인이 길어지면 중간 브리핑을 정해진 시각에 올려 ‘진행 중’을 증명합니다.",
-      "피해 사례 접수 창구를 열어 개별 안내로 전환합니다.",
-    ],
-  },
-  rebuttal: {
-    reactions: [
-      { channel: "consumer-cafe", text: "근거 자료부터 올려주세요. 말로만 반박하면 못 믿습니다.", tone: "질문" },
-      { channel: "sns-x", text: "회사 입장 캡처 — 태도 논란으로 번질 각.", tone: "냉소" },
-      { channel: "youtube", text: "찬반 대결 구도 영상 — 어느 쪽 말이 맞는지 비교.", tone: "질문" },
-      { channel: "econ-press", text: "근거 자료 공개 시점과 법적 대응 방향을 확인해야 합니다.", tone: "질문" },
-    ],
-    triggers: [
-      "근거 자료 없이 반박만 반복하면 ‘태도 논란’으로 프레임이 이동합니다.",
-      "상대방의 추가 폭로가 나오면 앞선 반박 전체가 무너집니다.",
-      "감정적 표현이 캡처되면 사안이 ‘갑질’로 재구성됩니다.",
-    ],
-    escalation: [
-      "근거 자료를 공개 가능한 형태로 정리해 한 번에 공개합니다.",
-      "추가 주장에는 사실관계 단위로만 반박 — 감정 표현을 넣지 않습니다.",
-      "법적 절차는 ‘방침’만 밝히고, 진행 상황은 결과가 나온 뒤 공개합니다.",
-    ],
-  },
-};
-
 function buildRoadmap(profileIndex: number, extras: EntityProfile[], industryId: IndustryId, profileIndustry: IndustryId, protocol?: IssueProtocol): RoadmapPhase[] {
   const profile = ENTITY_PROFILES[profileIndex];
   const industry = getIndustry(industryId);
@@ -395,7 +227,7 @@ function buildRoadmap(profileIndex: number, extras: EntityProfile[], industryId:
       const line = p.roadmap[i]?.items?.[0];
       if (line && !items.includes(line)) items.push(`[${p.short}] ${line}`);
     }
-    return { ...phase, items: items.slice(0, 5) };
+    return { ...phase, items: items.slice(0, 6) };
   });
 }
 
@@ -423,6 +255,8 @@ function buildActions(profileIndex: number, extras: EntityProfile[], industryId:
 function buildPublicStatement(input: {
   brand: string;
   stance: Stance;
+  /** 직접 입력 스탠스의 사용자 문장 */
+  customText?: string;
   eventLabel: string;
   situation: string;
   grave: boolean;
@@ -456,6 +290,158 @@ function buildPublicStatement(input: {
   const publicLabel = `${audience} 공지`;
   const publicChannel =
     profile.id === "labor" ? "노사 협의 채널 · 사내 공지" : profile.id === "entertainment" ? "공식 팬 채널 · SNS" : "자사 채널 · 앱 공지 · 커뮤니티";
+
+  if (stance === "facts") {
+    const body = [
+      `이번 ${eventLabel} 관련 보도·게시물에 대해, 지금까지 확인된 사실과 사실과 다른 점을 정리해 알려드립니다.`,
+      "",
+      "[확인된 사실]",
+      situation,
+      "",
+      "[사실과 다른 부분]",
+      `- ${place("보도·게시물 중 사실과 다른 내용")} → 실제: ${place("확인된 사실")}`,
+      `- 근거: ${place("근거 자료·출처·기준 시점")}`,
+      "",
+      "[아직 확인되지 않은 사항]",
+      `- ${place("원인·영향 범위")} — ${place("공개 시각")}까지 확인해 이 공지에 반영하겠습니다.`,
+      "",
+      "[지금 하고 있는 조치]",
+      ...firstActions.map((t) => `- ${t}`),
+      ...protocolLines,
+      "",
+      support,
+      "",
+      profile.legal,
+      "",
+      "사실과 다른 내용을 보도·게시한 경우 이 자료를 근거로 정정을 요청드립니다. 정정이 필요한 부분은 즉시 고치고, 확인되지 않은 내용은 추측하지 않겠습니다.",
+      "",
+      contact,
+      "",
+      signature,
+    ].join("\n");
+    return {
+      id: "public",
+      label: publicLabel,
+      channel: publicChannel,
+      title: `${brand}, ${eventLabel} 관련 사실관계 안내`,
+      body,
+    };
+  }
+
+  if (stance === "compensation") {
+    const body = [
+      `이번 ${eventLabel} 사안으로 피해를 입으신 분들께 보상 기준을 먼저 알려드립니다. 원인 규명과 별개로, 피해 접수와 지급을 지금부터 시작합니다.`,
+      "",
+      "[보상 대상]",
+      `- ${place("대상·범위")}`,
+      "",
+      "[보상 내용]",
+      `- ${place("금액·산식")}`,
+      `- 지급 시작: ${place("날짜")} / 처리 기한: ${place("기한")}`,
+      "",
+      "[신청 방법]",
+      `- 접수: ${place("채널")} — 필요한 서류는 최소한으로 줄였습니다.`,
+      "- 신청 기한은 두지 않습니다. 늦게 확인되신 분도 같은 기준으로 처리합니다.",
+      "",
+      "[지금 하고 있는 조치]",
+      ...firstActions.map((t) => `- ${t}`),
+      ...protocolLines,
+      "",
+      "[원인 조사와 재발 방지]",
+      `- 원인 조사 일정: ${place("조사 범위·시각")}`,
+      `- 재발 방지: ${place("대책·완료 일정")}`,
+      "",
+      support,
+      "",
+      profile.legal,
+      "",
+      "보상은 비밀유지·게시물 삭제·합의 등 어떤 조건과도 연결하지 않습니다. 보상을 받으신 뒤에도 추가 피해를 주장하실 수 있습니다.",
+      "",
+      contact,
+      "",
+      signature,
+    ].join("\n");
+    return {
+      id: "public",
+      label: publicLabel,
+      channel: publicChannel,
+      title: `${brand}, ${eventLabel} 관련 보상·지원 방안 안내`,
+      body,
+    };
+  }
+
+  if (stance === "silence") {
+    const body = [
+      "[공개 입장문 — 지금은 공개하지 않습니다]",
+      "이 문안은 내부 보관용입니다. 아래 전환 조건 중 하나가 충족될 때 그대로 게시합니다.",
+      "",
+      "[공개 전환 조건]",
+      "- 유력 매체가 사실로 확인해 보도할 때",
+      "- 피해 주장이 구체적 증거와 함께 제기될 때",
+      `- 당국이 공식 확인을 요청할 때 (${place("기관")})`,
+      "",
+      "[게시할 때 쓸 첫 문장]",
+      `“최근 제기된 ${eventLabel} 관련 내용에 대해, 당사가 확인한 사실을 알려드립니다.”`,
+      "",
+      "[지금 내부에서 하는 일]",
+      ...firstActions.map((t) => `- ${t}`),
+      `- 원 게시물·유포 경로·확산 지표 기록: ${place("지표·시각")}`,
+      `- 사실관계·타임라인 정리: ${place("담당·기한")}`,
+      "",
+      "[문의 원칙]",
+      "- 모든 문의에는 ‘확인 후 회신’으로 답하고, 회신 시각을 같은 날 안에서 명시합니다.",
+      "- ‘노코멘트’만 반복하지 않습니다.",
+      "",
+      support,
+      "",
+      profile.legal,
+      "",
+      contact,
+      "",
+      signature,
+    ].join("\n");
+    return {
+      id: "public",
+      label: publicLabel,
+      channel: publicChannel,
+      title: `${brand}, ${eventLabel} 관련 — 공개 입장 보류(내부 문안)`,
+      body,
+    };
+  }
+
+  if (stance === "custom") {
+    const line = (input.customText ?? "").trim() || place("직접 정한 입장");
+    const body = [
+      "[입장]",
+      line,
+      "",
+      "[확인된 사실]",
+      situation,
+      "",
+      "[이 입장에서 지킬 선]",
+      "- 이 문안에서는 위 입장만 말하고, 확인되지 않은 원인·책임은 추측하지 않습니다.",
+      `- 말하지 않을 것: ${place("부인·보류할 항목")}`,
+      "",
+      "[지금 하고 있는 조치]",
+      ...firstActions.map((t) => `- ${t}`),
+      ...protocolLines,
+      "",
+      support,
+      "",
+      profile.legal,
+      "",
+      contact,
+      "",
+      signature,
+    ].join("\n");
+    return {
+      id: "public",
+      label: publicLabel,
+      channel: publicChannel,
+      title: `${brand}, ${eventLabel} 관련 입장 말씀`,
+      body,
+    };
+  }
 
   if (stance === "apology") {
     const body = [
@@ -571,6 +557,8 @@ function buildPublicStatement(input: {
 function buildPressStatement(input: {
   brand: string;
   stance: Stance;
+  /** 직접 입력 스탠스의 사용자 문장 */
+  customText?: string;
   eventLabel: string;
   situation: string;
   grave: boolean;
@@ -594,6 +582,134 @@ function buildPressStatement(input: {
         section(`5. 고객·거래처 보호 조치`, protocol.measures.map((m) => `- ${m}`)),
       ]
     : [];
+  const footer = [
+    "",
+    section(`부록. ${profile.pressSection.title}`, profile.pressSection.items.map((t) => `- ${t}`)),
+    ...extras.map((p) => section(`부록. ${p.pressSection.title}`, p.pressSection.items.slice(0, 2).map((t) => `- ${t}`))),
+  ];
+
+  if (stance === "facts") {
+    const body = [
+      `${brand}는 이번 ${eventLabel} 관련 보도·게시물에 대해 확인된 사실과 사실과 다른 점을 다음과 같이 밝힙니다.`,
+      "",
+      section("1. 보도·주장 요약", [`- ${situation}`]),
+      section("2. 확인된 사실", [
+        `- 내용: ${place("확인된 사실")}`,
+        `- 기준 시점: ${place("시각")} / 확인 범위: ${place("대상·범위")}`,
+      ]),
+      section("3. 사실과 다른 점 및 근거", [
+        `- ${place("사실과 다른 주장")} → 실제: ${place("확인 결과")}`,
+        `- 근거 자료: ${place("자료명·출처")} (공개 위치: ${place("채널")})`,
+        "- 근거 자료의 기준 시점과 산출 방식을 함께 공개합니다.",
+      ]),
+      section("4. 확인 중인 사항·공개 일정", [
+        `- ${place("원인·범위")} — ${place("공개 시각")}까지 결과를 발표합니다.`,
+      ]),
+      section("5. 조치", actionItems.map((t) => `- ${t}`)),
+      ...protocolSections,
+      section("6. 규제·법적 대응", [
+        ...regulators.map((r) => `- ${r.name}: ${r.role}`),
+        ...(legal.length ? [`- 검토 법령: ${legal.map((l) => `${l.name}(${l.note})`).join(", ")}`] : []),
+        `- ${profile.legal}`,
+      ]),
+      section("7. 정정 요청", [
+        "- 사실과 다른 내용을 보도한 매체에는 이 자료를 근거로 정정을 요청드립니다.",
+        "- 추가 확인이 필요한 사항은 아래 문의처로 연락 주시면 즉시 회신하겠습니다.",
+      ]),
+      "문의: " + `${brand} 커뮤니케이션팀 ` + place("연락처"),
+      ...footer,
+    ].join("\n");
+    return { id: "press", label: "언론 배포·기자 회신", channel: "보도자료 · 기자 메일", title: `[입장문] ${brand}, ${eventLabel} 관련 사실관계 안내`, body };
+  }
+
+  if (stance === "compensation") {
+    const body = [
+      `${brand}는 이번 ${eventLabel} 사안과 관련해 피해 보상 방안을 다음과 같이 밝힙니다.`,
+      "",
+      section("1. 보상 방침", [
+        "- 원인 규명과 별개로 피해 회복을 먼저 진행합니다.",
+        "- 보상은 비밀유지·게시물 삭제·합의 등 어떤 조건과도 연결하지 않습니다.",
+      ]),
+      section("2. 대상·기준·지급 일정", [
+        `- 대상: ${place("대상·범위")}`,
+        `- 기준: ${place("금액·산식")}`,
+        `- 지급 시작: ${place("날짜")} / 처리 기한: ${place("기한")}`,
+      ]),
+      section("3. 신청 절차", [
+        `- 접수: ${place("채널")} (신청 기한 없음)`, 
+        `- 필요 서류: ${place("최소 서류")}`,
+        "- 처리 현황은 주기적으로 공개합니다.",
+      ]),
+      section("4. 원인 조사", [
+        `- 조사 범위·기관·일정: ${place("조사 범위·시각")}`,
+        "- 조사 결과는 보상 지급과 무관하게 공개합니다.",
+      ]),
+      section("5. 현재 조치", actionItems.map((t) => `- ${t}`)),
+      ...protocolSections,
+      section("6. 규제·법적 대응", [
+        ...regulators.map((r) => `- ${r.name}: ${r.role}`),
+        `- ${profile.legal}`,
+      ]),
+      "문의: " + `${brand} 커뮤니케이션팀 ` + place("연락처"),
+      ...footer,
+    ].join("\n");
+    return { id: "press", label: "언론 배포·기자 회신", channel: "보도자료 · 기자 메일", title: `[입장문] ${brand}, ${eventLabel} 관련 보상·지원 방안`, body };
+  }
+
+  if (stance === "silence") {
+    const body = [
+      "[기자 문의 회신 — 최소 문안]",
+      `“${brand}입니다. 문의하신 내용은 확인 중이며, 확인되는 범위에서 회신드리겠습니다. 회신 예정 시각은 ${place("시각")}입니다.”`,
+      "",
+      section("1. 이 문안을 쓰는 조건", [
+        "- 공식 입장을 낼 근거가 아직 확인되지 않았을 때",
+        "- 보도·게시물이 확인되지 않은 주장에 기반한 경우",
+      ]),
+      section("2. 하지 말아야 할 것", [
+        "- ‘노코멘트’만 반복하지 않습니다.",
+        "- 확인되지 않은 사실, 확산 규모, 원인을 추측해 말하지 않습니다.",
+        "- 임직원 개인이 개별 답변하지 않습니다.",
+      ]),
+      section("3. 내부 모니터링", [
+        `- 확산 지표 기록: ${place("지표·주기")}`,
+        "- 공개 전환 조건 충족 시 준비된 보류 문안으로 전환합니다.",
+      ]),
+      section("4. 담당", [
+        `- 문의 창구: ${brand} 커뮤니케이션팀 ${place("연락처")}`,
+      ]),
+      ...footer,
+    ].join("\n");
+    return { id: "press", label: "언론 배포·기자 회신", channel: "보도자료 · 기자 메일", title: `[내부] ${brand}, ${eventLabel} 관련 기자 문의 최소 회신 문안`, body };
+  }
+
+  if (stance === "custom") {
+    const line = (input.customText ?? "").trim() || place("직접 정한 입장");
+    const body = [
+      `${brand}는 이번 ${eventLabel} 사안과 관련해 다음과 같이 입장을 밝힙니다.`,
+      "",
+      section("1. 입장", [`- ${line}`]),
+      section("2. 확인된 사실", [
+        `- 내용: ${situation}`,
+        `- 기준 시점: ${place("시각")}`,
+      ]),
+      section("3. 확인 중인 사항·말하지 않는 것", [
+        `- ${place("확인 중인 항목")} — ${place("공개 시각")}까지 확인해 알려드립니다.`,
+        "- 위 입장 범위를 넘어서는 사실관계는 추측해 말하지 않습니다.",
+      ]),
+      section("4. 현재 조치", actionItems.map((t) => `- ${t}`)),
+      ...protocolSections,
+      section("5. 규제·법적 대응", [
+        ...regulators.map((r) => `- ${r.name}: ${r.role}`),
+        `- ${profile.legal}`,
+      ]),
+      section("6. 자료·문의", [
+        "- 추가 확인이 필요한 사항은 아래 문의처로 연락 주시면 회신하겠습니다.",
+      ]),
+      "문의: " + `${brand} 커뮤니케이션팀 ` + place("연락처"),
+      ...footer,
+    ].join("\n");
+    return { id: "press", label: "언론 배포·기자 회신", channel: "보도자료 · 기자 메일", title: `[입장문] ${brand}, ${eventLabel} 관련 입장`, body };
+  }
 
   if (stance === "apology") {
     const body = [
@@ -782,7 +898,7 @@ function mergeProtocolRoadmap(base: RoadmapPhase[], protocol: IssueProtocol | un
     const items = uniqBy(
       [...(i === 0 ? stageFocus(stage) : []), ...p.items, ...phase.items],
       (v) => v.replace(/\s/g, "").slice(0, 18),
-      7,
+      8,
     );
     return { window: phase.window, title: p.title, goal: p.goal, gate: p.gate, items };
   });
@@ -824,20 +940,30 @@ export function buildLocalPackage(input: PackageInput): ResponsePackage {
   const protocol = getProtocol(caseType);
   const stage = input.stage;
   const scale = input.scale;
-  const stance = getStance(input.stance);
+  const stance = getStance(input.stance, input.stanceCustom);
+  const situationIds = (input.situations ?? []).slice(0, 3);
+  const situationTags = situationIds.map((id) => getSituation(id)).filter((s): s is NonNullable<typeof s> => Boolean(s));
   const brand = input.brand.trim() || "당사";
   const summary = summarize(raw, 240);
   const grave = /사망|숨(?:지|졌)|중대재해|끼임|추락|폭발|화재|유가족|애도/.test(raw);
 
   const headlineByStance: Record<Stance, string> = {
     apology: `${event.label} — 피해 범위와 보상 기준을 첫 6시간 안에 확정해야 합니다.`,
+    facts: `${event.label} — ‘유감’도 ‘사실무근’도 아닌, 숫자와 출처로 먼저 정리해야 합니다.`,
     investigating: `${event.label} — 지금은 ‘확인 중’이 아니라 ‘확인 일정’으로 신뢰를 만드는 구간입니다.`,
+    compensation: `${event.label} — 보상 대상·금액·지급일을 첫 6시간 안에 확정해야 신뢰가 붙습니다.`,
+    silence: `${event.label} — 지금은 말이 아니라 확산 지표와 공개 전환 조건을 정할 때입니다.`,
     rebuttal: `${event.label} — 근거 2개를 먼저 확보하지 않으면 반박이 태도 논란으로 바뀝니다.`,
+    custom: `${event.label} — 정한 입장을 문장 단위로 지켜야 톤이 흔들리지 않습니다.`,
   };
   const PRICING_HEADLINE: Record<Stance, string> = {
     apology: "가격 인상 — 인상 폭·적용일·기존 고객 보호를 첫 6시간 안에 숫자로 확정해야 합니다.",
+    facts: "가격 인상 — ‘원가 때문’이 아니라 인상 폭·적용일·비교표를 숫자로 정리해야 합니다.",
     investigating: "가격 인상 — ‘검토 중’이 아니라 인상 시점·폭·기존 고객 적용일을 숫자로 내놓아야 합니다.",
+    compensation: "가격 인상 — 인상 대신 기존 고객 유지·할인·유예안을 먼저 내놓아야 반발이 멈춥니다.",
+    silence: "가격 인상 — 공지 전이라면 비교표와 기존 고객 보호안을 완성하고 시점을 다시 잡아야 합니다.",
     rebuttal: "가격 인상 — ‘원가 때문’이라는 말보다 원가·인상률 비교표와 기존 고객 보호가 먼저입니다.",
+    custom: "가격 인상 — 직접 정한 입장과 함께 인상 폭·적용일·기존 고객 조건을 숫자로 붙여야 합니다.",
   };
   const headline =
     caseType === "pricing"
@@ -847,8 +973,8 @@ export function buildLocalPackage(input: PackageInput): ResponsePackage {
         : headlineByStance[input.stance];
 
   const statements: Statement[] = [
-    buildPublicStatement({ brand, stance: input.stance, eventLabel: event.label, situation: summary, grave, profileIdx, extras, industryId, industry, protocol }),
-    buildPressStatement({ brand, stance: input.stance, eventLabel: event.label, situation: summary, grave, profileIdx, extras, industry, protocol }),
+    buildPublicStatement({ brand, stance: input.stance, customText: input.stanceCustom, eventLabel: event.label, situation: summary, grave, profileIdx, extras, industryId, industry, protocol }),
+    buildPressStatement({ brand, stance: input.stance, customText: input.stanceCustom, eventLabel: event.label, situation: summary, grave, profileIdx, extras, industry, protocol }),
   ];
 
   const banned: BannedPhrase[] = uniqBy(
@@ -879,13 +1005,33 @@ export function buildLocalPackage(input: PackageInput): ResponsePackage {
   const watchouts = uniqBy(
     [
       ...(protocol?.watchouts ?? []),
+      ...situationTags.map((s) => s.watchout),
       ...primary.watchouts,
       ...extras.flatMap((p) => p.watchouts.slice(0, 1)),
       stance.rule,
     ],
     (w) => w.replace(/\s/g, "").slice(0, 18),
-    6,
+    7,
   );
+
+  const actions = mergeProtocolActions(buildActions(profileIdx, extras, industryId, primary.industry, protocol), protocol, stage);
+  if (situationTags.length && actions[0]) {
+    const head = situationTags.map((s) => ({ text: s.action, owner: "총괄" }));
+    const seen = new Set(actions[0].items.map((i) => i.text.replace(/\s/g, "").slice(0, 14)));
+    actions[0] = {
+      ...actions[0],
+      items: [...head.filter((h) => !seen.has(h.text.replace(/\s/g, "").slice(0, 14))), ...actions[0].items].slice(0, 10),
+    };
+  }
+
+  const baseBrief = buildIssueBrief(caseType, { stage, scale }) ?? genericBrief({ stage, scale });
+  const situationNotes = [
+    ...situationTags.map((s) => `${s.label} 상황으로 설정`),
+    ...(input.situationNote?.trim() ? [`추가 상황: ${input.situationNote.trim().slice(0, 120)}`] : []),
+  ];
+  const issueBrief = situationNotes.length
+    ? { ...baseBrief, assumptions: uniqBy([...baseBrief.assumptions, ...situationNotes], (v) => v.slice(0, 20), 6) }
+    : baseBrief;
 
   return {
     id: `pkg-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
@@ -894,6 +1040,9 @@ export function buildLocalPackage(input: PackageInput): ResponsePackage {
     situation: input.situation.trim(),
     brand,
     stance: input.stance,
+    stanceCustom: input.stanceCustom?.trim() || undefined,
+    situations: situationIds.length ? situationIds : undefined,
+    situationNote: input.situationNote?.trim() || undefined,
     entities: input.entities.length ? input.entities.slice(0, 3) : ["general"],
     industry: industryId,
     industryLabel: industry.label,
@@ -906,7 +1055,7 @@ export function buildLocalPackage(input: PackageInput): ResponsePackage {
     headline,
     strategy: protocol ? `${protocol.summary.split(". ")[0]}. ${stance.rule}` : stance.rule,
     roadmap: mergeProtocolRoadmap(buildRoadmap(profileIdx, extras, industryId, primary.industry, protocol), protocol, stage),
-    actions: mergeProtocolActions(buildActions(profileIdx, extras, industryId, primary.industry, protocol), protocol, stage),
+    actions,
     statements,
     qa,
     banned,
@@ -919,7 +1068,7 @@ export function buildLocalPackage(input: PackageInput): ResponsePackage {
         }
       : OUTLOOK[input.stance],
     watchouts,
-    issueBrief: buildIssueBrief(caseType, { stage, scale }) ?? genericBrief({ stage, scale }),
+    issueBrief,
     stage,
     scale,
   };
@@ -999,11 +1148,13 @@ export function actionsToText(groups: ActionGroup[]): string {
 }
 
 export function packageToText(pkg: ResponsePackage): string {
-  const stance = getStance(pkg.stance);
+  const stance = getStance(pkg.stance, pkg.stanceCustom);
+  const situationLabels = (pkg.situations ?? []).map((id) => getSituation(id)?.label).filter(Boolean).join(" · ");
   const lines: string[] = [
     `[PRISM 대응 패키지] ${pkg.brand}`,
     `상황: ${pkg.situation}`,
-    `유형: ${pkg.entities.map((id) => ENTITY_PROFILES.find((p) => p.id === id)?.label ?? id).join(" · ")} / 입장: ${stance.label}`,
+    `유형: ${pkg.entities.map((id) => ENTITY_PROFILES.find((p) => p.id === id)?.label ?? id).join(" · ")} / 입장: ${stance.label}${pkg.stanceCustom ? ` — ${pkg.stanceCustom}` : ""}`,
+    ...(situationLabels ? [`기업 상황: ${situationLabels}${pkg.situationNote ? ` · ${pkg.situationNote}` : ""}`] : []),
     `업종: ${pkg.industryLabel}${pkg.industrySource === "manual" ? "(직접 선택)" : "(자동 판별)"} / 이슈 유형: ${pkg.caseTypeLabel ?? "자동 판별 불가"}`,
     `진단: ${pkg.headline}`,
     "",
@@ -1056,12 +1207,14 @@ export function packageToText(pkg: ResponsePackage): string {
 
 /** 팀 공유·문서 붙여넣기용 마크다운. */
 export function packageToMarkdown(pkg: ResponsePackage): string {
-  const stance = getStance(pkg.stance);
+  const stance = getStance(pkg.stance, pkg.stanceCustom);
+  const situationLabels = (pkg.situations ?? []).map((id) => getSituation(id)?.label).filter(Boolean).join(" · ");
   const out: string[] = [];
   out.push(`# ${pkg.brand} — ${pkg.caseTypeLabel ?? pkg.eventLabel} 대응 패키지`);
   out.push("");
   out.push(`- **상황**: ${pkg.situation.replace(/\n/g, " ")}`);
-  out.push(`- **입장**: ${stance.label}`);
+  out.push(`- **입장**: ${stance.label}${pkg.stanceCustom ? ` — ${pkg.stanceCustom}` : ""}`);
+  if (situationLabels) out.push(`- **기업 상황**: ${situationLabels}${pkg.situationNote ? ` · ${pkg.situationNote}` : ""}`);
   out.push(`- **이슈 유형**: ${pkg.caseTypeLabel ?? "자동 판별 불가"}${pkg.caseTypeSource === "manual" ? " (직접 선택)" : ""}`);
   out.push(`- **업종**: ${pkg.industryLabel}${pkg.industrySource === "manual" ? " (직접 선택)" : ""}`);
   out.push(`- **위험도**: ${pkg.risk}`);

@@ -8,6 +8,8 @@ import { normalizeCase } from "./case-store";
 import { findSimilarCases } from "./similar";
 import { CASE_VERDICT_LABEL } from "./cases";
 import { getProtocol, STAGE_META, SCALE_META, type IssueBrief } from "./issue-protocols";
+import { STANCE_AI, getStance } from "./stances";
+import { situationDigest, getSituation } from "./situations";
 
 const BASE = import.meta.env.BASE_URL || "/";
 export const ANALYZE_ENDPOINT = `${BASE.replace(/\/+$/, "")}/api/analyze`;
@@ -171,6 +173,16 @@ export function buildAiContext(pkg: ResponsePackage): Record<string, string> {
   const stageLine = pkg.stage
     ? `현재 단계: ${STAGE_META[pkg.stage].label} — ${STAGE_META[pkg.stage].note}`
     : "";
+  const stance = getStance(pkg.stance, pkg.stanceCustom);
+  const stanceGuide = STANCE_AI[pkg.stance];
+  const stanceDigest = [
+    `■ ${stance.label} — ${stance.rule}`,
+    ...(pkg.stance === "custom" && pkg.stanceCustom ? [`사용자가 직접 정한 입장: ${pkg.stanceCustom}`] : []),
+    `지침: ${stanceGuide.directive}`,
+    `금기: ${stanceGuide.banned}`,
+  ].join("\n");
+  const situLabel = (pkg.situations ?? []).map((id) => getSituation(id)?.label).filter(Boolean).join(" · ");
+  const situDigest = situationDigest(pkg.situations ?? []);
   const scaleLine = pkg.scale ? `기업 규모: ${SCALE_META[pkg.scale].label} — ${SCALE_META[pkg.scale].note}` : "";
 
   return {
@@ -180,6 +192,11 @@ export function buildAiContext(pkg: ResponsePackage): Record<string, string> {
     caseTypeLabel: pkg.caseTypeLabel ?? (pkg.caseType ? pkg.caseType : "자동 판별 불가"),
     protocolDigest: [protocolDigest, stageLine, scaleLine].filter(Boolean).join("\n").slice(0, 3_500),
     caseDigest: caseDigest.slice(0, 3_500),
+    stance: stanceDigest.slice(0, 1_200),
+    situations: [situLabel ? `선택한 상황: ${situLabel}` : "", situDigest, pkg.situationNote?.trim() ? `추가 상황: ${pkg.situationNote.trim()}` : ""]
+      .filter(Boolean)
+      .join("\n")
+      .slice(0, 2_000),
   };
 }
 
@@ -485,6 +502,9 @@ export async function requestPackage(base: ResponsePackage, options: RequestOpti
       situation: base.situation,
       brand: base.brand,
       stance: base.stance,
+      stanceCustom: base.stanceCustom ?? "",
+      situations: base.situations ?? [],
+      situationNote: base.situationNote ?? "",
       entities: base.entities,
       caseType: base.caseType ?? "auto",
       stage: base.stage,

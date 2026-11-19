@@ -5,7 +5,10 @@
  *   body: {
  *     mode: "package" | "review",
  *     situation?: string,        // 위기 상황 한 줄 또는 기사 URL
- *     stance?: "apology" | "investigating" | "rebuttal",
+ *     stance?: "apology" | "facts" | "investigating" | "compensation" | "silence" | "rebuttal" | "custom",
+ *     stanceCustom?: string,     // stance=custom일 때 사용자가 적은 입장 문장
+ *     situations?: string[],     // 기업 상황 태그 (listed-large, ipo, b2b, spreading …)
+ *     situationNote?: string,    // 기업 상황 직접 입력
  *     brand?: string,
  *     entities?: string[],       // general | listed | consumer | platform | entertainment | labor
  *     draft?: string,            // review 모드: 검수할 기존 입장문
@@ -41,7 +44,7 @@ const OPENAI_URL = `${OPENAI_BASE}/chat/completions`;
 const GEMINI_BASE = (ENV.GEMINI_BASE_URL || "https://generativelanguage.googleapis.com").replace(/\/+$/, "");
 
 type Provider = "gemini" | "openai";
-type Stance = "apology" | "investigating" | "rebuttal";
+type Stance = "apology" | "facts" | "investigating" | "compensation" | "silence" | "rebuttal" | "custom";
 type Mode = "package" | "review" | "case";
 
 const isGeminiKey = (key: string): boolean => key.length > 0 && !key.startsWith("sk-");
@@ -85,7 +88,117 @@ const TYPE_GUIDE: Record<string, { label: string; directive: string; banned: str
     banned: "‘규제 과도’, ‘혁신을 막는 처분’, ‘즉시 소송’",
   },
 };
-const STANCES: Stance[] = ["apology", "investigating", "rebuttal"];
+const STANCES: Stance[] = ["apology", "facts", "investigating", "compensation", "silence", "rebuttal", "custom"];
+
+/** 스탠스별 지침 — 클라이언트 컨텍스트가 없어도 입장 차이가 프롬프트에 남도록. */
+const STANCE_GUIDE: Record<Stance, { label: string; directive: string; banned: string }> = {
+  apology: {
+    label: "공식 사과·전면 시정",
+    directive:
+      "잘못이 확인된 상황. 첫 문단은 사과, 두 번째는 고객이 지금 할 일. 보상 기준·접수 창구·처리 일정을 숫자로 제시하고, 원인 규명은 그다음 순서로 쓴다.",
+    banned: "‘유감입니다’로 끝내기, 변명, 책임을 개인·협력사로 돌리기, 숫자 없는 ‘최선을 다하겠습니다’",
+  },
+  facts: {
+    label: "사실 적시·팩트체크",
+    directive:
+      "사과도 반박도 아닌 ‘사실 적시’형. ①보도·주장 요약 ②확인된 사실 ③사실과 다른 점과 근거(자료·출처·기준 시점) ④아직 확인되지 않은 사항과 공개 시각 ⑤고객·피해자 조치 ⑥정정 요청 순서로 쓴다. 감정 표현 없이 숫자와 출처만 쓴다.",
+    banned: "근거 없는 ‘사실무근’, ‘일부 표현이 부적절’, 유감만 있고 조치가 없는 문장, 출처 없는 수치",
+  },
+  investigating: {
+    label: "유감 표명·조사 경과",
+    directive:
+      "아직 확정 전. 유감을 한 줄 표하고, 확인된 사실과 확인 중인 사항을 구분한다. 확인 결과 공개 시각을 반드시 약속하고, 그 전에 할 수 있는 선제 조치를 함께 낸다.",
+    banned: "확인 전 단정, 시각 없는 ‘확인 중’, 근거 없는 부인",
+  },
+  compensation: {
+    label: "선제 보상·상생안",
+    directive:
+      "원인 규명 전이라도 피해를 먼저 회복시키는 ‘선제 보상’형. 보상 대상·기준·금액·신청 방법·지급 일정을 앞세우고, 보상은 비밀유지·게시물 삭제·합의 등 어떤 조건과도 연결하지 않는다고 명시한다. 원인 조사 일정도 함께 밝힌다.",
+    banned: "‘합의·선처’, 비밀유지·삭제 요구, 금액 없는 ‘최대한 보상’, 조사 결과가 나오면 보상하겠다는 미루기",
+  },
+  silence: {
+    label: "무대응·모니터링",
+    directive:
+      "전략적 무대응. statements.public은 ‘보류 문안’으로 만들고 ①공개 전환 조건(보도 수준·증거·당국 요청) ②전환 시 쓸 첫 문장 ③지금 내부에서 하는 확인·기록 ④문의 회신 원칙을 담는다. statements.press는 기자 문의에 쓸 최소 회신 문안과 회신 시각, 하지 말아야 할 것을 담는다. 사실을 단정하거나 추측하지 않는다.",
+    banned: "‘노코멘트’만 반복, 근거 없는 ‘사실무근’, 임직원 개인 답변, 확인되지 않은 확산 규모 언급",
+  },
+  rebuttal: {
+    label: "강경 대응·법적 조치",
+    directive:
+      "허위·왜곡에 대한 강경 대응. 근거 자료 2개 이상과 공개 위치를 먼저 제시하고, 허위로 확인된 범위에 한해 법적 절차 방침을 밝힌다. 정당한 비판은 수용한다는 원칙을 함께 쓴다.",
+    banned: "‘루머·악플러’ 같은 감정 표현, 전원 고소, 근거 없는 ‘100% 사실’",
+  },
+  custom: {
+    label: "직접 입력",
+    directive:
+      "사용자가 직접 정한 입장을 따른다. 그 문장을 첫 문단에 그대로 두고, 확인된 사실과 조치만 뒤에 붙인다. 입장에 없는 사실·약속을 추가하지 않는다.",
+    banned: "직접 정한 입장과 다른 톤, 입장에 없는 사실 추가, 범위를 넘는 약속",
+  },
+};
+
+/** 기업 상황 태그 — 회사 단계·고객 구조·지금의 여론 상태. */
+const SITUATION_GUIDE: Record<string, { label: string; directive: string }> = {
+  "listed-large": {
+    label: "상장사·대기업",
+    directive:
+      "거래소 조회공시·수시공시 요구 여부를 먼저 판단하고 공시 시각·IR 창구를 1시간 항목에 넣는다. 계열사·해외법인까지 같은 숫자를 쓰도록 승인선을 정하고, 확정 전 실적·주가 전망은 쓰지 않는다.",
+  },
+  ipo: {
+    label: "성장기·IPO 준비",
+    directive:
+      "공모 일정·투자자 신뢰가 걸려 있다. 사안의 성격·규모를 사실로만 밝히고 공모 일정 변경 여부는 확정 뒤에 말한다. 주관사·법률대리인과 문안을 맞춘다.",
+  },
+  funding: {
+    label: "자금난·투자 유치",
+    directive:
+      "지급 능력(정산·급여·환불)이 핵심 질문이다. 확정된 현금흐름·조달 계획만 밝히고, 이용자·판매자 보호 조치(에스크로·정산 우선순위)를 먼저 제시한다. 미확정 투자 유치 발표는 금지.",
+  },
+  mna: {
+    label: "M&A·구조조정",
+    directive:
+      "확인되지 않은 인수·합병·감원 루머는 사실관계로만 답하고, 임직원 → 거래처 → 외부 순서로 알린다. 노조·대주주·규제기관 통보 절차와 일정을 밝힌다.",
+  },
+  b2c: {
+    label: "B2C 대중 브랜드",
+    directive:
+      "확산이 빠르므로 첫 1시간 안에 고객이 할 일(환불·중단·신청)을 앱·SNS·커뮤니티에 동시에 올린다. 현장·매장 CS 스크립트를 같은 시각에 배포한다.",
+  },
+  b2b: {
+    label: "B2B 거래처 중심",
+    directive:
+      "공개 성명보다 개별 통지가 먼저다. 영향 고객사 목록·담당자에게 먼저 알리고, SLA·계약 조항에 따른 보상과 대체 수단을 제시한다. 고객사 이름·계약 내용은 공개 문안에 쓰지 않는다.",
+  },
+  global: {
+    label: "해외·수출 비중 큼",
+    directive:
+      "본사·현지 법인의 고지 기준·언어·시차를 맞추고 현지 규제기관 신고 의무를 먼저 확인한다. 국가별 보상 기준이 갈라지지 않도록 원칙 하나와 현지 예외만 밝힌다.",
+  },
+  rumor: {
+    label: "초기 루머·커뮤니티",
+    directive:
+      "확산 규모가 작다. 대형 성명보다 ①원 게시물·유포 경로 기록 ②사실 확인 ③확산 지표 모니터링 ④필요 시 짧은 사실 안내 순서로 움직인다.",
+  },
+  spreading: {
+    label: "여론 악화·보도 확산",
+    directive:
+      "2차 보도·해지·불매가 진행 중이다. 같은 말을 반복하면 프레임이 굳으므로, 첫 6시간 안에 새 숫자·일정을 담은 공지를 내고 이후 중간 브리핑 시각을 고정한다.",
+  },
+  regulator: {
+    label: "당국 조사·제재",
+    directive:
+      "처분 전 결론을 단정하지 않고 조사 협조 사실과 제출 자료·일정만 밝힌다. 처분 가능성은 통보받은 내용 기준으로만 말하고, 이의신청·시정 절차와 소비자 영향을 함께 안내한다.",
+  },
+  "labor-internal": {
+    label: "노사·내부 제보",
+    directive:
+      "고발자 신원 추정·보복으로 읽히는 표현을 배제하고, 사실 확인과 제도 개선(처우·안전·신고 채널)을 함께 제시한다. 노조 교섭 일정·근로감독 대응 창구를 밝히고 사내 공지를 외부보다 먼저 한다.",
+  },
+  owner: {
+    label: "오너·경영진 리스크",
+    directive:
+      "회사와 개인의 책임을 분리하되 경영 공백·의사결정 체계(비상경영·대행)를 먼저 밝힌다. 사법 절차는 확인된 사실만 쓰고 주주·임직원·거래처 영향과 통제 방안을 함께 낸다.",
+  },
+};
 
 /**
  * 서버가 직접 들고 있는 유형 지침.
@@ -183,10 +296,15 @@ const SYSTEM_PACKAGE = `당신은 한국 기업의 위기 커뮤니케이션을 
 - 실존 인물의 실명·연락처·계정을 새로 만들지 마세요.
 - "확인 중", "최선을 다하겠습니다" 같은 빈 문장으로 빈칸을 덮지 마세요. 확인된 사실과 확인해야 할 항목을 구분합니다.
 - 모든 문장은 한국어 실무 문체로, 보도자료·공지에 그대로 붙여 넣을 수 있는 완성된 형태로 씁니다.
-- 입장(stance)에 따라 문안과 전략이 완전히 달라져야 합니다.
-  · apology(사실 인정·즉시 사과): 첫 문단이 사과, 두 번째가 고객이 지금 할 일. 원인 변명·책임 전가 금지. 보상 기준과 시점을 반드시 포함.
-  · investigating(경위 확인 중·선제 안내): 확정되지 않은 사실은 인정하지 않되, 확인 항목과 '공개 시각'을 약속. 사과는 확인된 사실에만 한정. 선제 조치를 반드시 포함.
-  · rebuttal(사실무근·강경 반박): 근거 자료와 사실관계 중심. 감정 표현·“루머/악플러”·근거 없는 단정 금지. 정당한 비판은 수용한다는 문장 포함.
+- 입장(stance)에 따라 문안과 전략이 완전히 달라져야 합니다. 지침은 프롬프트의 [우리 입장]에 그대로 들어 있으니 그 지침을 우선합니다.
+  · apology(공식 사과·전면 시정): 첫 문단이 사과, 두 번째가 고객이 지금 할 일. 원인 변명·책임 전가 금지. 보상 기준과 시점을 반드시 포함.
+  · facts(사실 적시·팩트체크): 사과도 반박도 아닌 사실관계 정리. 확인된 사실·사실과 다른 점·근거(출처·기준 시점)·확인 중인 사항·고객 조치·정정 요청. 감정 표현 금지.
+  · investigating(유감 표명·조사 경과): 확정되지 않은 사실은 인정하지 않되, 확인 항목과 '공개 시각'을 약속. 유감은 확인된 사실에만 한정. 선제 조치를 반드시 포함.
+  · compensation(선제 보상·상생안): 보상 대상·기준·금액·신청 방법·지급 일정을 앞세운다. 보상은 비밀유지·삭제·합의 등 어떤 조건과도 연결하지 않는다고 명시.
+  · silence(무대응·모니터링): 공개 입장문은 ‘보류 문안’(공개 전환 조건·전환 시 첫 문장·내부 확인·문의 원칙), 기자 대응은 최소 회신 문안과 회신 시각. 사실 단정·추측 금지.
+  · rebuttal(강경 대응·법적 조치): 근거 자료와 사실관계 중심. 감정 표현·“루머/악플러”·근거 없는 단정 금지. 정당한 비판은 수용한다는 문장 포함.
+  · custom(직접 입력): [우리 입장]의 사용자 문장을 첫 문단에 그대로 두고, 확인된 사실과 조치만 덧붙인다.
+- [기업 상황]이 주어지면 그 조건을 모든 섹션의 순서·이해관계자·문안에 반영하세요(예: B2B는 개별 통지가 먼저, 상장사는 공시 일정, 초기 루머는 기록·모니터링 우선).
 - 기업 유형(entities)의 지침을 모든 섹션에 구체적으로 반영하세요. 유형이 여러 개면 첫 번째를 대표로 삼고 나머지는 해당 섹션에 보강 항목으로 넣습니다.
 - 입력이 20자 이하로 짧으면(예: "가격 인상 이슈"), 곧바로 일반론을 쓰지 말고 아래 5축으로 쟁점을 먼저 구체화하세요.
   ① 소비자·이용자 반발(해지·환산·인증샷) ② 명분(원가·품질·투자·환율) ③ 커뮤니티·SNS 여론 ④ 경쟁사·대안 비교 ⑤ 언론 보도 포인트(수치·타이밍·규제).
@@ -290,6 +408,9 @@ function buildPackagePrompt(input: {
   situation: string;
   brand: string;
   stance: Stance;
+  stanceCustom: string;
+  situations: string[];
+  situationNote: string;
   entities: string[];
   caseType: string;
   stage: string;
@@ -307,15 +428,22 @@ function buildPackagePrompt(input: {
     );
   }
   if (input.brand) lines.push(`\n[브랜드]\n${input.brand}`);
+  const stanceGuide = STANCE_GUIDE[input.stance];
   lines.push(
-    `\n[우리 입장]\n${input.stance} — ${
-      input.stance === "apology"
-        ? "잘못이 확인된 상황. 즉시 사과하고 수습·보상을 먼저 제시."
-        : input.stance === "investigating"
-          ? "아직 확인 전. 확인 일정과 범위를 먼저 약속하고 추측하지 않음."
-          : "보도·주장이 사실과 다름. 근거 중심으로 반박하고 원칙을 밝힘."
-    }`,
+    `\n[우리 입장]\n${input.stance}(${stanceGuide.label}) — ${stanceGuide.directive}\n금기: ${stanceGuide.banned}`,
   );
+  if (input.stance === "custom" && input.stanceCustom) {
+    lines.push(`\n[사용자가 직접 정한 입장 문장]\n${input.stanceCustom}`);
+  }
+  const situationRows = input.situations
+    .map((id) => SITUATION_GUIDE[id])
+    .filter(Boolean)
+    .map((g) => `- ${g.label}: ${g.directive}`);
+  if (situationRows.length || input.situationNote) {
+    lines.push(
+      `\n[기업 상황]\n${[...situationRows, input.situationNote ? `- 직접 입력: ${input.situationNote}` : ""].filter(Boolean).join("\n")}`,
+    );
+  }
   if (input.entities.length) {
     lines.push(`\n[기업·상황 유형]`);
     for (const [i, id] of input.entities.entries()) {
@@ -796,6 +924,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const mode: Mode = body.mode === "review" ? "review" : body.mode === "case" ? "case" : "package";
   const stance: Stance = STANCES.includes(body.stance as Stance) ? (body.stance as Stance) : "investigating";
+  const stanceCustom = stance === "custom" ? clean(body.stanceCustom, 200) : "";
+  const situations = Array.isArray(body.situations)
+    ? body.situations
+        .filter((v): v is string => typeof v === "string" && Boolean(SITUATION_GUIDE[v]))
+        .slice(0, 4)
+    : [];
+  const situationNote = clean(body.situationNote, 300);
   const brand = clean(body.brand, 60);
   // 길이 판정은 자르기 전 원문으로 합니다. 잘라 놓고 검사하면 초과 입력이 통과합니다.
   const rawSituation = typeof body.situation === "string" ? body.situation.replace(/\u0000/g, "").trim() : "";
@@ -890,7 +1025,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         ]
           .filter(Boolean)
           .join("\n\n")
-      : buildPackagePrompt({ situation, brand, stance, entities, caseType, stage, scale, article, articleError, context });
+      : buildPackagePrompt({ situation, brand, stance, stanceCustom, situations, situationNote, entities, caseType, stage, scale, article, articleError, context });
 
   const maxTokens = mode === "review" ? 3_500 : mode === "case" ? 5_000 : 7_000;
   const temperature = mode === "review" ? 0.3 : mode === "case" ? 0.15 : 0.45;

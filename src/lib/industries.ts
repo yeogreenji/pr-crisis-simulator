@@ -1,5 +1,6 @@
 import type { Industry, IndustryId } from "../types";
 import { EXTRA_INDUSTRIES } from "./industries-extra";
+import { MORE_INDUSTRIES } from "./industries-more";
 
 /**
  * 업종별 위기관리 매뉴얼.
@@ -1212,7 +1213,7 @@ const CORE_INDUSTRIES: Industry[] = [
   },
 ];
 
-export const INDUSTRIES: Industry[] = [...CORE_INDUSTRIES, ...EXTRA_INDUSTRIES];
+export const INDUSTRIES: Industry[] = [...CORE_INDUSTRIES, ...MORE_INDUSTRIES, ...EXTRA_INDUSTRIES];
 
 export const INDUSTRY_BY_ID = new Map(INDUSTRIES.map((i) => [i.id, i]));
 

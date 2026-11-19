@@ -3,10 +3,11 @@ import { BookOpen, ChevronRight, Landmark, Scale, ShieldAlert, Siren, X } from "
 import { ENTITY_PROFILES } from "../lib/profiles";
 import { INDUSTRIES } from "../lib/industries";
 import { CRISIS_CASES } from "../lib/cases";
+import { STANCES } from "../lib/stances";
 import type { IndustryId } from "../types";
 import { cx } from "./ui";
 
-type Tab = "entity" | "industry" | "cases";
+type Tab = "entity" | "stance" | "industry" | "cases";
 
 export function ManualModal({
   open,
@@ -51,6 +52,7 @@ export function ManualModal({
           {(
             [
               { id: "entity", label: "상황 유형 매뉴얼" },
+              { id: "stance", label: "대응 대안" },
               { id: "industry", label: "업종 매뉴얼" },
               { id: "cases", label: "실제 사례" },
             ] as { id: Tab; label: string }[]
@@ -151,6 +153,32 @@ export function ManualModal({
                     ))}
                   </ul>
                 </div>
+              </div>
+            </>
+          )}
+
+          {tab === "stance" && (
+            <>
+              <p className="text-[12.5px] leading-relaxed text-muted">
+                같은 상황이라도 어떤 대안을 고르느냐에 따라 입장문·기자 답변·체크리스트·여론 전망이 전부 달라집니다.
+                아래 6가지가 실무에서 반복되는 기본형이고, 어디에도 딱 맞지 않으면 ‘직접 입력’으로 현장 판단을 적습니다.
+              </p>
+              <div className="mt-2 space-y-2">
+                {STANCES.map((s) => (
+                  <div key={s.id} className="rounded-xl border border-line bg-white px-3 py-2.5" data-testid={`manual-stance-${s.id}`}>
+                    <div className="flex items-center gap-1.5">
+                      <span className="h-1.5 w-1.5 rounded-full" style={{ background: s.accent }} />
+                      <span className="text-[13px] font-semibold text-ink">{s.label}</span>
+                      <span className="chip border border-line bg-surface px-1.5 py-0 text-[11.5px] text-muted">{s.short}</span>
+                    </div>
+                    <p className="mt-1 text-[12.5px] leading-relaxed text-ink-2">{s.desc}</p>
+                    <p className="mt-1 text-[12px] leading-relaxed text-muted">
+                      <span className="font-semibold text-ink-2">고르는 상황</span> — {s.bestFor}
+                    </p>
+                    <p className="mt-0.5 text-[12px] leading-relaxed text-warn">주의 — {s.caution}</p>
+                    <p className="mt-0.5 text-[12px] leading-relaxed text-faint">원칙 — {s.rule}</p>
+                  </div>
+                ))}
               </div>
             </>
           )}
