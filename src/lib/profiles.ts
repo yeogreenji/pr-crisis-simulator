@@ -57,7 +57,7 @@ export const ENTITY_PROFILES: EntityProfile[] = [
     label: "일반 기업·브랜드",
     short: "일반",
     tagline: "기본형 — 사실 확인, 창구 단일화, 공식 입장 순서로 움직입니다.",
-    accent: "#2b45e0",
+    accent: "#1e3a5f",
     industry: "consumer",
     frame: "원인·범위·책임 소재를 확인해 공식 입장으로 정리하는 기본 상황",
     roadmap: [
@@ -362,7 +362,7 @@ export const ENTITY_PROFILES: EntityProfile[] = [
     label: "IT·플랫폼 (유출·장애)",
     short: "IT·플랫폼",
     tagline: "72시간 신고와 개별 통지 — 기술 설명보다 피해자 보호가 먼저입니다.",
-    accent: "#16714f",
+    accent: "#17694c",
     industry: "tech",
     frame: "이용자 데이터·서비스 접근이 걸린 사안이라 신고 의무와 개별 통지가 함께 걸린 상황",
     roadmap: [
@@ -579,7 +579,7 @@ export const ENTITY_PROFILES: EntityProfile[] = [
     label: "노사·내부 고발·오너 리스크",
     short: "노사·내부고발",
     tagline: "관계기관 보고와 증거 보전, 고발자 보호가 첫 순서입니다.",
-    accent: "#a9660a",
+    accent: "#96620d",
     industry: "steel",
     frame: "내부 고발·노사 갈등·경영진 사법 리스크가 겹쳐 관계기관과 이해관계자 대응이 걸린 상황",
     roadmap: [

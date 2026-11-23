@@ -35,11 +35,24 @@ const ARTICLE = `<!doctype html>
 
 const EMPTY = `<!doctype html><html><head><title>모의 빈 페이지</title></head><body><div id="root"></div><script>document.getElementById('root').innerHTML='...'</script></body></html>`;
 
+/** 로그인·페이월 페이지처럼 본문은 없고 제목·요약(og)만 있는 경우 */
+const PAYWALL = `<!doctype html><html lang="ko"><head>
+<meta charset="utf-8">
+<title>모의 유료 기사 — 서비스 장애 보상 논란</title>
+<meta property="og:title" content="모의 유료 기사 — 서비스 장애 보상 논란">
+<meta property="og:description" content="로그인 후 기사 전문을 볼 수 있습니다. 모의 서비스가 두 시간 멈추면서 보상 기준 논란이 커지고 있다는 요약입니다.">
+</head><body><div id="paywall">구독자 전용 기사입니다. 로그인하세요.</div></body></html>`;
+
 const server = http.createServer((req, res) => {
   const url = new URL(req.url || "/", `http://127.0.0.1:${port}`);
   if (url.pathname === "/article/recall") {
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.end(ARTICLE);
+    return;
+  }
+  if (url.pathname === "/article/paywall") {
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.end(PAYWALL);
     return;
   }
   if (url.pathname === "/article/empty") {

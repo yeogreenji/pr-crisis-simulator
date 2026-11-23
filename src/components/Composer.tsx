@@ -6,9 +6,11 @@ import {
   Library,
   Building2,
   Check,
+  ChevronDown,
   ClipboardList,
   Copy,
   FileText,
+  History,
   LineChart,
   Link2,
   Mic2,
@@ -31,6 +33,8 @@ import { CASE_TYPES } from "../lib/case-store";
 import { CASE_TYPE_LABEL } from "../lib/cases";
 import type { CaseType, IndustryId } from "../types";
 import { cx } from "./ui";
+import { usePlan } from "./PlanContext";
+import { planBadge } from "../lib/plans";
 
 export interface ComposeValue {
   situation: string;
@@ -87,6 +91,10 @@ export function Composer({
   onOpenRecent,
   onRemoveRecent,
   error,
+  fallbackOffer,
+  onFallbackOffer,
+  historyCount,
+  onOpenHistory,
   aiReady,
   aiNote,
 }: {
@@ -102,10 +110,16 @@ export function Composer({
   onOpenRecent: (pkg: ResponsePackage) => void;
   onRemoveRecent: (id: string) => void;
   error: string | null;
+  /** 기사 본문을 읽지 못해 재입력이 필요한 상태 */
+  fallbackOffer: boolean;
+  onFallbackOffer: () => void;
+  historyCount: number;
+  onOpenHistory: () => void;
   aiReady: boolean;
   aiNote: string;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
+  const { plan, openPricing } = usePlan();
   const [showAdvanced, setShowAdvanced] = useState(false);
   const url = useMemo(() => extractUrl(value.situation), [value.situation]);
   const urlOnly = useMemo(() => {
@@ -157,23 +171,40 @@ export function Composer({
 
   return (
     <div className="mx-auto w-full max-w-[860px] px-4 pb-20 pt-5 sm:px-6 sm:pt-9">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="grid h-7 w-7 place-items-center rounded-lg bg-ink text-[12px] font-bold tracking-tight text-white">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line pb-3">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <span className="grid h-8 w-8 place-items-center rounded-md bg-ink text-[11px] font-bold tracking-tight text-white">
             PR
           </span>
           <div className="leading-tight">
-            <div className="text-[14px] font-semibold tracking-[-0.02em]">PRISM</div>
-            <div className="text-[12px] text-faint">위기 대응 패키지</div>
+            <div className="text-[13px] font-semibold tracking-[0.18em] text-ink">PRISM</div>
+            <div className="mt-0.5 hidden font-mono text-[10px] uppercase tracking-[0.14em] text-faint sm:block">Executive PR command center</div>
           </div>
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex shrink-0 items-center gap-1">
+          <button
+            type="button"
+            onClick={() => openPricing()}
+            data-testid="plan-badge"
+            title="요금제 보기"
+            className="btn btn-outline h-8 px-2 text-[12px]"
+          >
+            <span
+              className={cx(
+                "h-1.5 w-1.5 rounded-full",
+                plan.id === "starter" ? "bg-faint" : plan.id === "pro" ? "bg-accent" : "bg-ink",
+              )}
+            />
+            <span className="num">{planBadge(plan)}</span>
+            <ChevronDown size={11} className="text-faint" />
+          </button>
+          <span className="mx-0.5 hidden h-4 w-px bg-line sm:block" />
           <button
             type="button"
             onClick={onOpenManual}
             className="btn btn-ghost h-8 px-2.5 text-[13px] text-muted hover:text-ink"
           >
-            <BookOpen size={13} /> 참고 매뉴얼
+            <BookOpen size={13} /> <span className="hidden sm:inline">참고 매뉴얼</span>
           </button>
           <button
             type="button"
@@ -181,7 +212,7 @@ export function Composer({
             data-testid="open-library"
             className="btn btn-outline h-8 px-2.5 text-[13px] text-ink"
           >
-            <Library size={13} /> 사례 라이브러리
+            <Library size={13} /> <span className="hidden sm:inline">사례 라이브러리</span><span className="sm:hidden">사례</span>
           </button>
           <button
             type="button"
@@ -195,16 +226,28 @@ export function Composer({
         </div>
       </div>
 
-      <div className="mt-10 text-center sm:mt-14">
-        <div className="eyebrow">Crisis response, one input</div>
-        <h1 className="mx-auto mt-3 max-w-[680px] text-[27px] font-semibold leading-[1.18] tracking-[-0.045em] text-ink sm:text-[40px]">
+      <div className="mt-9 text-center sm:mt-12">
+        <div className="flex items-center justify-center gap-2">
+          <span className="h-px w-7 bg-line-strong" />
+          <div className="eyebrow">Crisis response · one input</div>
+          <span className="h-px w-7 bg-line-strong" />
+        </div>
+        <h1 className="display mx-auto mt-4 max-w-[720px] text-[29px] leading-[1.24] tracking-[-0.035em] text-ink sm:text-[43px]">
           상황 한 줄이면,
-          <br className="sm:hidden" /> 바로 쓰는 대응 패키지.
+          <br className="sm:hidden" /> 임원 보고까지 한 번에.
         </h1>
-        <p className="mx-auto mt-3 max-w-[520px] text-[14px] leading-relaxed text-muted sm:text-[13.5px]">
-          기사 URL이나 상황을 넣고 우리 입장을 고르세요. 입장문 2종·기자 답변·골든타임 체크리스트·유관기관
-          대응이 한 화면에 나옵니다.
+        <p className="mx-auto mt-3 max-w-[560px] text-[13.5px] leading-relaxed text-muted">
+          기사 URL이나 상황을 넣고 우리 입장을 고르세요. 4채널 문안·7축 위험 스코어카드·골든타임
+          체크리스트가 한 화면에 나오고, 그대로 임원 보고서와 법무 공유 링크가 됩니다.
         </p>
+        <div className="mx-auto mt-5 flex max-w-[640px] flex-wrap items-center justify-center gap-x-4 gap-y-1.5 border-y border-line py-2 text-[11.5px] text-muted">
+          {["4채널 실행 문안", "7축 위험 스코어카드", "임원 보고서 Word·PDF", "임원·법무 공유 링크"].map((item) => (
+            <span key={item} className="inline-flex items-center gap-1.5">
+              <Check size={11} className="text-ok" />
+              {item}
+            </span>
+          ))}
+        </div>
       </div>
 
       <div className="card mt-7 overflow-hidden sm:mt-9">
@@ -255,9 +298,24 @@ export function Composer({
             </div>
           )}
           {error && (
-            <div className="mt-2 flex items-start gap-2 rounded-lg border border-risk/25 bg-risk-soft px-2.5 py-2 text-[12.5px] leading-relaxed text-risk">
-              <AlertTriangle size={12} className="mt-[2px] shrink-0" />
-              <span>{error}</span>
+            <div className="mt-2 rounded-lg border border-risk/25 bg-risk-soft px-2.5 py-2 text-[12.5px] leading-relaxed text-risk">
+              <div className="flex items-start gap-2">
+                <AlertTriangle size={12} className="mt-[2px] shrink-0" />
+                <span>{error}</span>
+              </div>
+              {fallbackOffer && (
+                <div className="mt-1.5 border-t border-risk/15 pt-1.5">
+                  <button
+                    type="button"
+                    onClick={onFallbackOffer}
+                    data-testid="fallback-without-article"
+                    className="btn btn-outline h-7 border-risk/30 px-2 text-[12px] text-ink-2"
+                  >
+                    기사 본문 없이 지금 분석 계속
+                  </button>
+                  <span className="ml-2 text-[11.5px] text-risk/80">URL 주소만 가진 맥락으로 매뉴얼 결과를 바로 만듭니다.</span>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -696,7 +754,17 @@ export function Composer({
         <div className="mt-7">
           <div className="flex items-center justify-between">
             <span className="eyebrow">최근 만든 패키지</span>
-            <span className="text-[12px] text-faint">이 브라우저에만 저장</span>
+            <div className="flex items-center gap-2">
+              <span className="text-[12px] text-faint">이 브라우저에만 저장</span>
+              <button
+                type="button"
+                onClick={onOpenHistory}
+                data-testid="open-history-compose"
+                className="btn btn-outline h-7 px-2 text-[12px]"
+              >
+                <History size={11} /> 기록 {historyCount}건 · 비교
+              </button>
+            </div>
           </div>
           <div className="mt-2 space-y-1.5">
             {recent.slice(0, 4).map((pkg) => (
@@ -727,6 +795,15 @@ export function Composer({
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {recent.length === 0 && historyCount > 0 && (
+        <div className="mt-6 flex items-center justify-between rounded-xl border border-line bg-surface px-3 py-2">
+          <span className="text-[12.5px] text-muted">저장된 시뮬레이션 기록이 있습니다. 같은 상황의 다른 입장과 비교해 보세요.</span>
+          <button type="button" onClick={onOpenHistory} className="btn btn-outline h-7 px-2 text-[12px]">
+            <History size={11} /> 기록 {historyCount}건
+          </button>
         </div>
       )}
 

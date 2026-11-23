@@ -333,10 +333,16 @@ def main() -> int:
             user_prompt = captured.get("user") or ""
             check(
                 "Gemini 요청: JSON 모드·temperature 0.45·출력 한도",
-                gen.get("responseMimeType") == "application/json" and gen.get("temperature") == 0.45 and gen.get("maxOutputTokens") == 7000 * 3 + 1024,
+                gen.get("responseMimeType") == "application/json" and gen.get("temperature") == 0.45 and gen.get("maxOutputTokens") == 8000 * 3 + 1024,
                 json.dumps(gen, ensure_ascii=False)[:200],
             )
             check("Gemini 프롬프트: 상황·입장·유형 전달", "[우리 입장]" in user_prompt and "apology" in user_prompt and "소비재·식품" in user_prompt, user_prompt[:120])
+            captured_system = str(captured.get("system") or "")
+            check(
+                "Gemini 프롬프트: 4채널(사내·SNS·방어 논리) 스키마 요청",
+                '"channels"' in captured_system and "사내 공지" in captured_system and "commentGuide" in captured_system,
+                captured_system[-260:],
+            )
 
             status, body = api(4197, make_package_payload(stance="rebuttal"))
             rebuttal_result = body.get("result") or {}
@@ -445,6 +451,33 @@ def main() -> int:
                 f"{status} {body.get('source')}",
             )
 
+            # 페이월·로그인 페이지: 본문 대신 제목·요약만 읽고도 분석을 이어감
+            status, body = api(4197, make_package_payload(situation="http://127.0.0.1:4199/article/paywall"))
+            paywall_source = body.get("source") or {}
+            paywall_prompt = ""
+            try:
+                paywall_prompt = json.loads((TMP / "gemini-last.json").read_text(encoding="utf-8")).get("user") or ""
+            except (OSError, json.JSONDecodeError):
+                pass
+            check(
+                "URL: 페이월 기사는 제목·요약으로 부분 분석(200·partial)",
+                status == 200 and paywall_source.get("ok") is True and paywall_source.get("partial") is True,
+                f"{status} {paywall_source}",
+            )
+            check(
+                "URL: 부분 분석 시 프롬프트에 추측 금지 지시",
+                "본문은 로그인·페이월 등으로 읽지 못했고" in paywall_prompt,
+                paywall_prompt[-400:],
+            )
+
+            # 출력 한도로 JSON이 잘려도 마지막 완결 지점까지 살려서 응답
+            status, body = api(4197, make_package_payload(situation="TRUNCATE_TEST 서비스 장애로 보상 기준 논란이 커지고 있습니다."))
+            check(
+                "API: 잘린 JSON도 완결 지점까지 복구해 200",
+                status == 200 and isinstance((body.get("result") or {}).get("statements"), list),
+                f"{status} {str(body)[:160]}",
+            )
+
             # 사례 초안 모드
             status, body = api(4197, {"mode": "case", "situation": "http://127.0.0.1:4199/article/recall"})
             case_raw = body.get("result") or {}
@@ -541,6 +574,37 @@ def main() -> int:
                 )
                 check("첫 화면: 빈 입력이면 버튼 비활성", page.locator("[data-testid='submit']").is_disabled())
 
+                # ── v8: 요금제 (Starter / Pro / Enterprise) ──
+                check("요금제: 기본은 Starter", "Starter" in page.inner_text("[data-testid='plan-badge']"))
+                page.click("[data-testid='plan-badge']")
+                page.wait_for_selector("[data-testid='pricing-modal']", timeout=8000)
+                page.wait_for_timeout(250)
+                check(
+                    "요금제: 3개 플랜 + 월 가격 표시",
+                    all(page.locator(f"[data-testid='plan-card-{k}']").count() == 1 for k in ["starter", "pro", "enterprise"])
+                    and "49,000원" in page.inner_text("[data-testid='plan-card-pro']")
+                    and "199,000원" in page.inner_text("[data-testid='plan-card-enterprise']"),
+                    page.inner_text("[data-testid='pricing-modal']")[:200],
+                )
+                check("요금제: B2B 비교표 12행", page.locator("[data-testid^='plan-row-']").count() == 12, str(page.locator("[data-testid^='plan-row-']").count()))
+                page.click("[data-testid='billing-annual']")
+                page.wait_for_timeout(200)
+                check(
+                    "요금제: 연 결제 토글 → 월 환산·절약액",
+                    "40,833원" in page.inner_text("[data-testid='plan-card-pro']") and "98,000원" in page.inner_text("[data-testid='plan-card-pro']"),
+                    page.inner_text("[data-testid='plan-card-pro']")[:160],
+                )
+                page.screenshot(path=str(SHOTS / "48-pricing.png"))
+                page.click("[data-testid='billing-monthly']")
+                page.wait_for_timeout(150)
+                page.click("[data-testid='plan-cta-pro']")
+                page.wait_for_timeout(300)
+                check("요금제: Pro 무료 체험 활성화(결제 전 데모)", "Pro 체험" in page.inner_text("[data-testid='pricing-modal']"))
+                page.screenshot(path=str(SHOTS / "49-pricing-pro.png"))
+                page.click("[data-testid='pricing-close']")
+                page.wait_for_timeout(250)
+                check("요금제: 헤더 배지가 Pro 체험으로 변경", "Pro" in page.inner_text("[data-testid='plan-badge']"))
+
                 # 대응 대안 확장: 직접 입력 상자
                 page.click("[data-testid='stance-custom']")
                 page.wait_for_timeout(150)
@@ -582,6 +646,67 @@ def main() -> int:
                 page.wait_for_selector("[data-testid='package-view']", timeout=40000)
                 page.wait_for_timeout(400)
 
+                # ── v8: 임원 커맨드 바 · 공유 브리핑 링크 ──
+                bar = page.locator("[data-testid='exec-bar']")
+                bar_box = bar.bounding_box()
+                bar_pos = bar.evaluate("el => getComputedStyle(el).position")
+                check(
+                    "임원 바: 위험지수 · 입장 · 채널 준비 4/4",
+                    bar.count() == 1
+                    and "/100" in page.inner_text("[data-testid='exec-risk']")
+                    and "즉시 사과" in page.inner_text("[data-testid='exec-stance']")
+                    and "4/4" in page.inner_text("[data-testid='exec-readiness']"),
+                    page.inner_text("[data-testid='exec-bar']")[:160],
+                )
+                check("임원 바: 스크롤해도 상단 고정", bar_pos == "sticky" and bar_box is not None and bar_box["y"] >= 0)
+                check(
+                    "임원 바: 공유·임원 보고서·더 보기 액션",
+                    page.locator("[data-testid='share-open']").count() == 1
+                    and page.locator("[data-testid='export-menu']").count() == 1
+                    and page.locator("button[aria-label='더 보기']").count() == 1,
+                )
+                page.screenshot(path=str(SHOTS / "50-exec-bar.png"))
+
+                page.click("[data-testid='share-open']")
+                page.wait_for_selector("[data-testid='share-url']", timeout=15000)
+                share_url = page.input_value("[data-testid='share-url']")
+                check(
+                    "공유 링크: #share= 압축 URL 생성",
+                    "#share=1z" in share_url and len(share_url) > 600,
+                    f"{len(share_url)}자 {share_url[:80]}",
+                )
+                check("공유 링크: 클립보드에 자동 복사", "#share=" in page.evaluate("navigator.clipboard.readText()"))
+                page.screenshot(path=str(SHOTS / "51-share-panel.png"))
+                page.click("[data-testid='share-close']")
+                page.wait_for_timeout(150)
+
+                brief = ctx.new_page()
+                brief.goto(share_url, wait_until="networkidle")
+                brief.wait_for_selector("[data-testid='briefing-view']", timeout=15000)
+                brief.wait_for_timeout(400)
+                brief_text = brief.locator("[data-testid='briefing-view']").inner_text()
+                check(
+                    "공유 브리핑: 읽기 전용 뷰 · 브랜드 · 위험지수",
+                    "읽기 전용" in brief.inner_text("[data-testid='briefing-bar']")
+                    and "한결푸드" in brief_text
+                    and "/100" in brief_text
+                    and "4채널 실행 문안" in brief_text,
+                    brief_text[:160],
+                )
+                check(
+                    "공유 브리핑: 4채널 문안·실행 순서·유관기관",
+                    "모의 고객 공지" in brief_text and "사내" in brief_text and "1시간" in brief_text and "유관기관" in brief_text,
+                    brief_text[:200],
+                )
+                check(
+                    "공유 브리핑: 수정·재생성·내보내기 버튼 없음",
+                    brief.locator("[data-testid='share-open']").count() == 0
+                    and brief.locator("[data-testid='export-menu']").count() == 0
+                    and brief.locator("[data-testid='situation-input']").count() == 0,
+                )
+                brief.screenshot(path=str(SHOTS / "52-briefing.png"))
+                brief.close()
+
                 body_text = page.locator("[data-testid='package-view']").inner_text()
                 check("결과: 5개 블록 + 전체 시스템", all(page.locator(f"[data-testid='{k}']").count() == 1 for k in ["overview", "block-actions", "block-statements", "block-qa", "block-stakeholders", "block-outlook"]))
                 check("결과: 위험도·입장·유형 칩", "위험도 높음" in body_text and "즉시 사과" in body_text and "소비재" in body_text)
@@ -592,6 +717,29 @@ def main() -> int:
                 check("결과: 실시간 AI 표시", "실시간 AI" in body_text)
                 check("결과: 입장문 2종", page.locator("[data-testid^='statement-body-']").count() == 2)
                 check("결과: Q&A 5개 이상", page.locator("[data-testid='qa-item']").count() >= 5, str(page.locator("[data-testid='qa-item']").count()))
+
+                # 위험 스코어카드 · 4채널 탭
+                check("결과: 7축 위험 스코어카드", page.locator("[data-testid='block-scorecard']").count() == 1 and page.locator("[data-testid='block-scorecard'] svg polygon").count() >= 5)
+                check(
+                    "결과: 4채널 탭(입장문/기자/사내/SNS)",
+                    all(page.locator(f"[data-testid='channel-tab-{k}']").count() == 1 for k in ["official", "qa", "internal", "social"]),
+                )
+                page.click("[data-testid='channel-tab-internal']")
+                page.wait_for_timeout(200)
+                internal_text = page.inner_text("[data-testid='block-channels']")
+                check(
+                    "채널 ③: AI 사내 공지 + 임직원 할 일·금지 사항",
+                    "모의 AI 사내 공지" in internal_text and "임직원이 할 일" in internal_text and "하지 말아야 할 말" in internal_text and "모의 AI 지침" in internal_text,
+                    internal_text[:160],
+                )
+                page.screenshot(path=str(SHOTS / "44-channels-internal.png"))
+                page.click("[data-testid='channel-tab-social']")
+                page.wait_for_timeout(200)
+                social_text = page.inner_text("[data-testid='block-channels']")
+                check("채널 ④: 짧은 공지·댓글 대응 가이드", "공식 계정 공지" in social_text and "예상 댓글" in social_text and "모의 AI 답글" in social_text)
+                page.screenshot(path=str(SHOTS / "45-channels-social.png"))
+                page.click("[data-testid='channel-tab-official']")
+                page.wait_for_timeout(150)
                 check("결과: 유관기관 4곳 이상", page.locator("[data-testid='block-stakeholders']").inner_text().count("모의") >= 4)
                 check("결과: 악화 트리거·다음 대응", "모의 트리거" in page.locator("[data-testid='block-outlook']").inner_text())
                 check("결과: 모범 vs 실패 대조 블록", page.locator("[data-testid='block-compare']").count() == 1)
@@ -676,22 +824,169 @@ def main() -> int:
                 clip = page.evaluate("navigator.clipboard.readText()")
                 check("복사: 입장문 원클릭", "모의 고객 공지" in clip and len(clip) > 200, clip[:60])
 
+                page.click("[data-testid='channel-tab-qa']")
+                page.wait_for_timeout(250)
                 page.click("[data-testid='qa-item']:nth-child(2) button")
                 page.wait_for_timeout(200)
                 page.click("[data-testid='qa-item']:nth-child(2) button:has-text('답변 복사')")
                 page.wait_for_timeout(300)
                 clip = page.evaluate("navigator.clipboard.readText()")
                 check("복사: Q&A 답변", "확인된 피해" in clip, clip[:60])
+                check("채널 ②: 핵심 방어 논리 3축", "모의 방어 1" in page.locator("[data-testid='block-qa']").inner_text())
 
+                page.click("button[aria-label='더 보기']")
+                page.wait_for_timeout(200)
                 page.click("[data-testid='copy-all']")
                 page.wait_for_timeout(300)
                 clip = page.evaluate("navigator.clipboard.readText()")
                 check("복사: 패키지 전체", "PRISM 대응 패키지" in clip and "전체 대응 시스템" in clip and "유관기관" in clip, str(len(clip)))
+                page.click("button[aria-label='더 보기']")
+                page.wait_for_timeout(200)
                 page.click("[data-testid='copy-markdown']")
                 page.wait_for_timeout(300)
                 md = page.evaluate("navigator.clipboard.readText()")
                 check("복사: 팀 공유용 Markdown", md.startswith("# ") and "## 01. 골든타임 체크리스트" in md and "| 단계 | 목표 |" in md, md[:120])
+
+                # 임원 보고서 내보내기 — .md 파일 다운로드
+                page.click("[data-testid='export-menu']")
+                page.wait_for_timeout(200)
+                check("내보내기: 메뉴에 인쇄·Word·Markdown", page.locator("[data-testid='print-pdf']").count() == 1 and page.locator("[data-testid='report-doc']").count() == 1 and page.locator("[data-testid='report-md']").count() == 1)
+                with page.expect_download(timeout=15000) as dl:
+                    page.click("[data-testid='report-md']")
+                download = dl.value
+                md_path = TMP / "report-download.md"
+                download.save_as(str(md_path))
+                downloaded = md_path.read_text(encoding="utf-8")
+                check(
+                    "내보내기: .md 파일에 경영진 요약·4채널 포함",
+                    download.suggested_filename.endswith(".md") and "경영진 요약" in downloaded and "사내 임직원 공지문" in downloaded and all(a in downloaded for a in ["브랜드 신뢰 타격", "법적·규제 노출", "커뮤니티 확산도"]),
+                    f"{download.suggested_filename} {len(downloaded)}자",
+                )
+
+                # 임원 보고서 인쇄 레이아웃 — 인쇄 미디어에서 4채널이 모두 펼쳐지는지
+                page.emulate_media(media="print")
+                try:
+                    page.wait_for_function(
+                        "() => { const el = document.querySelector(\"[data-testid='block-qa']\"); return el && getComputedStyle(el).display === 'block'; }",
+                        timeout=6000,
+                    )
+                except Exception:  # noqa: BLE001
+                    pass
+                page.wait_for_timeout(300)
+                panel_count = page.locator("[data-print-panel]").count()
+                panel_displays = [
+                    page.locator("[data-print-panel]").nth(i).evaluate("el => getComputedStyle(el).display")
+                    for i in range(panel_count)
+                ]
+                panel_text = " ".join(
+                    page.locator("[data-print-panel]").nth(i).text_content() or "" for i in range(panel_count)
+                )
+                header_info = page.locator("[data-testid='print-header']").evaluate(
+                    "el => ({ display: getComputedStyle(el).display, text: el.textContent || '' })"
+                )
+                check(
+                    "인쇄 미리보기: 4채널 패널이 모두 펼쳐짐",
+                    panel_count == 4
+                    and all(state == "block" for state in panel_displays)
+                    and "모의 AI 사내 공지" in panel_text
+                    and "모의 AI 답글" in panel_text,
+                    f"count={panel_count} display={panel_displays}",
+                )
+                check(
+                    "인쇄 미리보기: 보고서 머리말·7축 요약",
+                    header_info.get("display") != "none"
+                    and "crisis communication report" in str(header_info.get("text", "")).lower()
+                    and "종합 위험지수" in str(header_info.get("text", "")),
+                    f"{header_info}",
+                )
+                page.screenshot(path=str(SHOTS / "46-print-layout.png"), full_page=False)
+                page.emulate_media(media="screen")
+                page.wait_for_timeout(150)
+
+                # 같은 상황 · 다른 입장 비교
+                page.click("[data-testid='compare-stance']")
+                page.wait_for_selector("[aria-label='입장 비교']", timeout=10000)
+                page.wait_for_timeout(400)
+                compare_text = page.inner_text("[aria-label='입장 비교']")
+                check(
+                    "비교: 두 입장·7축·총점이 한 화면에",
+                    "같은 상황 · 다른 입장 비교" in compare_text and compare_text.count("/100") >= 2 and "브랜드 신뢰 타격" in compare_text,
+                    compare_text[:160],
+                )
+                page.screenshot(path=str(SHOTS / "47-compare.png"))
+                page.locator("[aria-label='입장 비교'] button:has-text('닫기')").first.click()
+                page.wait_for_timeout(200)
+
+                # 비교 기록에서 다시 열기
+                page.click("button[aria-label='더 보기']")
+                page.wait_for_timeout(200)
+                page.click("[data-testid='open-history']")
+                page.wait_for_selector("[data-testid='history-item']", timeout=8000)
+                check("기록: 자동 저장된 시뮬레이션 2건 이상", page.locator("[data-testid='history-item']").count() >= 2, str(page.locator("[data-testid='history-item']").count()))
+                page.locator("[data-testid='history-item']").nth(0).click()
+                page.locator("[data-testid='history-item']").nth(1).click()
+                page.wait_for_timeout(150)
+                page.click("[data-testid='history-compare']")
+                page.wait_for_selector("[aria-label='입장 비교']", timeout=8000)
+                check("기록: 저장된 두 건을 비교 화면으로 열기", "같은 상황 · 다른 입장 비교" in page.inner_text("[aria-label='입장 비교']"))
+                page.locator("[aria-label='입장 비교'] button:has-text('닫기')").first.click()
+                page.wait_for_timeout(200)
                 page.screenshot(path=str(SHOTS / "32-package-desktop.png"))
+
+                # ── v8: Starter 게이팅 → Pro 재활성화 ──
+                page.click("[data-testid='plan-badge']")
+                page.wait_for_selector("[data-testid='pricing-modal']", timeout=8000)
+                page.wait_for_timeout(200)
+                page.click("[data-testid='plan-downgrade']")
+                page.wait_for_timeout(250)
+                page.click("[data-testid='pricing-close']")
+                page.wait_for_timeout(250)
+                check("Starter: 임원 바 채널 준비 2/2", "2/2" in page.inner_text("[data-testid='exec-readiness']"))
+                page.click("[data-testid='channel-tab-internal']")
+                page.wait_for_timeout(250)
+                gate = page.locator("[data-testid='channel-gate-internal']")
+                check(
+                    "Starter: 사내 공지 탭은 미리보기 잠금 카드",
+                    gate.count() == 1 and "PRO" in gate.inner_text() and "미리보기" in gate.inner_text(),
+                    gate.inner_text()[:160] if gate.count() else "none",
+                )
+                page.screenshot(path=str(SHOTS / "53-starter-gate.png"))
+                page.click("[data-testid='channel-upgrade-internal']")
+                page.wait_for_timeout(300)
+                check(
+                    "Starter: 잠금 카드 → 요금제 모달(해당 기능 강조)",
+                    page.locator("[data-testid='pricing-modal']").count() == 1
+                    and page.locator("[data-testid='pricing-highlight']").count() == 1
+                    and "4채널" in page.inner_text("[data-testid='pricing-highlight']"),
+                )
+                page.click("[data-testid='pricing-close']")
+                page.wait_for_timeout(200)
+                page.click("[data-testid='share-open']")
+                page.wait_for_timeout(300)
+                check(
+                    "Starter: 공유 링크는 요금제 모달로 안내",
+                    page.locator("[data-testid='pricing-modal']").count() == 1 and page.locator("[data-testid='share-panel']").count() == 0,
+                )
+                page.click("[data-testid='pricing-close']")
+                page.wait_for_timeout(200)
+                page.click("[data-testid='export-menu']")
+                page.wait_for_timeout(200)
+                page.click("[data-testid='report-doc']")
+                page.wait_for_timeout(300)
+                check(
+                    "Starter: Word·PDF 보고서는 요금제 모달로 안내",
+                    page.locator("[data-testid='pricing-modal']").count() == 1
+                    and "Word" in page.inner_text("[data-testid='pricing-highlight']"),
+                )
+                page.click("[data-testid='plan-cta-pro']")
+                page.wait_for_timeout(250)
+                page.click("[data-testid='pricing-close']")
+                page.wait_for_timeout(250)
+                check("Pro 재활성화: 채널 준비 4/4", "4/4" in page.inner_text("[data-testid='exec-readiness']"))
+                page.click("[data-testid='channel-tab-internal']")
+                page.wait_for_timeout(200)
+                check("Pro: 사내 공지 잠금 해제", page.locator("[data-testid='channel-gate-internal']").count() == 0)
+                page.screenshot(path=str(SHOTS / "54-package-pro.png"))
 
                 page.locator("button:has-text('참고 매뉴얼')").first.click()
                 page.wait_for_timeout(300)
@@ -1044,6 +1339,15 @@ def main() -> int:
                 mobile.wait_for_timeout(400)
                 check("모바일: 첫 화면 가로 넘침 0", mobile.evaluate("document.documentElement.scrollWidth") <= 391, str(mobile.evaluate("document.documentElement.scrollWidth")))
                 mobile.screenshot(path=str(SHOTS / "36-compose-mobile.png"))
+                mobile.click("[data-testid='plan-badge']")
+                mobile.wait_for_selector("[data-testid='pricing-modal']", timeout=8000)
+                mobile.wait_for_timeout(300)
+                check("모바일: 요금제 모달 가로 넘침 0", mobile.evaluate("document.documentElement.scrollWidth") <= 391, str(mobile.evaluate("document.documentElement.scrollWidth")))
+                mobile.screenshot(path=str(SHOTS / "55-pricing-mobile.png"))
+                mobile.click("[data-testid='plan-cta-pro']")
+                mobile.wait_for_timeout(250)
+                mobile.click("[data-testid='pricing-close']")
+                mobile.wait_for_timeout(250)
                 mobile_ready = False
                 for attempt in range(3):
                     try:
@@ -1064,6 +1368,10 @@ def main() -> int:
                 mobile.wait_for_timeout(400)
                 check("모바일: 결과 화면 가로 넘침 0", mobile.evaluate("document.documentElement.scrollWidth") <= 391, str(mobile.evaluate("document.documentElement.scrollWidth")))
                 check("모바일: 5블록 렌더", mobile.locator("[data-testid='block-outlook']").count() == 1)
+                check("모바일: 스코어카드·4채널 탭", mobile.locator("[data-testid='block-scorecard']").count() == 1 and mobile.locator("[data-testid='channel-tab-internal']").count() == 1)
+                mobile.click("[data-testid='channel-tab-internal']")
+                mobile.wait_for_timeout(250)
+                check("모바일: 사내 공지 탭 가로 넘침 0", mobile.evaluate("document.documentElement.scrollWidth") <= 391, str(mobile.evaluate("document.documentElement.scrollWidth")))
                 mobile.screenshot(path=str(SHOTS / "37-package-mobile.png"), full_page=True)
                 ctx.close()
                 browser.close()

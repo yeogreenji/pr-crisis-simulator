@@ -19,6 +19,14 @@ import {
 } from "./issue-protocols";
 import { STANCE_BANNED, STANCE_QA, OUTLOOK, STANCES, getStance, type Stance, type StanceSpec } from "./stances";
 import { getSituation, type SituationTagId } from "./situations";
+import {
+  buildChannelKit,
+  channelKitToText,
+  defenseToText,
+  internalToText,
+  socialToText,
+  type ChannelKit,
+} from "./channels";
 export type { EntityId, IssueBrief, CompanyScale, ProtocolStage };
 export type { Stance, StanceSpec };
 export { STANCES, getStance };
@@ -89,6 +97,8 @@ export interface FetchMeta {
   chars: number;
   ok: boolean;
   note?: string;
+  /** 본문 대신 제목·요약만 읽은 경우 */
+  partial?: boolean;
 }
 
 export interface ResponsePackage {
@@ -129,6 +139,8 @@ export interface ResponsePackage {
   stakeholders: StakeholderPlan[];
   outlook: Outlook;
   watchouts: string[];
+  /** 4채널 실행 문안 — 사내 공지, SNS, 핵심 방어 논리. 없으면 화면에서 계산합니다. */
+  channels?: ChannelKit;
   ai?: { model: string; latencyMs?: number; provider?: string };
   fetch?: FetchMeta;
 }
@@ -1033,7 +1045,7 @@ export function buildLocalPackage(input: PackageInput): ResponsePackage {
     ? { ...baseBrief, assumptions: uniqBy([...baseBrief.assumptions, ...situationNotes], (v) => v.slice(0, 20), 6) }
     : baseBrief;
 
-  return {
+  const built: ResponsePackage = {
     id: `pkg-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
     createdAt: new Date().toISOString(),
     mode: "local",
@@ -1043,7 +1055,7 @@ export function buildLocalPackage(input: PackageInput): ResponsePackage {
     stanceCustom: input.stanceCustom?.trim() || undefined,
     situations: situationIds.length ? situationIds : undefined,
     situationNote: input.situationNote?.trim() || undefined,
-    entities: input.entities.length ? input.entities.slice(0, 3) : ["general"],
+    entities: input.entities.length ? input.entities.slice(0, 3) : (["general"] as EntityId[]),
     industry: industryId,
     industryLabel: industry.label,
     industrySource: manualIndustry ? "manual" : "auto",
@@ -1072,6 +1084,7 @@ export function buildLocalPackage(input: PackageInput): ResponsePackage {
     stage,
     scale,
   };
+  return { ...built, channels: buildChannelKit(built) };
 }
 
 /* ------------------------------------------------------------------ */
@@ -1139,6 +1152,11 @@ export function buildLocalReview(draft: string, brand: string): ReviewResult {
 
 export const countPlaceholders = (text: string): number => (text.match(/\[[^\]\n]{1,40}\]/g) ?? []).length;
 
+/** 저장된 예전 패키지(AI 병합 전)에도 4채널 문안이 나오도록 매번 해석합니다. */
+export function channelKitOf(pkg: ResponsePackage): ChannelKit {
+  return pkg.channels ?? buildChannelKit(pkg);
+}
+
 export const statementToText = (s: Statement) => `${s.title}\n\n${s.body}`;
 
 export function actionsToText(groups: ActionGroup[]): string {
@@ -1199,6 +1217,9 @@ export function packageToText(pkg: ResponsePackage): string {
     ...pkg.outlook.triggers.map((t) => `- ${t}`),
     "다음 대응:",
     ...pkg.outlook.escalation.map((t) => `- ${t}`),
+    "",
+    "■ 06 4채널 실행 문안",
+    channelKitToText(channelKitOf(pkg)),
     "",
     "※ 대괄호 [확인 필요: …] 값만 채우면 그대로 배포할 수 있습니다.",
   );
@@ -1295,6 +1316,27 @@ export function packageToMarkdown(pkg: ResponsePackage): string {
   out.push("");
   out.push("**다음 대응**");
   pkg.outlook.escalation.forEach((t, i) => out.push(`${i + 1}. ${t}`));
+  out.push("");
+  const kit = channelKitOf(pkg);
+  out.push("## 06. 4채널 실행 문안 — 사내 공지 · SNS · 방어 논리");
+  out.push("");
+  out.push("### ③ 사내 임직원 공지문");
+  out.push("");
+  out.push("```text");
+  out.push(internalToText(kit.internal));
+  out.push("```");
+  out.push("");
+  out.push("### ④ SNS 공식 계정 공지 · 댓글 대응");
+  out.push("");
+  out.push("```text");
+  out.push(socialToText(kit.social));
+  out.push("```");
+  out.push("");
+  out.push("### ②-보강 핵심 방어 논리 · 브릿지");
+  out.push("");
+  out.push("```text");
+  out.push(defenseToText(kit.defense, kit.bridge));
+  out.push("```");
   out.push("");
   out.push("---");
   out.push("PRISM — 확인되지 않은 사실은 [확인 필요]로 남깁니다. 대괄호 값만 채우면 배포할 수 있습니다.");

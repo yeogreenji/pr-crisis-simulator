@@ -22,6 +22,13 @@ const send = (res, status, payload) => {
   res.end(JSON.stringify(payload));
 };
 
+/** 완결된 마지막 요소 지점까지 자르고, 괄호를 닫지 않은 채 남깁니다. */
+function cutJson(text) {
+  const target = text.length * 0.72;
+  const cut = text.lastIndexOf(",", Math.floor(target));
+  return cut > 0 ? text.slice(0, cut) : text.slice(0, Math.floor(target));
+}
+
 const server = http.createServer((req, res) => {
   const url = new URL(req.url || "/", `http://127.0.0.1:${port}`);
   if (req.method !== "POST" || !url.pathname.includes(":generateContent")) {
@@ -67,6 +74,8 @@ const server = http.createServer((req, res) => {
       verdict: "mixed", tags: ["중금속", "회수"], uncertain: ["회수 비용은 기사에 없음"],
     };
     const result = system.includes("사례 카드 초안") ? CASE_RESULT : system.includes("입장문을 감수") ? REVIEW_RESULT : buildPackageResult(user);
+    // ‘TRUNCATE_TEST’가 프롬프트에 있으면 출력 한도로 JSON이 잘린 상황을 재현합니다.
+    const truncate = user.includes("TRUNCATE_TEST");
 
     if (capture) {
       writeFileSync(
@@ -79,8 +88,8 @@ const server = http.createServer((req, res) => {
     send(res, 200, {
       candidates: [
         {
-          content: { parts: [{ text: JSON.stringify(result) }], role: "model" },
-          finishReason: "STOP",
+          content: { parts: [{ text: truncate ? cutJson(JSON.stringify(result)) : JSON.stringify(result) }], role: "model" },
+          finishReason: truncate ? "MAX_TOKENS" : "STOP",
         },
       ],
       usageMetadata: { promptTokenCount: 1800, candidatesTokenCount: 1400, totalTokenCount: 3200 },

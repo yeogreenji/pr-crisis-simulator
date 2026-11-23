@@ -4,10 +4,10 @@ import { countPlaceholders, type ReviewResult } from "../lib/package";
 import { CopyButton, cx } from "./ui";
 
 const scoreStyle = (score: number) => {
-  if (score <= 34) return { color: "#16714f", label: "낮음", bg: "#e9f5ef" };
+  if (score <= 34) return { color: "#17694c", label: "낮음", bg: "#e8f4ee" };
   if (score <= 59) return { color: "#2f5f8a", label: "관리 가능", bg: "#eef2f6" };
-  if (score <= 79) return { color: "#a9660a", label: "주의", bg: "#fdf4e3" };
-  return { color: "#c8352b", label: "위험", bg: "#fbedea" };
+  if (score <= 79) return { color: "#96620d", label: "주의", bg: "#fbf2df" };
+  return { color: "#b02a22", label: "위험", bg: "#fbedea" };
 };
 
 export function ReviewView({

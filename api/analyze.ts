@@ -305,6 +305,7 @@ const SYSTEM_PACKAGE = `당신은 한국 기업의 위기 커뮤니케이션을 
   · rebuttal(강경 대응·법적 조치): 근거 자료와 사실관계 중심. 감정 표현·“루머/악플러”·근거 없는 단정 금지. 정당한 비판은 수용한다는 문장 포함.
   · custom(직접 입력): [우리 입장]의 사용자 문장을 첫 문단에 그대로 두고, 확인된 사실과 조치만 덧붙인다.
 - [기업 상황]이 주어지면 그 조건을 모든 섹션의 순서·이해관계자·문안에 반영하세요(예: B2B는 개별 통지가 먼저, 상장사는 공시 일정, 초기 루머는 기록·모니터링 우선).
+- channels는 목적이 다른 4번째 산출물입니다. statements(대외 입장)·qa(기자 응대)와 같은 사실·숫자·일정을 쓰되, internal은 임직원이 ‘무엇을 하고 무엇을 하지 말아야 하는지’를 실행 문장으로, social은 짧고 사실만(이모지·과장·감성 표현 금지) 씁니다. defense는 기자가 반박할 때 되돌릴 3개의 축입니다.
 - 기업 유형(entities)의 지침을 모든 섹션에 구체적으로 반영하세요. 유형이 여러 개면 첫 번째를 대표로 삼고 나머지는 해당 섹션에 보강 항목으로 넣습니다.
 - 입력이 20자 이하로 짧으면(예: "가격 인상 이슈"), 곧바로 일반론을 쓰지 말고 아래 5축으로 쟁점을 먼저 구체화하세요.
   ① 소비자·이용자 반발(해지·환산·인증샷) ② 명분(원가·품질·투자·환율) ③ 커뮤니티·SNS 여론 ④ 경쟁사·대안 비교 ⑤ 언론 보도 포인트(수치·타이밍·규제).
@@ -352,10 +353,31 @@ JSON 스키마:
     "triggers": ["이 입장에서 여론이 더 나빠지는 구체적 트리거 3개"],
     "escalation": ["악화 시 다음 대응 3개 — 실행 순서대로"]
   },
+  "channels": {
+    "internal": {
+      "title": "사내 공지 제목",
+      "lead": "임직원에게 먼저 알리는 한 문장",
+      "body": "사내 임직원 공지 전문(300~700자). 제목/상황/회사가 하는 일/임직원이 할 일/하지 말아야 할 말/문의처 포함",
+      "dos": ["임직원이 지금 해야 할 구체적 행동 3개"],
+      "donts": ["임직원이 하면 안 되는 행동·표현 3개"],
+      "qa": [{"q": "임직원이 물을 법한 질문", "a": "사내에서 그대로 공유할 답"}]
+    },
+    "social": {
+      "short": "공식 X·스레드 게시물(200자 이내, 이모지 없이)",
+      "long": "인스타그램·블로그 캐피션(줄바꿈 포함)",
+      "hashtags": ["#해시태그"],
+      "pinned": "게시물 고정 댓글(문의 창구 안내)",
+      "cards": [{"head": "카드뉴스 장표 제목", "body": "한 문장"}],
+      "commentGuide": [{"pattern": "예상 댓글 유형", "tag": "안내|사실|공감|비공개", "reply": "그대로 달 댓글 답변"}],
+      "escalation": ["댓글 운영·악화 시 원칙"]
+    },
+    "defense": [{"frame": "핵심 방어 논리 이름", "line": "기자·상대에게 그대로 말할 한 문장", "proof": "이 문장을 받지려면 필요한 숫자·자료", "avoid": "이 국면에서 피해야 할 말"}],
+    "bridge": ["공격적 질문을 사실관계로 되돌릴 브릿지 문장"]
+  },
   "watchouts": ["이 유형에서만 생기는 함정 3개"]
 }
 
-분량: issueBrief.issues 5~7개(짧은 입력일수록 구체적으로), roadmap 3개(1시간·6시간·24시간~), actions 3개(각 5~7항목), statements 정확히 2개(public·press), qa 5~7개, banned 5개, stakeholders 4~6개, outlook.reactions 4개, triggers 3개, escalation 3개, watchouts 3개.
+분량: issueBrief.issues 5~7개(짧은 입력일수록 구체적으로), roadmap 3개(1시간·6시간·24시간~), actions 3개(각 5~7항목), statements 정확히 2개(public·press), qa 5~7개, banned 5개, stakeholders 4~6개, outlook.reactions 4개, triggers 3개, escalation 3개, watchouts 3개, channels.internal.body 300~700자·dos 3개·donts 3개·qa 2개, channels.social.short 200자 이내·commentGuide 4개, channels.defense 3개, channels.bridge 3개.
 기사 URL 원문이 주어지면 그 기사에 나온 사실(수치·기관·주장)을 우선 인용하고, 기사에 없는 내용은 [확인 필요]로 둡니다.`;
 
 const SYSTEM_REVIEW = `당신은 한국 기업의 위기 대응 입장문을 감수하는 수석 PR 전략가입니다.
@@ -495,6 +517,11 @@ function buildPackagePrompt(input: {
     lines.push(`URL: ${input.article.url}`);
     if (input.article.title) lines.push(`제목: ${input.article.title}`);
     if (input.article.description) lines.push(`요약: ${input.article.description}`);
+    if (input.article.partial) {
+      lines.push(
+        "⚠ 본문은 로그인·페이월 등으로 읽지 못했고 제목·요약만 인용했습니다. 요약에 없는 사실·수치·피해 규모·기관명은 절대 만들어내지 말고 [확인 필요]로 두세요. 이 경우 issueBrief.assumptions에 ‘기사 본문을 읽지 못해 제목·요약만 참고’라고 밝히세요.",
+      );
+    }
     lines.push(`본문:\n${input.article.body}`);
   } else if (input.articleError) {
     lines.push(`\n[기사 원문 읽기 실패]\n${input.articleError} — 위 [위기 상황] 설명만으로 작성하세요.`);
@@ -532,6 +559,8 @@ interface FetchedArticle {
   description: string;
   body: string;
   chars: number;
+  /** 본문을 끝까지 읽지 못하고 제목·오픈그래프 요약만 얻은 경우 */
+  partial?: boolean;
 }
 
 const URL_RE = /https?:\/\/[^\s<>"'）)\]]+/i;
@@ -668,6 +697,21 @@ async function fetchArticle(url: string, signal: AbortSignal): Promise<{ ok: tru
   let body = htmlToText(raw);
   if (title && body.startsWith(title)) body = body.slice(title.length).trim();
   if (body.length < 200) {
+    // 로그인·페이월·스크립트 렌더링 페이지라도 제목·요약(og:description)이 있으면 그 범위에서 분석을 이어갑니다.
+    const summary = description.length >= 40 ? description : "";
+    if (summary && title) {
+      return {
+        ok: true,
+        article: {
+          url: parsed.toString(),
+          title: title.slice(0, 200),
+          description: summary.slice(0, 400),
+          body: `${title}\n${summary}`,
+          chars: summary.length,
+          partial: true,
+        },
+      };
+    }
     return { ok: false, reason: "본문을 충분히 읽지 못했습니다(로그인·페이월·스크립트 렌더링 페이지일 수 있음)." };
   }
   return {
@@ -876,7 +920,88 @@ function sanitizeContext(raw: unknown): PackageContext {
 }
 
 function parseJson(content: string): unknown {
-  return JSON.parse(content.replace(/^```(?:json)?/i, "").replace(/```$/g, "").trim());
+  const cleaned = content.replace(/^```(?:json)?/i, "").replace(/```$/g, "").trim();
+  try {
+    return JSON.parse(cleaned);
+  } catch (error) {
+    const salvaged = salvageJson(cleaned);
+    if (salvaged !== null) return salvaged;
+    throw error;
+  }
+}
+
+/**
+ * 모델이 출력 한도에 걸려 JSON이 중간에 잘린 경우, 마지막으로 완결된 지점까지 되돌려
+ * 괄호를 닫아 해석합니다. 성공하면 패키지 전체를 버리지 않고 부분 결과를 쓸 수 있습니다.
+ * 해석이 불가능하면 null을 돌려주고 원래 오류를 그대로 냅니다.
+ */
+function salvageJson(text: string): unknown {
+  const start = text.indexOf("{");
+  if (start < 0) return null;
+  const body = text.slice(start);
+  const tryClose = (fragment: string): unknown | null => {
+    const closed = closeJson(fragment);
+    if (!closed) return null;
+    try {
+      return JSON.parse(closed);
+    } catch {
+      return null;
+    }
+  };
+
+  // 1) 마지막 ‘}’까지 그대로 닫기 시도
+  const lastBrace = body.lastIndexOf("}");
+  if (lastBrace > 0) {
+    const direct = tryClose(body.slice(0, lastBrace + 1));
+    if (direct !== null) return direct;
+  }
+
+  // 2) 쉼표 단위로 뒤에서부터 잘라 가며 닫기
+  let cut = body.length;
+  for (let guard = 0; guard < 400 && cut > 0; guard += 1) {
+    const comma = body.lastIndexOf(",", cut - 1);
+    if (comma <= 0) break;
+    const candidate = tryClose(body.slice(0, comma));
+    if (candidate !== null) return candidate;
+    cut = comma;
+  }
+  return null;
+}
+
+/** 문자열·중괄보 상태를 추적해 열린 괄호를 닫습니다. 구조가 깨졌으면 null. */
+function closeJson(fragment: string): string | null {
+  const stack: string[] = [];
+  let inString = false;
+  let escaped = false;
+  for (const ch of fragment) {
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (ch === "\\") {
+        escaped = true;
+      } else if (ch === '"') {
+        inString = false;
+      }
+      continue;
+    }
+    if (ch === '"') {
+      inString = true;
+    } else if (ch === "{") {
+      stack.push("}");
+    } else if (ch === "[") {
+      stack.push("]");
+    } else if (ch === "}" || ch === "]") {
+      const expected = stack.pop();
+      if (expected !== ch) return null;
+    }
+  }
+  let out = fragment;
+  if (inString) out += '"';
+  out = out.replace(/[,:]\s*$/, "");
+  // {"key": } 처럼 값 없이 끝난 경우 키를 제거
+  out = out.replace(/"[^"\\]*"\s*:\s*$/, "");
+  while (stack.length) out += stack.pop();
+  return out;
 }
 
 /* ------------------------------------------------------------------ */
@@ -983,7 +1108,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   /* 기사 URL이 있으면 서버가 직접 읽습니다. */
   let article: FetchedArticle | null = null;
   let articleError = "";
-  let sourceInfo: { url: string; title: string; chars: number; ok: boolean; note?: string } | undefined;
+  let sourceInfo: { url: string; title: string; chars: number; ok: boolean; note?: string; partial?: boolean } | undefined;
   const url = mode !== "review" ? extractUrl(situation) : null;
   if (url) {
     const rest = situation.replace(URL_RE, " ").replace(/\s+/g, " ").trim();
@@ -997,7 +1122,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
     if (outcome.ok) {
       article = outcome.article;
-      sourceInfo = { url: article.url, title: article.title, chars: article.chars, ok: true };
+      sourceInfo = {
+        url: article.url,
+        title: article.title,
+        chars: article.chars,
+        ok: true,
+        partial: article.partial === true,
+        note: article.partial ? "본문은 읽지 못해 제목·요약만 참고했습니다." : undefined,
+      };
     } else {
       articleError = outcome.reason;
       sourceInfo = { url, title: "", chars: 0, ok: false, note: outcome.reason };
@@ -1027,7 +1159,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           .join("\n\n")
       : buildPackagePrompt({ situation, brand, stance, stanceCustom, situations, situationNote, entities, caseType, stage, scale, article, articleError, context });
 
-  const maxTokens = mode === "review" ? 3_500 : mode === "case" ? 5_000 : 7_000;
+  const maxTokens = mode === "review" ? 3_500 : mode === "case" ? 5_000 : 8_000;
   const temperature = mode === "review" ? 0.3 : mode === "case" ? 0.15 : 0.45;
 
   const controller = new AbortController();

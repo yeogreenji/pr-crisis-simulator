@@ -50,7 +50,7 @@ export function SectionHead({
 }
 
 const SEVERITY_LABEL = ["참고", "주의", "심각"] as const;
-const SEVERITY_COLOR = ["#2f5f8a", "#a9660a", "#c8352b"] as const;
+const SEVERITY_COLOR = ["#2f5f8a", "#96620d", "#b02a22"] as const;
 
 export function SeverityTag({ level, label }: { level: 1 | 2 | 3; label?: string }) {
   const color = SEVERITY_COLOR[level - 1];
@@ -79,10 +79,10 @@ export function ToneTag({ tone }: { tone: "분노" | "냉소" | "질문" | "연�
 }
 
 export function scoreColor(score: number): string {
-  if (score <= 24) return "#16714f";
+  if (score <= 24) return "#17694c";
   if (score <= 44) return "#2f5f8a";
-  if (score <= 64) return "#a9660a";
-  return "#c8352b";
+  if (score <= 64) return "#96620d";
+  return "#b02a22";
 }
 
 export function ScoreBadge({ score, size = "md" }: { score: number; size?: "sm" | "md" | "lg" }) {

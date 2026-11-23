@@ -1,20 +1,14 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
-  ArrowLeft,
   ArrowRight,
   BookOpen,
   Check,
-  ChevronDown,
   ClipboardList,
-  ListChecks,
-  Copy,
   Gauge,
   Info,
-  Megaphone,
-  MessagesSquare,
+  ListChecks,
   Newspaper,
-  Printer,
   RotateCcw,
   Scale,
   ShieldAlert,
@@ -24,16 +18,16 @@ import {
 } from "lucide-react";
 import {
   actionsToText,
+  channelKitOf,
   countPlaceholders,
   getStance,
-  packageToMarkdown,
-  packageToText,
-  statementToText,
   type ActionGroup,
-  type QaScript,
   type ResponsePackage,
-  type Statement,
 } from "../lib/package";
+import { buildScorecard } from "../lib/scorecard";
+import type { Stance } from "../lib/stances";
+import { ScorecardBlock } from "./ScorecardBlock";
+import { ChannelsBlock } from "./ChannelsBlock";
 import { getProtocol } from "../lib/issue-protocols";
 import { ENTITY_PROFILES } from "../lib/profiles";
 import { findSimilarCases } from "../lib/similar";
@@ -41,13 +35,18 @@ import { buildCasePlaybook } from "../lib/case-playbook";
 import { findCaseCompare, type CompareRow } from "../lib/case-compare";
 import { CASE_TYPE_LABEL, CASE_VERDICT_LABEL } from "../lib/cases";
 import { getSituation } from "../lib/situations";
+import { channelStates } from "../lib/readiness";
+import { buildSharePayload, buildShareUrl, encodeShare } from "../lib/share";
+import { usePlan } from "./PlanContext";
+import { ExecutiveBar } from "./ExecutiveBar";
+import { SharePanel } from "./SharePanel";
 import { CopyButton, cx } from "./ui";
 import type { CrisisCase } from "../types";
 
 const RISK_STYLE: Record<string, { bg: string; color: string; border: string }> = {
-  높음: { bg: "#fbedea", color: "#c8352b", border: "rgba(200,53,43,0.25)" },
-  보통: { bg: "#fdf4e3", color: "#a9660a", border: "rgba(169,102,10,0.25)" },
-  낮음: { bg: "#e9f5ef", color: "#16714f", border: "rgba(22,113,79,0.25)" },
+  높음: { bg: "#fbedea", color: "#b02a22", border: "rgba(200,53,43,0.25)" },
+  보통: { bg: "#fbf2df", color: "#96620d", border: "rgba(169,102,10,0.25)" },
+  낮음: { bg: "#e8f4ee", color: "#17694c", border: "rgba(22,113,79,0.25)" },
 };
 
 function BlockHeader({
@@ -220,7 +219,7 @@ function Overview({ pkg }: { pkg: ResponsePackage }) {
             <span className="text-[11px] text-faint">{s.when}</span>
           </span>
         ))}
-        <span className="ml-auto text-[12px] text-faint">→ 블록 04에서 대상별 할 일·첫 문장</span>
+        <span className="ml-auto text-[12px] text-faint">→ 블록 03에서 대상별 할 일·첫 문장</span>
       </div>
     </section>
   );
@@ -315,146 +314,11 @@ function ActionsBlock({ groups }: { groups: ActionGroup[] }) {
   );
 }
 
-function StatementCard({ statement }: { statement: Statement }) {
-  const placeholders = countPlaceholders(statement.body);
-  return (
-    <div className="flex flex-col rounded-xl border border-line bg-[#fcfcfa]" data-testid={`statement-${statement.id}`}>
-      <div className="flex items-center gap-1.5 border-b border-line px-3 py-2">
-        {statement.id === "public" ? <Megaphone size={12} className="text-muted" /> : <Newspaper size={12} className="text-muted" />}
-        <span className="text-[13px] font-semibold text-ink">
-          {statement.id === "public" ? "①" : "②"} {statement.label}
-        </span>
-        <span className="ml-auto text-[11.5px] text-faint">{statement.channel}</span>
-      </div>
-      <div className="flex flex-1 flex-col px-3 py-3">
-        <div className="text-[13.5px] font-semibold leading-snug text-ink">{statement.title}</div>
-        <div
-          className="mt-2 flex-1 whitespace-pre-wrap text-[13px] leading-[1.75] text-ink-2"
-          data-testid={`statement-body-${statement.id}`}
-        >
-          {statement.body}
-        </div>
-      </div>
-      <div className="flex items-center gap-2 border-t border-line px-3 py-2">
-        <span className="text-[11.5px] text-faint">
-          {statement.body.length.toLocaleString()}자 · 대괄호 {placeholders}곳
-        </span>
-        <CopyButton text={statementToText(statement)} label="이 입장문 복사" className="btn btn-outline ml-auto h-7 px-2 text-[12.5px]" />
-      </div>
-    </div>
-  );
-}
-
-function StatementsBlock({ pkg }: { pkg: ResponsePackage }) {
-  const placeholders = pkg.statements.reduce((n, s) => n + countPlaceholders(s.body), 0);
-  return (
-    <section className="card overflow-hidden" data-testid="block-statements">
-      <BlockHeader
-        n="02"
-        title="바로 올릴 공식 입장문 2종"
-        desc={`고객 공지용과 언론 배포용을 따로 만들었습니다. 대괄호 ${placeholders}곳만 실제 값으로 채우면 그대로 배포할 수 있습니다.`}
-        icon={Megaphone}
-        copy={pkg.statements.map(statementToText).join("\n\n──────────\n\n")}
-      />
-      <div className="grid gap-2 px-4 py-4 sm:px-5 lg:grid-cols-2">
-        {pkg.statements.map((s) => (
-          <StatementCard key={s.id} statement={s} />
-        ))}
-      </div>
-      <div className="flex items-start gap-2 border-t border-line bg-paper/60 px-4 py-2.5 text-[12px] leading-relaxed text-muted sm:px-5">
-        <Info size={11} className="mt-[2px] shrink-0" />
-        <span>
-          <span className="font-semibold text-ink-2">톤 체크</span> — {getStance(pkg.stance, pkg.stanceCustom).rule}
-        </span>
-      </div>
-    </section>
-  );
-}
-
-function QaItem({ item, index }: { item: QaScript; index: number }) {
-  const [open, setOpen] = useState(index === 0);
-  return (
-    <div className="rounded-xl border border-line bg-[#fcfcfa]" data-testid="qa-item">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-        className="flex w-full items-start gap-2 px-3 py-2.5 text-left"
-      >
-        <span className="num mt-[1px] text-[12px] font-semibold text-faint">Q{index + 1}</span>
-        <span className="min-w-0 flex-1 text-[13px] font-semibold leading-snug text-ink">{item.question}</span>
-        {item.level === 3 && <span className="chip bg-risk-soft px-1.5 py-0 text-[11px] text-risk">급함</span>}
-        <ChevronDown size={13} className={cx("mt-[2px] shrink-0 text-muted transition-transform", open && "rotate-180")} />
-      </button>
-      {open && (
-        <div className="border-t border-line px-3 pb-3 pt-2.5">
-          <div className="rounded-lg border border-line bg-white p-2.5">
-            <div className="whitespace-pre-wrap text-[13px] leading-[1.7] text-ink-2" data-testid="qa-answer">
-              {item.answer}
-            </div>
-            <div className="mt-2 flex items-center gap-2">
-              <CopyButton text={item.answer} label="답변 복사" className="btn btn-outline h-6 px-1.5 text-[12px]" />
-            </div>
-          </div>
-          {item.guide && (
-            <p className="mt-2 text-[12px] leading-relaxed text-muted">
-              <span className="font-semibold text-ink-2">요령</span> · {item.guide}
-            </p>
-          )}
-          {item.avoid.length > 0 && (
-            <div className="mt-1.5 flex flex-wrap items-center gap-1">
-              <span className="text-[11.5px] font-semibold text-risk">피할 말</span>
-              {item.avoid.map((a) => (
-                <span key={a} className="rounded bg-risk-soft px-1.5 py-[1px] text-[11.5px] text-risk">
-                  {a}
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function QaBlock({ pkg }: { pkg: ResponsePackage }) {
-  return (
-    <section className="card overflow-hidden" data-testid="block-qa">
-      <BlockHeader
-        n="03"
-        title={`기자·커뮤니티 압박 질문 ${pkg.qa.length}개와 답변 스크립트`}
-        desc="질문을 누르면 그대로 읽거나 복붙할 답변이 나옵니다. 아래 금기 표현은 이 상황에서 절대 쓰지 마세요."
-        icon={MessagesSquare}
-        copy={pkg.qa.map((q, i) => `${i + 1}. ${q.question}\n→ ${q.answer}`).join("\n\n")}
-      />
-      <div className="space-y-2 px-4 py-3.5 sm:px-5">
-        {pkg.qa.slice(0, 6).map((q, i) => (
-          <QaItem key={`${q.question}-${i}`} item={q} index={i} />
-        ))}
-      </div>
-      <div className="border-t border-line bg-risk-soft/50 px-4 py-3 sm:px-5">
-        <div className="flex items-center gap-1.5">
-          <ShieldAlert size={12} className="text-risk" />
-          <span className="text-[13px] font-semibold text-risk">절대 쓰면 안 되는 금기 표현</span>
-        </div>
-        <div className="mt-2 grid gap-1.5 sm:grid-cols-2">
-          {pkg.banned.map((b) => (
-            <div key={b.phrase} className="rounded-lg border border-risk/15 bg-white px-2.5 py-1.5">
-              <div className="text-[12.5px] font-semibold text-risk">{b.phrase}</div>
-              <div className="mt-0.5 text-[12px] leading-snug text-muted">{b.why}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
 function StakeholdersBlock({ pkg }: { pkg: ResponsePackage }) {
   return (
     <section className="card overflow-hidden" data-testid="block-stakeholders">
       <BlockHeader
-        n="04"
+        n="03"
         title="유관기관·이해관계자 대응"
         desc="누구에게 언제 무엇을 말할지, 전화·메일 첫 문장까지 준비했습니다. 순서대로 접점을 잡으세요."
         icon={Users}
@@ -492,7 +356,7 @@ function OutlookBlock({ pkg }: { pkg: ResponsePackage }) {
   return (
     <section className="card overflow-hidden" data-testid="block-outlook">
       <BlockHeader
-        n="05"
+        n="04"
         title="예상 여론 반응과 악화 시 다음 대응"
         desc="이 입장을 냈을 때 실제로 나올 반응입니다. 아래 트리거가 보이면 다음 대응으로 바로 넘어가세요."
         icon={Gauge}
@@ -570,7 +434,7 @@ function SimilarCasesBlock({ pkg, onOpenCase }: { pkg: ResponsePackage; onOpenCa
   return (
     <section className="card overflow-hidden" data-testid="block-similar">
       <BlockHeader
-        n="06"
+        n="05"
         icon={BookOpen}
         title={similar.length ? "같은 유형의 실제 사례" : "표준 대응 프로토콜"}
         desc={
@@ -655,7 +519,7 @@ function CasePlaybookBlock({ pkg, onOpenCase }: { pkg: ResponsePackage; onOpenCa
   return (
     <section className="card overflow-hidden" data-testid="block-playbook">
       <BlockHeader
-        n="07"
+        n="06"
         icon={ListChecks}
         title={book ? "같은 유형 사례에서 뽑은 대응 순서" : `${protocol?.label ?? ""} 표준 대응 순서`}
         desc={
@@ -663,8 +527,8 @@ function CasePlaybookBlock({ pkg, onOpenCase }: { pkg: ResponsePackage; onOpenCa
             ? (() => {
                 const { counts } = book;
                 return counts.exemplary > 0
-                  ? `같은 유형 사례 ${book.cases.length}건(모범 ${counts.exemplary}·혼합 ${counts.mixed}·실패 ${counts.failure}) 중 모범 사례의 절반 이상이 실행한 단계에 ★를 붙였습니다.`
-                  : `같은 유형 사례 ${book.cases.length}건 중 모범 사례가 없어, 절반 이상이 실행한 단계에 ★를 붙였습니다.`;
+                  ? `같은 유형 사례 ${book.cases.length}건(모범 ${counts.exemplary}·혼합 ${counts.mixed}·실패 ${counts.failure}) 중 모범 사례의 절반 이상이 실행한 단계에 ‘핵심’ 표시를 했습니다.`
+                  : `같은 유형 사례 ${book.cases.length}건 중 모범 사례가 없어, 절반 이상이 실행한 단계에 ‘핵심’ 표시를 했습니다.`;
               })()
             : "관련 사례가 부족해 사례를 억지로 끌어오지 않았습니다. 이 유형에서 검증된 표준 실행 순서를 그대로 씁니다."
         }
@@ -677,7 +541,7 @@ function CasePlaybookBlock({ pkg, onOpenCase }: { pkg: ResponsePackage; onOpenCa
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="num grid h-6 w-6 place-items-center rounded-md bg-paper-deep text-[12px] font-semibold text-ink">{i + 1}</span>
                   <span className="text-[14px] font-semibold text-ink">
-                    {core && <span className="mr-1 text-warn">★</span>}
+                    {core && <span className="mr-1 rounded bg-warn-soft px-1 py-[1px] text-[10px] font-semibold text-warn">핵심</span>}
                     {phase.label}
                   </span>
                   <span className="ml-auto text-[12.5px] text-muted">
@@ -834,7 +698,7 @@ function VerdictCompareBlock({ pkg, onOpenCase }: { pkg: ResponsePackage; onOpen
     return (
       <section className="card overflow-hidden" data-testid="block-compare">
         <BlockHeader
-          n="08"
+          n="07"
           icon={Scale}
           title={`실패 사례 vs ${compare.label} 표준`}
           desc={`검수된 모범 사례가 아직 없는 유형입니다. 대신 ${BASIS_LABEL[compare.basis] ?? ""} 실패 사례를 이 유형의 표준 절차와 비교해, 빠진 항목을 짚었습니다.`}
@@ -887,7 +751,7 @@ function VerdictCompareBlock({ pkg, onOpenCase }: { pkg: ResponsePackage; onOpen
   return (
     <section className="card overflow-hidden" data-testid="block-compare">
       <BlockHeader
-        n="08"
+        n="07"
         icon={Scale}
         title="모범 사례 vs 실패 사례"
         desc={`${BASIS_LABEL[basis] ?? ""}에서 결과가 갈린 두 사례를 같은 축으로 나란히 놓았습니다. 사례 원문에 적힌 대응만 표시하고, 없으면 ‘해당 조치 없음’으로 표시합니다.`}
@@ -918,6 +782,8 @@ export function PackageView({
   onOpenManual,
   onOpenCase,
   onNotice,
+  onCompareStance,
+  onOpenHistory,
 }: {
   pkg: ResponsePackage;
   onEdit: () => void;
@@ -925,6 +791,8 @@ export function PackageView({
   onOpenManual: () => void;
   onOpenCase: (id: string) => void;
   onNotice: (message: string) => void;
+  onCompareStance: (stance: Stance) => void;
+  onOpenHistory: () => void;
 }) {
   const stance = getStance(pkg.stance, pkg.stanceCustom);
   const situationLabels = (pkg.situations ?? []).map((id) => getSituation(id)?.label).filter((v): v is string => Boolean(v));
@@ -934,68 +802,82 @@ export function PackageView({
     [pkg.entities],
   );
   const placeholders = pkg.statements.reduce((n, s) => n + countPlaceholders(s.body), 0);
+  const card = useMemo(() => buildScorecard(pkg), [pkg]);
+  const kit = useMemo(() => channelKitOf(pkg), [pkg]);
+  const { plan, allows, openPricing } = usePlan();
+  const states = useMemo(() => channelStates(pkg, kit, plan.id), [pkg, kit, plan.id]);
+  const [share, setShare] = useState<{ open: boolean; loading: boolean; url: string; error?: string }>({
+    open: false,
+    loading: false,
+    url: "",
+  });
 
-  const copyAll = async () => {
-    try {
-      await navigator.clipboard.writeText(packageToText(pkg));
-      onNotice("대응 패키지 전체를 복사했습니다.");
-    } catch {
-      onNotice("복사가 막혀 있습니다. 브라우저 권한을 확인해 주세요.");
+  const openShare = async () => {
+    if (!allows("share")) {
+      openPricing("share");
+      return;
     }
-  };
-
-  const copyMarkdown = async () => {
+    setShare({ open: true, loading: true, url: "" });
     try {
-      await navigator.clipboard.writeText(packageToMarkdown(pkg));
-      onNotice("팀 공유용 마크다운을 복사했습니다. 노션·슬랙에 붙여넣으세요.");
+      const token = await encodeShare(buildSharePayload(pkg, card, kit));
+      const url = buildShareUrl(token);
+      setShare({ open: true, loading: false, url });
+      try {
+        await navigator.clipboard.writeText(url);
+        onNotice("임원·법무팀 공유 링크를 복사했습니다.");
+      } catch {
+        /* 클립보드가 막히면 패널의 복사 버튼을 씁니다 */
+      }
     } catch {
-      onNotice("복사가 막혀 있습니다. 브라우저 권한을 확인해 주세요.");
+      setShare({ open: true, loading: false, url: "", error: "링크를 만들지 못했습니다. 브라우저를 새로고침한 뒤 다시 시도해 주세요." });
     }
   };
 
   return (
-    <div className="mx-auto w-full max-w-[960px] px-3 pb-20 pt-0 sm:px-5">
-      <div className="sticky top-0 z-30 -mx-3 mb-3 flex items-center gap-2 border-b border-line bg-paper/95 px-3 py-2 backdrop-blur print:hidden sm:-mx-5 sm:px-5">
-        <button type="button" onClick={onEdit} className="btn btn-ghost h-8 px-2 text-[13px] text-muted hover:text-ink">
-          <ArrowLeft size={13} /> 새 상황
-        </button>
-        <span className="hidden text-[12px] text-faint sm:inline">|</span>
-        <span className="hidden truncate text-[12.5px] text-muted sm:inline">{pkg.brand} · {pkg.eventLabel}</span>
-        <div className="ml-auto flex items-center gap-1">
-          <button type="button" onClick={onRegenerate} className="btn btn-ghost h-8 px-2 text-[12.5px] text-muted hover:text-ink">
-            <RotateCcw size={12} /> 다시 만들기
-          </button>
-          <button
-            type="button"
-            onClick={copyAll}
-            data-testid="copy-all"
-            className="btn btn-outline h-8 px-2 text-[12.5px]"
-          >
-            <Copy size={12} /> <span className="hidden sm:inline">전체 복사</span>
-          </button>
-          <button
-            type="button"
-            onClick={copyMarkdown}
-            data-testid="copy-markdown"
-            className="btn btn-outline h-8 px-2 text-[12.5px]"
-          >
-            <ClipboardList size={12} /> <span className="hidden sm:inline">Markdown</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => window.print()}
-            data-testid="print-pdf"
-            className="btn btn-outline h-8 px-2 text-[12.5px]"
-            title="인쇄 대화상자에서 ‘PDF로 저장’을 선택하세요"
-          >
-            <Printer size={12} /> <span className="hidden sm:inline">PDF 저장</span>
-          </button>
+    <>
+      <ExecutiveBar
+        pkg={pkg}
+        card={card}
+        kit={kit}
+        states={states}
+        plan={plan}
+        onEdit={onEdit}
+        onRegenerate={onRegenerate}
+        onOpenHistory={onOpenHistory}
+        onNotice={onNotice}
+        onShare={() => void openShare()}
+      />
+      <div className="mx-auto w-full max-w-[1000px] px-3 pb-20 pt-0 sm:px-5">
+        <div className="animate-rise" data-testid="package-view">
+        {/* 인쇄·PDF 전용 임원 보고서 머리말 — 화면에는 보이지 않습니다 */}
+        <div className="mb-4 hidden border-b-2 border-ink pb-3 print:block" data-testid="print-header">
+          <div className="eyebrow">PRISM · Crisis Communication Report</div>
+          <h1 className="mt-1 text-[20pt] font-semibold leading-tight text-ink">
+            {pkg.brand} — {pkg.caseTypeLabel ?? pkg.eventLabel} 임원 보고서
+          </h1>
+          <p className="mt-1 text-[9.5pt] text-muted">
+            {new Date(pkg.createdAt).toLocaleString("ko-KR")} · {stance.label} 기준 · 종합 위험지수 {card.overall}/100
+            ({card.band.label}) · 내부 검토용
+          </p>
+          <table className="mt-2 w-full border-collapse text-[9pt]">
+            <tbody>
+              <tr>
+                {card.axes.map((axis) => (
+                  <td key={axis.id} className="border border-line px-1.5 py-1 align-top">
+                    <span className="block text-[8pt] text-muted">{axis.short}</span>
+                    <span className="num font-semibold" style={{ color: axis.value >= 60 ? "#b02a22" : "#0f172a" }}>
+                      {axis.value}
+                    </span>
+                  </td>
+                ))}
+              </tr>
+            </tbody>
+          </table>
         </div>
-      </div>
 
-      <div className="animate-rise" data-testid="package-view">
-        <div className="px-1">
-          <div className="flex flex-wrap items-center gap-1.5">
+        <div className="px-1 pt-4">
+          <div className="flex flex-wrap items-center gap-1.5 border-b border-line pb-2.5">
+            <span className="eyebrow mr-1 shrink-0">Case file</span>
             <span
               className="chip"
               style={{ background: risk.bg, color: risk.color, border: `1px solid ${risk.border}` }}
@@ -1041,11 +923,11 @@ export function PackageView({
             )}
           </div>
 
-          <h1 className="mt-2.5 text-[20px] font-semibold leading-[1.28] tracking-[-0.035em] text-ink sm:text-[27px]">
+          <h1 className="display mt-3 text-[22px] leading-[1.32] tracking-[-0.03em] text-ink sm:text-[29px]">
             {pkg.headline}
           </h1>
 
-          <div className="mt-3 rounded-xl border border-line bg-surface px-3.5 py-3">
+          <div className="mt-3 rounded-lg border border-line border-l-2 border-l-accent/70 bg-surface px-3.5 py-3">
             <div className="flex flex-wrap items-center gap-1.5">
               <span className="eyebrow">상황</span>
               {pkg.fetch?.ok && pkg.fetch.url && (
@@ -1073,6 +955,15 @@ export function PackageView({
                 <span>기사 본문을 읽지 못해({pkg.fetch.note ?? "접근 제한"}) 입력한 설명과 매뉴얼로 만들었습니다.</span>
               </p>
             )}
+            {pkg.fetch?.ok && pkg.fetch.partial && (
+              <p className="mt-1.5 flex items-start gap-1.5 rounded-lg border border-warn/25 bg-warn-soft px-2 py-1.5 text-[12px] leading-relaxed text-warn">
+                <Info size={11} className="mt-[2px] shrink-0" />
+                <span>
+                  본문은 로그인·페이월 등으로 읽지 못해 <span className="font-semibold">제목·요약만</span> 참고했습니다. 요약에
+                  없는 수치·규모는 [확인 필요]로 남겼습니다.
+                </span>
+              </p>
+            )}
             <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-faint">
               <span>{pkg.brand}</span>
               <span>{new Date(pkg.createdAt).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
@@ -1090,6 +981,7 @@ export function PackageView({
         </div>
 
         <div className="mt-3 space-y-2.5">
+          <ScorecardBlock pkg={pkg} card={card} onCompareStance={onCompareStance} onOpenHistory={onOpenHistory} />
           <IssueBriefBlock pkg={pkg} />
           <Overview pkg={pkg} />
 
@@ -1100,8 +992,7 @@ export function PackageView({
           </div>
 
           <ActionsBlock groups={pkg.actions} />
-          <StatementsBlock pkg={pkg} />
-          <QaBlock pkg={pkg} />
+          <ChannelsBlock pkg={pkg} kit={kit} />
           <StakeholdersBlock pkg={pkg} />
           <OutlookBlock pkg={pkg} />
           <SimilarCasesBlock pkg={pkg} onOpenCase={onOpenCase} />
@@ -1132,12 +1023,28 @@ export function PackageView({
             확인되지 않은 사실은 만들지 않습니다. [확인 필요] 값은 담당자가 확인해 채우세요.
           </span>
         </div>
+        </div>
       </div>
-    </div>
+
+      <SharePanel
+        open={share.open}
+        url={share.url}
+        loading={share.loading}
+        error={share.error}
+        onClose={() => setShare((s) => ({ ...s, open: false }))}
+      />
+    </>
   );
 }
 
-export function PackageSkeleton({ stage, note }: { stage: string; note: string }) {
+export function PackageSkeleton({ stage, note, onSkip }: { stage: string; note: string; onSkip?: () => void }) {
+  const [elapsed, setElapsed] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => setElapsed((n) => n + 1), 1_000);
+    return () => clearInterval(timer);
+  }, []);
+
   return (
     <div className="mx-auto w-full max-w-[860px] px-4 pb-20 pt-6 sm:px-6">
       <div className="card p-5 sm:p-7">
@@ -1147,11 +1054,48 @@ export function PackageSkeleton({ stage, note }: { stage: string; note: string }
             <span className="relative inline-flex h-2 w-2 rounded-full bg-accent" />
           </span>
           <span className="text-[13.5px] font-semibold text-ink">대응 패키지를 만드는 중</span>
-          <span className="ml-auto text-[12px] text-faint">보통 20~40초</span>
+          <span className="num ml-auto text-[12px] text-faint">{elapsed}초 · 보통 20~40초</span>
         </div>
         <p className="mt-2 text-[13px] text-muted">{stage}</p>
         <p className="mt-0.5 text-[12px] text-faint">{note}</p>
-        <div className="mt-4 space-y-2">
+
+        <div className="mt-3 space-y-1.5" aria-hidden>
+          {["① 상황·유형 판별", "② 쟁점 · 숫자 확인 항목", "③ 골든타임 체크리스트", "④ 4채널 문안 (입장문·사내·SNS)", "⑤ 위험 스코어카드"]
+            .map((label, i) => {
+              const state = elapsed > 4 + i * 3 ? "done" : elapsed > i * 2 ? "doing" : "wait";
+              return (
+                <div key={label} className="flex items-center gap-2.5 rounded-lg border border-line bg-[#fcfcfa] px-3 py-1.5">
+                  <span
+                    className={cx(
+                      "grid h-4 w-4 shrink-0 place-items-center rounded-full border text-[9px] font-bold",
+                      state === "done"
+                        ? "border-ok bg-ok text-white"
+                        : state === "doing"
+                          ? "border-accent bg-accent-soft text-accent-deep"
+                          : "border-line-strong bg-white text-transparent",
+                    )}
+                  >
+                    <Check size={8} strokeWidth={3.5} />
+                  </span>
+                  <span className={cx("text-[12.5px]", state === "wait" ? "text-faint" : "text-ink-2")}>{label}</span>
+                  {state === "doing" && <span className="skeleton-sweep ml-auto h-2 w-16 rounded bg-paper-deep" />}
+                </div>
+              );
+            })}
+        </div>
+
+        {onSkip && elapsed >= 8 && (
+          <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-warn/25 bg-warn-soft px-3 py-2" data-testid="skip-to-local">
+            <span className="text-[12px] leading-relaxed text-warn">
+              AI 응답이 느립니다. 기다리지 않고 매뉴얼 결과를 먼저 볼 수 있습니다.
+            </span>
+            <button type="button" onClick={onSkip} className="btn btn-outline ml-auto h-7 px-2 text-[12px]">
+              매뉴얼 결과 먼저 보기
+            </button>
+          </div>
+        )}
+
+        <div className="mt-4 space-y-2 opacity-60">
           {["전체 대응 시스템 정리", "골든타임 체크리스트", "입장문 2종 작성", "압박 질문·답변 스크립트", "유관기관·악화 시나리오"].map((label, i) => (
             <div key={label} className="flex items-center gap-2.5 rounded-lg border border-line bg-[#fcfcfa] px-3 py-2">
               <span className="num text-[11.5px] text-faint">{`0${i + 1}`}</span>

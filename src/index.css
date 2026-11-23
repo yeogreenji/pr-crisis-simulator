@@ -3,33 +3,35 @@
 @theme {
   --font-sans: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont,
     "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  --font-display: "Noto Serif KR", "Nanum Myeongjo", "Apple SD Gothic Neo", serif;
   --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  --color-paper: #f5f5f2;
-  --color-paper-deep: #eeeee9;
+  /* Executive command center — warm paper + deep slate navy */
+  --color-paper: #faf9f6;
+  --color-paper-deep: #f1efe9;
   --color-surface: #ffffff;
-  --color-ink: #101319;
-  --color-ink-2: #343a46;
-  --color-muted: #6d7380;
-  --color-faint: #979ca6;
-  --color-line: #e5e4de;
-  --color-line-strong: #d5d4cc;
+  --color-ink: #0f172a;
+  --color-ink-2: #26334a;
+  --color-muted: #58647a;
+  --color-faint: #8a94a3;
+  --color-line: #e5e1d7;
+  --color-line-strong: #d2cdbf;
 
-  --color-accent: #2b45e0;
-  --color-accent-deep: #1c2fa8;
-  --color-accent-soft: #eef0ff;
+  --color-accent: #1e3a5f;
+  --color-accent-deep: #142a44;
+  --color-accent-soft: #eaeff5;
 
-  --color-risk: #c8352b;
-  --color-risk-deep: #8f211a;
+  --color-risk: #b02a22;
+  --color-risk-deep: #7f1d17;
   --color-risk-soft: #fbedea;
-  --color-warn: #a9660a;
-  --color-warn-soft: #fdf4e3;
-  --color-ok: #16714f;
-  --color-ok-soft: #e9f5ef;
+  --color-warn: #96620d;
+  --color-warn-soft: #fbf2df;
+  --color-ok: #17694c;
+  --color-ok-soft: #e8f4ee;
   --color-info: #2f5f8a;
 
-  --shadow-card: 0 1px 1px rgba(16, 19, 25, 0.03), 0 12px 32px -24px rgba(16, 19, 25, 0.35);
-  --shadow-float: 0 2px 4px rgba(16, 19, 25, 0.04), 0 24px 60px -28px rgba(16, 19, 25, 0.4);
+  --shadow-card: 0 1px 0 rgba(15, 23, 42, 0.03), 0 1px 2px rgba(15, 23, 42, 0.035);
+  --shadow-float: 0 2px 6px rgba(15, 23, 42, 0.06), 0 28px 64px -34px rgba(15, 23, 42, 0.45);
 }
 
 @layer base {
@@ -54,7 +56,7 @@
   }
 
   ::selection {
-    background: #d9defc;
+    background: #dbe3ec;
     color: var(--color-ink);
   }
 
@@ -80,13 +82,13 @@
     height: 10px;
   }
   ::-webkit-scrollbar-thumb {
-    background: #d4d3cc;
+    background: #d3cfc4;
     border: 3px solid transparent;
     background-clip: content-box;
     border-radius: 999px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: #bfbfb7;
+    background: #bdb8aa;
     background-clip: content-box;
     border: 3px solid transparent;
   }
@@ -99,15 +101,23 @@
   .card {
     background: var(--color-surface);
     border: 1px solid var(--color-line);
-    border-radius: 14px;
+    border-radius: 10px;
     box-shadow: var(--shadow-card);
   }
 
+  /* 편집 디자인용 세리프 디스플레이 — 표지·브리핑 제목에만 씁니다 */
+  .display {
+    font-family: var(--font-display);
+    font-weight: 600;
+    letter-spacing: -0.025em;
+  }
+
   .eyebrow {
-    font-size: 11.5px;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
     line-height: 1;
-    font-weight: 650;
-    letter-spacing: 0.14em;
+    font-weight: 500;
+    letter-spacing: 0.18em;
     text-transform: uppercase;
     color: var(--color-faint);
   }
@@ -128,7 +138,7 @@
     align-items: center;
     justify-content: center;
     gap: 6px;
-    border-radius: 9px;
+    border-radius: 7px;
     font-weight: 600;
     font-size: 14px;
     transition:
@@ -157,10 +167,10 @@
     background: var(--color-accent);
     color: #fff;
     border: 1px solid var(--color-accent);
-    box-shadow: 0 8px 20px -12px rgba(43, 69, 224, 0.9);
+    box-shadow: 0 10px 22px -16px rgba(15, 23, 42, 0.9);
   }
   .btn-accent:hover {
-    background: #2339c6;
+    background: #17304f;
   }
   .btn-accent:disabled {
     opacity: 0.55;
@@ -201,9 +211,9 @@
 
   .field {
     width: 100%;
-    border-radius: 10px;
+    border-radius: 8px;
     border: 1px solid var(--color-line-strong);
-    background: #fcfcfa;
+    background: #fdfcfa;
     padding: 10px 12px;
     font-size: 14.5px;
     color: var(--color-ink);
@@ -213,13 +223,13 @@
       box-shadow 140ms ease;
   }
   .field::placeholder {
-    color: #a4a9b2;
+    color: #9aa1ac;
   }
   .field:focus {
     outline: none;
     border-color: var(--color-accent);
     background: #fff;
-    box-shadow: 0 0 0 3px rgba(43, 69, 224, 0.12);
+    box-shadow: 0 0 0 3px rgba(30, 58, 95, 0.1);
   }
 
   .seg {
@@ -228,13 +238,13 @@
     gap: 2px;
     background: var(--color-paper-deep);
     border: 1px solid var(--color-line);
-    border-radius: 10px;
+    border-radius: 8px;
   }
 
   .seg-item {
-    border-radius: 7px;
-    padding: 6px 11px;
-    font-size: 13px;
+    border-radius: 6px;
+    padding: 5px 10px;
+    font-size: 12.5px;
     font-weight: 600;
     color: var(--color-muted);
     transition: all 140ms ease;
@@ -243,14 +253,30 @@
   .seg-item[data-active="true"] {
     background: #fff;
     color: var(--color-ink);
-    box-shadow: 0 1px 2px rgba(16, 19, 25, 0.08);
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.1);
   }
 
   .grid-paper {
     background-image:
-      linear-gradient(to right, rgba(16, 19, 25, 0.045) 1px, transparent 1px),
-      linear-gradient(to bottom, rgba(16, 19, 25, 0.045) 1px, transparent 1px);
-    background-size: 22px 22px;
+      linear-gradient(to right, rgba(15, 23, 42, 0.04) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(15, 23, 42, 0.04) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* 임원 요약 바 — 어두운 슬레이트 위 얇은 구분선 */
+  .exec-meta {
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.45);
   }
 
   .mark-risk {
@@ -279,9 +305,9 @@
     box-shadow: inset 0 -1.5px 0 #c99a5c;
   }
   .mark-risk[data-active="true"] {
-    background: #14161c;
+    background: #0f172a;
     color: #fff;
-    box-shadow: 0 0 0 2px #14161c;
+    box-shadow: 0 0 0 2px #0f172a;
   }
 
   .prose-doc p {
@@ -377,5 +403,64 @@
 @media print {
   body.printing-playbook .print-report {
     display: none !important;
+  }
+}
+
+/* ---- 임원 보고서 인쇄/PDF ---- */
+@media print {
+  html,
+  body {
+    background: #fff !important;
+  }
+  body {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  /* 4채널 탭은 인쇄에서 전부 펼칩니다 */
+  [data-print-panel] {
+    display: block !important;
+  }
+  [role="tablist"],
+  [role="dialog"],
+  .no-print {
+    display: none !important;
+  }
+  /* 긴 카드는 페이지를 넘겨도 되고, 내부 문안 블록만 잘리지 않게 */
+  section.card {
+    page-break-inside: auto;
+    break-inside: auto;
+    border: 1px solid #dddcd4 !important;
+    border-radius: 0;
+    margin-bottom: 6mm;
+  }
+  section.card > div:first-child {
+    break-after: avoid;
+  }
+  .rounded-xl,
+  .rounded-lg {
+    break-inside: avoid;
+  }
+  a[href]::after {
+    content: "";
+  }
+  .sticky {
+    position: static !important;
+  }
+  .whitespace-pre-wrap {
+    font-size: 9.6pt;
+    line-height: 1.55;
+  }
+  h1 {
+    font-size: 19pt;
+  }
+  h2 {
+    font-size: 11.5pt;
+  }
+  .shadow-card,
+  .shadow-float {
+    box-shadow: none !important;
+  }
+  .max-w-\[960px\] {
+    max-width: none !important;
   }
 }

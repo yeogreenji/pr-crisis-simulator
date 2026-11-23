@@ -9,6 +9,7 @@ import { findSimilarCases } from "./similar";
 import { CASE_VERDICT_LABEL } from "./cases";
 import { getProtocol, STAGE_META, SCALE_META, type IssueBrief } from "./issue-protocols";
 import { STANCE_AI, getStance } from "./stances";
+import { buildChannelKit, mergeChannelKit } from "./channels";
 import { situationDigest, getSituation } from "./situations";
 
 const BASE = import.meta.env.BASE_URL || "/";
@@ -435,6 +436,7 @@ export function mergePackage(
     outlook: mergeOutlook(base.outlook, row.outlook),
     watchouts: strList(row.watchouts, 4, 300).length ? strList(row.watchouts, 4, 300) : base.watchouts,
     issueBrief: mergeIssueBrief(base.issueBrief, row.issueBrief),
+    channels: mergeChannelKit(base.channels ?? buildChannelKit(base), row.channels),
     fetch: source ?? base.fetch,
     ai: { model: meta.model, latencyMs: meta.latencyMs, provider: meta.provider },
   };
@@ -522,6 +524,7 @@ export async function requestPackage(base: ResponsePackage, options: RequestOpti
         title: str(sourceRow.title, 200),
         chars: typeof sourceRow.chars === "number" ? sourceRow.chars : 0,
         ok: sourceRow.ok === true,
+        partial: sourceRow.partial === true,
         note: str(sourceRow.note, 200) || undefined,
       }
     : undefined;

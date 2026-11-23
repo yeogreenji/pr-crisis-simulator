@@ -13,6 +13,9 @@ import {
 } from "./lib/package";
 import { AiError, checkServer, describeAiError, requestPackage, requestReview } from "./lib/package-ai";
 import { loadApiConfig, persistApiConfig } from "./lib/storage";
+import { clearHistory, loadHistory, removeSnapshot, saveSnapshot, snapshotOf, type SimSnapshot } from "./lib/history";
+import type { Stance } from "./lib/stances";
+import type { SituationTagId } from "./lib/situations";
 import { Composer, type ComposeValue } from "./components/Composer";
 import { PackageSkeleton, PackageView } from "./components/PackageView";
 import { ReviewView } from "./components/ReviewView";
@@ -20,7 +23,12 @@ import { ManualModal } from "./components/ManualModal";
 import { CaseLibrary } from "./components/CaseLibrary";
 import { CaseStudio } from "./components/CaseStudio";
 import { SettingsModal } from "./components/SettingsModal";
+import { CompareView } from "./components/CompareView";
+import { HistoryModal } from "./components/HistoryModal";
 import { cx } from "./components/ui";
+import { PlanProvider, usePlan } from "./components/PlanContext";
+import { BriefingView } from "./components/BriefingView";
+import { decodeShare, readShareToken, type SharePayload } from "./lib/share";
 
 type Stage = "compose" | "loading" | "package" | "reviewLoading" | "review";
 
@@ -39,6 +47,14 @@ const EMPTY_FORM: ComposeValue = {
 };
 
 export default function App() {
+  return (
+    <PlanProvider>
+      <AppShell />
+    </PlanProvider>
+  );
+}
+
+function AppShell() {
   const [stage, setStage] = useState<Stage>("compose");
   const [form, setForm] = useState<ComposeValue>(EMPTY_FORM);
   const [reviewMode, setReviewMode] = useState(false);
@@ -55,12 +71,116 @@ export default function App() {
   const [studioOpen, setStudioOpen] = useState(false);
   const [caseRev, setCaseRev] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [history, setHistory] = useState<SimSnapshot[]>(() => loadHistory());
+  const [compare, setCompare] = useState<{ a: SimSnapshot; b: SimSnapshot; pkgs?: Record<string, ResponsePackage> } | null>(null);
   const [toast, setToast] = useState<{ id: number; message: string } | null>(null);
   const seq = useRef(0);
+  const localRef = useRef<ResponsePackage | null>(null);
+  const [fallbackOffer, setFallbackOffer] = useState<ComposeValue | null>(null);
+  const { allows, openPricing } = usePlan();
+  const [briefing, setBriefing] = useState<{ ready: boolean; payload: SharePayload | null; error?: string }>({
+    ready: false,
+    payload: null,
+  });
+
+  useEffect(() => {
+    let alive = true;
+    const load = async () => {
+      const token = readShareToken();
+      if (!token) {
+        if (alive) setBriefing({ ready: false, payload: null });
+        return;
+      }
+      const payload = await decodeShare(token);
+      if (!alive) return;
+      window.scrollTo({ top: 0, behavior: "auto" });
+      setBriefing({
+        ready: true,
+        payload,
+        error: payload ? undefined : "링크가 손상되었거나 지원하지 않는 형식입니다. 보낸 사람에게 링크를 다시 요청하세요.",
+      });
+    };
+    void load();
+    window.addEventListener("hashchange", load);
+    return () => {
+      alive = false;
+      window.removeEventListener("hashchange", load);
+    };
+  }, []);
 
   const notify = useCallback((message: string) => {
     setToast({ id: Date.now(), message });
   }, []);
+
+  /** 패키지가 만들어질 때마다 비교용 요약을 이 브라우저에 남깁니다. */
+  const remember = useCallback((pkg: ResponsePackage) => {
+    setHistory(saveSnapshot(pkg));
+  }, []);
+
+  /** 같은 입력에 다른 입장을 적용해 즉시 비교합니다. AI 없이 규칙 엔진으로 만들어 즉시 돌아옵니다. */
+  const compareStance = useCallback(
+    (stance: Stance) => {
+      if (!pkg) return;
+      if (!allows("compare")) {
+        openPricing("compare");
+        return;
+      }
+      const alt = buildLocalPackage({
+        situation: pkg.situation,
+        brand: pkg.brand,
+        stance,
+        stanceCustom: stance === "custom" ? pkg.stanceCustom : undefined,
+        situations: pkg.situations ?? [],
+        situationNote: pkg.situationNote ?? "",
+        entities: pkg.entities,
+        industry: pkg.industry,
+        caseType: pkg.caseType ?? "auto",
+        stage: pkg.stage ?? "breaking",
+        scale: pkg.scale ?? "mid",
+      });
+      setCompare({ a: snapshotOf(pkg), b: snapshotOf(alt), pkgs: { [pkg.id]: pkg, [alt.id]: alt } });
+      setHistory(saveSnapshot(alt));
+    },
+    [pkg, allows, openPricing],
+  );
+
+  const openSnapshot = useCallback(
+    (snap: SimSnapshot) => {
+      const rebuilt = buildLocalPackage({
+        situation: snap.situation,
+        brand: snap.brand,
+        stance: snap.stance as Stance,
+        stanceCustom: snap.stanceCustom,
+        situations: (snap.situations ?? []) as SituationTagId[],
+        entities: (snap.entities ?? ["general"]) as EntityId[],
+        industry: snap.industry ?? "auto",
+        caseType: snap.caseType ?? "auto",
+        stage: (snap.stage ?? "breaking") as ComposeValue["stage"],
+        scale: (snap.scale ?? "mid") as ComposeValue["scale"],
+      });
+      setPkg(rebuilt);
+      setHistoryOpen(false);
+      setCompare(null);
+      setStage("package");
+    },
+    [],
+  );
+
+  const openById = useCallback(
+    (id: string) => {
+      const fromCompare = compare?.pkgs?.[id];
+      if (fromCompare) {
+        setPkg(fromCompare);
+        setCompare(null);
+        setStage("package");
+        return;
+      }
+      const snap = compare?.a.id === id ? compare.a : compare?.b.id === id ? compare.b : history.find((h) => h.id === id);
+      if (snap) openSnapshot(snap);
+    },
+    [compare, history, openSnapshot],
+  );
 
   useEffect(() => {
     if (!toast) return;
@@ -151,15 +271,18 @@ export default function App() {
       const fallback = { ...local, modeNote: "설정에서 실시간 AI를 꺼 두었습니다. 매뉴얼 엔진으로 만들었습니다." };
       setPkg(fallback);
       setRecent(savePackage(fallback));
+      remember(fallback);
       setStage("package");
       return;
     }
 
+    localRef.current = local;
     try {
       const result = await requestPackage(local, { apiKey: apiConfig.apiKey, onStage: setStageNote });
       if (seq.current !== my) return;
       setPkg(result);
       setRecent(savePackage(result));
+      remember(result);
       setAiReady(true);
       setStage("package");
       notify("대응 패키지를 만들었습니다.");
@@ -167,15 +290,33 @@ export default function App() {
       if (seq.current !== my) return;
       if (err instanceof AiError && err.code === "fetch") {
         setError(err.message);
+        setFallbackOffer(current);
         setStage("compose");
         return;
       }
       const fallback = { ...local, modeNote: describeAiError(err) };
       setPkg(fallback);
       setRecent(savePackage(fallback));
+      remember(fallback);
       setStage("package");
     }
-  }, [apiConfig, form, notify, reviewMode]);
+  }, [apiConfig, form, notify, remember, reviewMode]);
+
+  /** 기사 본문을 읽지 못해 422로 돌아온 경우, 같은 입력을 URL만으로 다시 만들 수 있게 합니다. */
+  const submitWithoutArticle = useCallback(() => {
+    const offer = fallbackOffer;
+    if (!offer) return;
+    const bare = { ...offer, situation: offer.situation.replace(/https?:\/\/[^\s<>"'）)\]]+/i, " ").trim() };
+    setFallbackOffer(null);
+    setError(null);
+    setForm(bare);
+    if (!bare.situation || bare.situation.length < 4) {
+      notify("기사 요지만 적어 주시면 그 내용으로 만듭니다.");
+      return;
+    }
+    void submit(bare);
+  }, [fallbackOffer, notify, submit]);
+
 
   const openRecent = (item: ResponsePackage) => {
     seq.current += 1;
@@ -238,6 +379,10 @@ export default function App() {
     setStage("compose");
   };
 
+  if (briefing.ready) {
+    return <BriefingView brief={briefing.payload} error={briefing.error} />;
+  }
+
   if (studioOpen) {
     return (
       <div className="min-h-screen bg-paper">
@@ -291,12 +436,31 @@ export default function App() {
           onOpenRecent={openRecent}
           onRemoveRecent={(id) => setRecent(removePackage(id))}
           error={error}
+          fallbackOffer={Boolean(fallbackOffer)}
+          onFallbackOffer={submitWithoutArticle}
+          historyCount={history.length}
+          onOpenHistory={() => setHistoryOpen(true)}
           aiReady={aiReady}
           aiNote={aiNote}
         />
       )}
 
-      {stage === "loading" && <PackageSkeleton stage={stageNote} note="입장·유형에 맞춰 문안과 체크리스트를 조합합니다." />}
+      {stage === "loading" && (
+        <PackageSkeleton
+          stage={stageNote}
+          note="입장·유형에 맞춰 문안과 체크리스트를 조합합니다."
+          onSkip={localRef.current ? () => {
+            const local = localRef.current;
+            if (!local) return;
+            seq.current += 1;
+            const fallback = { ...local, modeNote: "AI 응답을 기다리지 않고 매뉴얼 엔진 결과를 먼저 열었습니다. 필요하면 ‘다시 만들기’로 AI 결과를 받으세요." };
+            setPkg(fallback);
+            setRecent(savePackage(fallback));
+            remember(fallback);
+            setStage("package");
+          } : undefined}
+        />
+      )}
       {stage === "reviewLoading" && <PackageSkeleton stage={stageNote} note="초안의 문장을 하나씩 검사합니다." />}
 
       {stage === "package" && pkg && (
@@ -307,6 +471,8 @@ export default function App() {
           onOpenManual={() => setManualOpen(true)}
           onOpenCase={(id) => setLibrary({ open: true, caseId: id })}
           onNotice={notify}
+          onCompareStance={compareStance}
+          onOpenHistory={() => setHistoryOpen(true)}
         />
       )}
 
@@ -336,8 +502,35 @@ export default function App() {
         }}
       />
 
+      <HistoryModal
+        open={historyOpen}
+        items={history}
+        onClose={() => setHistoryOpen(false)}
+        onCompare={(a, b) => {
+          if (!allows("compare")) {
+            openPricing("compare");
+            return;
+          }
+          setHistoryOpen(false);
+          setCompare({ a, b });
+        }}
+        onRemove={(id) => setHistory(removeSnapshot(id))}
+        onClear={() => setHistory(clearHistory())}
+        onOpenItem={openSnapshot}
+      />
+
+      {compare && (
+        <CompareView
+          a={compare.a}
+          b={compare.b}
+          onClose={() => setCompare(null)}
+          onOpen={compare.pkgs ? openById : undefined}
+          onNotice={notify}
+        />
+      )}
+
       {toast && (
-        <div className="pointer-events-none fixed inset-x-0 bottom-6 z-[60] flex justify-center px-4">
+        <div className="pointer-events-none fixed inset-x-0 bottom-6 z-[60] flex justify-center px-4 print:hidden">
           <div className="animate-rise pointer-events-auto flex items-center gap-2 rounded-xl border border-ink/10 bg-ink px-3.5 py-2.5 text-[11.5px] font-medium text-white shadow-[0_16px_40px_-20px_rgba(16,19,25,0.5)]">
             <CheckCircle2 size={13} className="opacity-70" />
             {toast.message}
@@ -346,7 +539,7 @@ export default function App() {
       )}
 
       {error && stage !== "compose" && (
-        <div className="pointer-events-none fixed inset-x-0 bottom-6 z-[60] flex justify-center px-4">
+        <div className="pointer-events-none fixed inset-x-0 bottom-6 z-[60] flex justify-center px-4 print:hidden">
           <div className={cx("pointer-events-auto flex items-center gap-2 rounded-xl border border-risk/25 bg-risk-soft px-3.5 py-2.5 text-[11.5px] text-risk")}>
             <AlertTriangle size={13} /> {error}
           </div>
