@@ -311,6 +311,7 @@ const SYSTEM_PACKAGE = `당신은 한국 기업의 위기 커뮤니케이션을 
   ① 소비자·이용자 반발(해지·환산·인증샷) ② 명분(원가·품질·투자·환율) ③ 커뮤니티·SNS 여론 ④ 경쟁사·대안 비교 ⑤ 언론 보도 포인트(수치·타이밍·규제).
   이 5축을 issueBrief.issues에 넣고, 입력에 없는 배경은 단정하지 말고 assumptions에 ‘가정’으로 적으세요.
 - 이슈 유형(caseType)이 주어지면 그 유형의 표준 프로토콜을 따르세요. 특히 가격·요금 인상은 ‘인상 시점·폭·적용 대상·기존 고객 적용일’ 네 숫자와 기존 고객 보호·해지 방법을 모든 문안에 넣으세요.
+- investigation은 담당자가 대응 문안을 쓰기 전에 여는 ‘사건 조사’ 파일입니다. ① 확인된 것과 확인되지 않은 것을 갈라 쓰고 ② 입력·기사·[참고 자료]에 없는 사실은 [확인 필요: 항목]으로 두며 ③ 기자가 던질 질문과 내부에서 확인할 항목을 담당 팀(PR·법무·운영·데이터)까지 지정합니다. issues는 side를 언론·여론·규제 중 하나로 표시하고, 같은 내용을 세 번 반복하지 마세요. pattern은 이 유형이 커지는 일반 경로이며, 이 사건에서 확인된 사실처럼 단정하지 마세요.
 - [유사 사례]가 없으면 사례를 만들어내지 말고, [이슈 유형 표준 프로토콜]의 절차를 그대로 이 상황에 적용하세요.
 - [유사 사례]가 주어지면 그 사례들의 실제 대응 순서와 교훈을 참고해 이번 상황에 맞게 다시 씁니다. 사례의 회사명·수치·날짜를 이번 사안의 사실처럼 옮기지 말고, 참고한 사례는 qa.guide나 watchouts에 "OO 사례에서는 …" 형태로만 표시하세요.
 - 전체 대응 시스템(roadmap)은 1시간 → 6시간 → 24시간~ 3단계로, 각 단계에 목표(goal)와 다음 단계로 넘어가기 위한 통과 기준(gate)을 씁니다.
@@ -325,6 +326,15 @@ JSON 스키마:
     "factsToConfirm": ["대외 문안에 숫자로 들어가야 할 항목"],
     "mediaPoints": ["언론이 파고들 지점"],
     "assumptions": ["입력에 없어 가정한 배경"]
+  },
+  "investigation": {
+    "summary": "이 사건이 무엇이고 지금 어디까지 확인됐는지 2문장",
+    "trigger": "확인된 촉발 요인 한 줄 (모르면 [확인 필요: 항목])",
+    "background": ["업종·규제·이해관계자 맥락 2~3개"],
+    "issues": [{"side": "언론|여론|규제", "title": "쟁점 이름", "detail": "기자가 물을 질문 또는 왜 쟁점인지 한 문장"}],
+    "checks": [{"team": "PR|법무|운영|데이터|총괄", "item": "대외 발표 전에 내부에서 확인할 항목", "question": "그 항목을 기자가 물을 때의 질문 형태", "why": "확인하지 않고 발표하면 무엇이 터지는지", "severity": 1|2|3}],
+    "evidence": ["지금 확보해 둘 증거(기록·자료·시료 등) 3~4개"],
+    "pattern": ["이 유형이 커지는 경로 3단계 — 일반 경로"]
   },
   "headline": "이 상황의 가장 큰 리스크를 짚는 한 문장 (상황에 특화)",
   "risk": "높음" | "보통" | "낮음",
@@ -377,7 +387,7 @@ JSON 스키마:
   "watchouts": ["이 유형에서만 생기는 함정 3개"]
 }
 
-분량: issueBrief.issues 5~7개(짧은 입력일수록 구체적으로), roadmap 3개(1시간·6시간·24시간~), actions 3개(각 5~7항목), statements 정확히 2개(public·press), qa 5~7개, banned 5개, stakeholders 4~6개, outlook.reactions 4개, triggers 3개, escalation 3개, watchouts 3개, channels.internal.body 300~700자·dos 3개·donts 3개·qa 2개, channels.social.short 200자 이내·commentGuide 4개, channels.defense 3개, channels.bridge 3개.
+분량: issueBrief.issues 5~7개(짧은 입력일수록 구체적으로), investigation.issues 4~6개·checks 5~7개·background 2~3개·evidence 3~4개·pattern 3개, roadmap 3개(1시간·6시간·24시간~), actions 3개(각 5~7항목), statements 정확히 2개(public·press), qa 5~7개, banned 5개, stakeholders 4~6개, outlook.reactions 4개, triggers 3개, escalation 3개, watchouts 3개, channels.internal.body 300~700자·dos 3개·donts 3개·qa 2개, channels.social.short 200자 이내·commentGuide 4개, channels.defense 3개, channels.bridge 3개.
 기사 URL 원문이 주어지면 그 기사에 나온 사실(수치·기관·주장)을 우선 인용하고, 기사에 없는 내용은 [확인 필요]로 둡니다.`;
 
 const SYSTEM_REVIEW = `당신은 한국 기업의 위기 대응 입장문을 감수하는 수석 PR 전략가입니다.

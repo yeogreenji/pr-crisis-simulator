@@ -42,6 +42,8 @@ export interface SharePayload {
   ac: { w: string; t: string; i: string[] }[];
   sk: { w: string; a: string; l: string }[];
   wo: string[];
+  /** 사항 조사 요약 — 예전 링크에는 없을 수 있습니다 */
+  inv?: { n: string; s: string; is: [string, string][]; ck: string[] };
   note?: string;
 }
 
@@ -75,6 +77,14 @@ export function buildSharePayload(pkg: ResponsePackage, card: Scorecard, kit: Ch
     ac: pkg.roadmap.slice(0, 3).map((p) => ({ w: p.window, t: p.title, i: p.items.slice(0, 4).map((x) => cut(x, 110)) })),
     sk: pkg.stakeholders.slice(0, 5).map((s) => ({ w: s.who, a: cut(s.action, 120), l: cut(s.line, 130) })),
     wo: pkg.watchouts.slice(0, 4).map((w) => cut(w, 120)),
+    inv: pkg.investigation
+      ? {
+          n: pkg.investigation.fileNo,
+          s: cut(pkg.investigation.summary, 280),
+          is: pkg.investigation.issues.slice(0, 4).map((i) => [i.side, cut(i.title || i.detail, 70)] as [string, string]),
+          ck: pkg.investigation.checks.slice(0, 5).map((c) => cut(c.item, 70)),
+        }
+      : undefined,
     note: pkg.mode === "ai" ? "실시간 AI 생성" : "매뉴얼 엔진 생성",
   };
 }

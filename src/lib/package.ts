@@ -19,6 +19,7 @@ import {
 } from "./issue-protocols";
 import { STANCE_BANNED, STANCE_QA, OUTLOOK, STANCES, getStance, type Stance, type StanceSpec } from "./stances";
 import { getSituation, type SituationTagId } from "./situations";
+import { buildInvestigation, investigationToText, type IncidentInvestigation } from "./investigation";
 import {
   buildChannelKit,
   channelKitToText,
@@ -118,6 +119,8 @@ export interface ResponsePackage {
   entities: EntityId[];
   /** 짧은 입력에서 확장한 핵심 쟁점·확인 항목 */
   issueBrief?: IssueBrief;
+  /** 사건 조사 — 개요·배경·쟁점·실무 팩트체크·확산 경로 */
+  investigation?: IncidentInvestigation;
   stage?: ProtocolStage;
   scale?: CompanyScale;
   industry: IndustryId;
@@ -1084,7 +1087,18 @@ export function buildLocalPackage(input: PackageInput): ResponsePackage {
     stage,
     scale,
   };
-  return { ...built, channels: buildChannelKit(built) };
+  const investigation = buildInvestigation({
+    situation: raw,
+    brand,
+    industry: industryId,
+    caseType,
+    caseTypeLabel: caseType ? CASE_TYPE_LABEL[caseType] : protocol?.label,
+    entities: built.entities,
+    stage,
+    scale,
+    createdAt: built.createdAt,
+  });
+  return { ...built, channels: buildChannelKit(built), investigation };
 }
 
 /* ------------------------------------------------------------------ */
@@ -1177,6 +1191,9 @@ export function packageToText(pkg: ResponsePackage): string {
     `진단: ${pkg.headline}`,
     "",
   ];
+  if (pkg.investigation) {
+    lines.push(investigationToText(pkg.investigation), "");
+  }
   if (pkg.issueBrief) {
     lines.push(
       "■ 00 쟁점 확장",
@@ -1186,9 +1203,6 @@ export function packageToText(pkg: ResponsePackage): string {
       "",
       "확인해야 할 숫자·일정",
       ...pkg.issueBrief.factsToConfirm.map((f) => `- ${f}`),
-      "",
-      "언론 보도 포인트",
-      ...pkg.issueBrief.mediaPoints.map((m) => `- ${m}`),
       "",
     );
   }
@@ -1244,6 +1258,36 @@ export function packageToMarkdown(pkg: ResponsePackage): string {
   out.push("");
   out.push(`> ${pkg.headline}`);
   out.push("");
+  if (pkg.investigation) {
+    const inv = pkg.investigation;
+    out.push(`## 사건 조사 — 확인된 것과 확인할 것`);
+    out.push("");
+    out.push(`> 조사 파일 ${inv.fileNo} · ${inv.source === "ai" ? "실시간 AI 생성" : "매뉴얼 엔진 생성"}`);
+    out.push("");
+    out.push(inv.summary);
+    out.push("");
+    if (inv.trigger) out.push(`- **촉발 요인**: ${inv.trigger}`);
+    for (const line of inv.background) out.push(`- ${line}`);
+    out.push("");
+    out.push("### 핵심 쟁점 및 여론·보도 포인트");
+    inv.issues.forEach((i, n) => out.push(`${n + 1}. **(${i.side})** ${i.title ? `**${i.title}** — ` : ""}${i.detail}`));
+    out.push("");
+    out.push("### 실무 팩트체크 (대외 발표 전 확인)");
+    inv.checks.forEach((c) => out.push(`- [ ] **${c.item}** _(${c.team})_ — ${c.why}`));
+    out.push("");
+    if (inv.evidence.length) out.push(`**확보해 둘 증거** — ${inv.evidence.join(" / ")}`);
+    if (inv.pattern.length) {
+      out.push("");
+      out.push("**이 유형이 커지는 경로**");
+      inv.pattern.forEach((p, i) => out.push(`${i + 1}. ${p}`));
+    }
+    if (inv.precedent) {
+      out.push("");
+      out.push(`**참고 사례** — ${inv.precedent.company}, ${inv.precedent.title} (${inv.precedent.date})  `);
+      out.push(`교훈: ${inv.precedent.takeaway}`);
+    }
+    out.push("");
+  }
   if (pkg.issueBrief) {
     out.push(`## 00. 쟁점 확장 — ${pkg.issueBrief.label}`);
     out.push("");
@@ -1253,9 +1297,6 @@ export function packageToMarkdown(pkg: ResponsePackage): string {
     out.push("");
     out.push("### 확인해야 할 숫자·일정");
     pkg.issueBrief.factsToConfirm.forEach((f) => out.push(`- ${f}`));
-    out.push("");
-    out.push("### 언론 보도 포인트");
-    pkg.issueBrief.mediaPoints.forEach((m) => out.push(`- ${m}`));
     if (pkg.issueBrief.assumptions.length) {
       out.push("");
       out.push("### 입력에 없어 가정한 부분");

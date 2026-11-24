@@ -23,6 +23,7 @@ const COMPARE_ROWS: { label: string; starter: string; pro: string; enterprise: s
   { label: "기자 Q&A·핵심 방어 논리", starter: "5문항", pro: "전체", enterprise: "전체" },
   { label: "4채널 문안(사내·SNS 포함)", starter: "—", pro: "포함", enterprise: "포함" },
   { label: "7축 위험 스코어카드", starter: "포함", pro: "포함", enterprise: "포함" },
+  { label: "사건 조사 파일·실무 팩트체크", starter: "포함", pro: "포함", enterprise: "포함" },
   { label: "시나리오·입장 비교", starter: "—", pro: "무제한", enterprise: "무제한" },
   { label: "임원 보고서 Word·PDF", starter: "—", pro: "포함", enterprise: "포함" },
   { label: "임원·법무 공유 브리핑 링크", starter: "—", pro: "포함", enterprise: "포함" },

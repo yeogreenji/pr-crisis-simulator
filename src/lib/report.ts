@@ -113,7 +113,53 @@ export function buildExecutiveMarkdown(pkg: ResponsePackage, card: Scorecard, ki
     }
   }
 
-  out.push("## 2. 골든타임 실행 체크리스트");
+  out.push("## 2. 사건 조사 — 확인된 것과 확인할 것");
+  out.push("");
+  if (pkg.investigation) {
+    const inv = pkg.investigation;
+    out.push(`> 조사 파일 ${inv.fileNo} · ${inv.source === "ai" ? "실시간 AI 생성" : "매뉴얼 엔진 생성"}`);
+    out.push("");
+    out.push(`**개요** — ${inv.summary}`);
+    out.push("");
+    if (inv.trigger) out.push(`**촉발 요인** — ${inv.trigger}`);
+    out.push("");
+    for (const line of inv.background) out.push(`- ${line}`);
+    out.push("");
+    const regulators = inv.context.filter((c) => c.kind === "regulator");
+    const laws = inv.context.filter((c) => c.kind === "law");
+    if (regulators.length) out.push(`**규제 접점** — ${regulators.map((c) => `${c.name}(${c.note})`).join(" / ")}`);
+    if (laws.length) out.push(`**관련 법령** — ${laws.map((c) => `${c.name}(${c.note})`).join(" / ")}`);
+    out.push("");
+    out.push("### 핵심 쟁점 및 여론·보도 포인트");
+    out.push("");
+    inv.issues.forEach((issue, i) => out.push(`${i + 1}. **(${issue.side})** ${issue.title ? `**${issue.title}** — ` : ""}${issue.detail}`));
+    out.push("");
+    out.push("### 실무 팩트체크 — 대외 발표 전에 닫아야 하는 항목");
+    out.push("");
+    inv.checks.forEach((c) => out.push(`- [ ] **${c.item}** _(${c.team})_ — ${c.why}${c.question ? ` / 기자 질문: ${c.question}` : ""}`));
+    out.push("");
+    if (inv.evidence.length) {
+      out.push("### 확보해 둘 증거");
+      out.push("");
+      inv.evidence.forEach((e) => out.push(`- ${e}`));
+      out.push("");
+    }
+    if (inv.pattern.length) {
+      out.push("### 이 유형이 커지는 경로");
+      out.push("");
+      inv.pattern.forEach((p, i) => out.push(`${i + 1}. ${p}`));
+      out.push("");
+    }
+    if (inv.precedent) {
+      out.push("### 참고 사례");
+      out.push("");
+      out.push(`- ${inv.precedent.company} — ${inv.precedent.title} (${inv.precedent.date})`);
+      out.push(`  - 교훈: ${inv.precedent.takeaway}`);
+      out.push("");
+    }
+  }
+
+  out.push("## 3. 골든타임 실행 체크리스트");
   out.push("");
   for (const phase of pkg.roadmap) {
     out.push(`### ${phase.window} — ${phase.title}`);
@@ -127,7 +173,7 @@ export function buildExecutiveMarkdown(pkg: ResponsePackage, card: Scorecard, ki
     out.push("");
   }
 
-  out.push("## 3. 4채널 실행 문안");
+  out.push("## 4. 4채널 실행 문안");
   out.push("");
   out.push("### ① 공식 입장문·보도자료");
   out.push("");
@@ -181,7 +227,7 @@ export function buildExecutiveMarkdown(pkg: ResponsePackage, card: Scorecard, ki
   out.push("```");
   out.push("");
 
-  out.push("## 4. 유관기관·이해관계자 대응");
+  out.push("## 5. 유관기관·이해관계자 대응");
   out.push("");
   pkg.stakeholders.forEach((s) => {
     out.push(`### ${s.who} (${s.when} 내)`);
@@ -190,7 +236,7 @@ export function buildExecutiveMarkdown(pkg: ResponsePackage, card: Scorecard, ki
     out.push("");
   });
 
-  out.push("## 5. 예상 여론과 악화 시 다음 대응");
+  out.push("## 6. 예상 여론과 악화 시 다음 대응");
   out.push("");
   pkg.outlook.reactions.forEach((r) => out.push(`- [${r.channel}] ${r.text}`));
   out.push("");
@@ -294,6 +340,28 @@ export function buildExecutiveHtml(pkg: ResponsePackage, card: Scorecard, kit: C
       }`
     : "";
 
+  const investigationHtml = pkg.investigation
+    ? (() => {
+        const inv = pkg.investigation;
+        const regulators = inv.context.filter((c) => c.kind === "regulator");
+        const laws = inv.context.filter((c) => c.kind === "law");
+        return `<p><b>개요</b> — ${esc(inv.summary)}</p>
+${inv.trigger ? `<p><b>촉발 요인</b> — ${esc(inv.trigger)}</p>` : ""}
+${list(inv.background)}
+${regulators.length ? `<p class="muted"><b>규제 접점</b> — ${regulators.map((c) => `${esc(c.name)}(${esc(c.note)})`).join(" / ")}</p>` : ""}
+${laws.length ? `<p class="muted"><b>관련 법령</b> — ${laws.map((c) => `${esc(c.name)}(${esc(c.note)})`).join(" / ")}</p>` : ""}
+<h3>핵심 쟁점 및 여론·보도 포인트</h3>
+<ol>${inv.issues.map((i) => `<li><b>(${esc(i.side)})</b> ${i.title ? `<b>${esc(i.title)}</b> — ` : ""}${esc(i.detail)}</li>`).join("")}</ol>
+<h3>실무 팩트체크 — 대외 발표 전에 닫아야 하는 항목</h3>
+<table class="grid"><thead><tr><th>담당</th><th>확인 항목</th><th>왜</th><th>기자 질문</th></tr></thead><tbody>${inv.checks
+          .map((c) => `<tr><td>${esc(c.team)}</td><td>☐ ${esc(c.item)}</td><td>${esc(c.why)}</td><td>${esc(c.question)}</td></tr>`)
+          .join("")}</tbody></table>
+${inv.evidence.length ? `<p class="muted"><b>확보해 둘 증거</b><br>${inv.evidence.map((e) => `☐ ${esc(e)}`).join("<br>")}</p>` : ""}
+${inv.pattern.length ? `<p class="muted"><b>이 유형이 커지는 경로</b><br>${inv.pattern.map((p, i) => `${i + 1}. ${esc(p)}`).join("<br>")}</p>` : ""}
+${inv.precedent ? `<p class="muted"><b>참고 사례</b> — ${esc(inv.precedent.company)}, ${esc(inv.precedent.title)} (${esc(inv.precedent.date)})<br>교훈: ${esc(inv.precedent.takeaway)}</p>` : ""}`;
+      })()
+    : "";
+
   const style = `
   @page { size: A4; margin: 16mm 15mm; }
   * { box-sizing: border-box; }
@@ -346,14 +414,15 @@ ${SECTION("1. 경영진 요약", `<p><b>진단</b> — ${esc(pkg.headline)}</p><
 <p><b>상황</b><br>${esc(pkg.situation.replace(/\n+/g, " "))}</p>
 ${pkg.fetch?.ok && pkg.fetch.url ? `<p class="muted">기사 원문: ${esc(pkg.fetch.url)}</p>` : ""}
 ${pkg.fetch && !pkg.fetch.ok ? `<p class="muted">기사 본문을 읽지 못했습니다(${esc(pkg.fetch.note ?? "접근 제한")}). 입력 설명과 매뉴얼 기준으로 작성했습니다.</p>` : ""}`)}
-${issuesHtml ? SECTION("2. 먼저 잡아야 할 쟁점", issuesHtml) : ""}
-${SECTION("3. 골든타임 실행 체크리스트", actionHtml)}
-${SECTION("4. 4채널 실행 문안 — ① 공식 입장문·보도자료", statementHtml)}
-${SECTION("5. ② 기자 예상 Q&A · 핵심 방어 논리", `${defenseHtml}${qaHtml}${pkg.banned.length ? `<p class="muted"><b>금기 표현</b><br>${pkg.banned.map((b) => `${esc(b.phrase)} — ${esc(b.why)}`).join("<br>")}</p>` : ""}`)}
-${SECTION("6. ③ 사내 임직원 공지문", pre(internalToText(kit.internal)))}
-${SECTION("7. ④ SNS 공식 계정 공지 · 댓글 대응", pre(socialToText(kit.social)))}
-${SECTION("8. 유관기관·이해관계자 대응", stakeholderHtml)}
-${SECTION("9. 예상 여론과 악화 시 다음 대응", `${list(pkg.outlook.reactions.map((r) => `[${r.channel}] ${r.text}`))}<p><b>악화 트리거</b></p>${list(pkg.outlook.triggers)}<p><b>악화 시 다음 대응</b></p>${list(pkg.outlook.escalation)}${pkg.watchouts.length ? `<p><b>이 유형에서만 생기는 함정</b></p>${list(pkg.watchouts)}` : ""}`)}
+${investigationHtml ? SECTION("2. 사건 조사 — 확인된 것과 확인할 것", investigationHtml) : ""}
+${issuesHtml ? SECTION("3. 먼저 잡아야 할 쟁점", issuesHtml) : ""}
+${SECTION("4. 골든타임 실행 체크리스트", actionHtml)}
+${SECTION("5. 4채널 실행 문안 — ① 공식 입장문·보도자료", statementHtml)}
+${SECTION("6. ② 기자 예상 Q&A · 핵심 방어 논리", `${defenseHtml}${qaHtml}${pkg.banned.length ? `<p class="muted"><b>금기 표현</b><br>${pkg.banned.map((b) => `${esc(b.phrase)} — ${esc(b.why)}`).join("<br>")}</p>` : ""}`)}
+${SECTION("7. ③ 사내 임직원 공지문", pre(internalToText(kit.internal)))}
+${SECTION("8. ④ SNS 공식 계정 공지 · 댓글 대응", pre(socialToText(kit.social)))}
+${SECTION("9. 유관기관·이해관계자 대응", stakeholderHtml)}
+${SECTION("10. 예상 여론과 악화 시 다음 대응", `${list(pkg.outlook.reactions.map((r) => `[${r.channel}] ${r.text}`))}<p><b>악화 트리거</b></p>${list(pkg.outlook.triggers)}<p><b>악화 시 다음 대응</b></p>${list(pkg.outlook.escalation)}${pkg.watchouts.length ? `<p><b>이 유형에서만 생기는 함정</b></p>${list(pkg.watchouts)}` : ""}`)}
 <div class="foot">PRISM 위기 대응 워크스페이스 · 대괄호 [확인 필요] 값만 채우면 그대로 배포할 수 있습니다. 확인되지 않은 사실은 만들지 않았습니다.<br>내부 검토용 문서입니다. 외부 배포 전 커뮤니케이션 책임자 승인을 받으세요.</div>
 `;
 

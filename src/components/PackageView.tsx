@@ -8,7 +8,6 @@ import {
   Gauge,
   Info,
   ListChecks,
-  Newspaper,
   RotateCcw,
   Scale,
   ShieldAlert,
@@ -27,6 +26,7 @@ import {
 import { buildScorecard } from "../lib/scorecard";
 import type { Stance } from "../lib/stances";
 import { ScorecardBlock } from "./ScorecardBlock";
+import { InvestigationBlock } from "./InvestigationBlock";
 import { ChannelsBlock } from "./ChannelsBlock";
 import { getProtocol } from "../lib/issue-protocols";
 import { ENTITY_PROFILES } from "../lib/profiles";
@@ -142,17 +142,12 @@ function IssueBriefBlock({ pkg }: { pkg: ResponsePackage }) {
             ))}
           </ul>
           <div className="mt-3 flex items-center gap-1.5">
-            <Newspaper size={12} className="text-muted" />
-            <span className="text-[12.5px] font-semibold text-ink">언론이 파고들 지점</span>
+            <Target size={12} className="text-muted" />
+            <span className="text-[12.5px] font-semibold text-ink">여론·보도 포인트는 위 ‘사건 조사’에 정리했습니다</span>
           </div>
-          <ul className="mt-1.5 space-y-1">
-            {brief.mediaPoints.map((point) => (
-              <li key={point} className="flex gap-1.5 text-[12px] leading-relaxed text-muted">
-                <span className="mt-[6px] h-1 w-1 shrink-0 rounded-full bg-faint" />
-                <span>{point}</span>
-              </li>
-            ))}
-          </ul>
+          <p className="mt-1 text-[12px] leading-relaxed text-faint">
+            기자가 물을 질문과 업종에서 반복되는 여론 공격 지점은 조사 파일에서 조사 항목과 함께 봅니다.
+          </p>
           {brief.assumptions.length > 0 && (
             <div className="mt-3 rounded-lg border border-line bg-white px-2.5 py-2">
               <span className="text-[11.5px] font-semibold text-faint">입력에 없어 가정한 부분</span>
@@ -982,6 +977,7 @@ export function PackageView({
 
         <div className="mt-3 space-y-2.5">
           <ScorecardBlock pkg={pkg} card={card} onCompareStance={onCompareStance} onOpenHistory={onOpenHistory} />
+          {pkg.investigation && <InvestigationBlock inv={pkg.investigation} onOpenCase={onOpenCase} />}
           <IssueBriefBlock pkg={pkg} />
           <Overview pkg={pkg} />
 

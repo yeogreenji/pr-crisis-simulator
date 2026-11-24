@@ -223,6 +223,18 @@ def launch_page(p, **context_kwargs):
     raise last
 
 
+def new_page_retry(ctx, attempts: int = 3):
+    """같은 컨텍스트에서 새 탭을 열 때도 renderer가 간헐적으로 죽습니다(메모리 상한). 재시도합니다."""
+    last = None
+    for _ in range(attempts):
+        try:
+            return ctx.new_page()
+        except Exception as exc:  # noqa: BLE001
+            last = exc
+            time.sleep(1.5)
+    raise last
+
+
 def main() -> int:
     for path in (SHOTS, TMP):
         path.mkdir(parents=True, exist_ok=True)
@@ -342,6 +354,24 @@ def main() -> int:
                 "Gemini 프롬프트: 4채널(사내·SNS·방어 논리) 스키마 요청",
                 '"channels"' in captured_system and "사내 공지" in captured_system and "commentGuide" in captured_system,
                 captured_system[-260:],
+            )
+            check(
+                "Gemini 프롬프트: 사건 조사(investigation) 스키마 요청",
+                '"investigation"' in captured_system
+                and "사건 조사" in captured_system
+                and '"pattern"' in captured_system
+                and "내부에서 확인할 항목" in captured_system,
+                captured_system[-300:],
+            )
+            investigation_result = result.get("investigation") or {}
+            check(
+                "API: 사건 조사 블록 반환(개요·쟁점·체크)",
+                isinstance(investigation_result, dict)
+                and bool(investigation_result.get("summary"))
+                and len(investigation_result.get("issues") or []) >= 3
+                and len(investigation_result.get("checks") or []) >= 2
+                and len(investigation_result.get("pattern") or []) >= 3,
+                json.dumps(investigation_result, ensure_ascii=False)[:220],
             )
 
             status, body = api(4197, make_package_payload(stance="rebuttal"))
@@ -586,7 +616,7 @@ def main() -> int:
                     and "199,000원" in page.inner_text("[data-testid='plan-card-enterprise']"),
                     page.inner_text("[data-testid='pricing-modal']")[:200],
                 )
-                check("요금제: B2B 비교표 12행", page.locator("[data-testid^='plan-row-']").count() == 12, str(page.locator("[data-testid^='plan-row-']").count()))
+                check("요금제: B2B 비교표 13행", page.locator("[data-testid^='plan-row-']").count() == 13, str(page.locator("[data-testid^='plan-row-']").count()))
                 page.click("[data-testid='billing-annual']")
                 page.wait_for_timeout(200)
                 check(
@@ -680,7 +710,7 @@ def main() -> int:
                 page.click("[data-testid='share-close']")
                 page.wait_for_timeout(150)
 
-                brief = ctx.new_page()
+                brief = new_page_retry(ctx)
                 brief.goto(share_url, wait_until="networkidle")
                 brief.wait_for_selector("[data-testid='briefing-view']", timeout=15000)
                 brief.wait_for_timeout(400)
@@ -696,6 +726,13 @@ def main() -> int:
                 check(
                     "공유 브리핑: 4채널 문안·실행 순서·유관기관",
                     "모의 고객 공지" in brief_text and "사내" in brief_text and "1시간" in brief_text and "유관기관" in brief_text,
+                    brief_text[:200],
+                )
+                check(
+                    "공유 브리핑: 사건 조사 요약·확인 대기 항목",
+                    brief.locator("[data-testid='briefing-investigation']").count() == 1
+                    and "사건 조사" in brief_text
+                    and "발표 전 확인 대기" in brief_text,
                     brief_text[:200],
                 )
                 check(
@@ -720,6 +757,46 @@ def main() -> int:
 
                 # 위험 스코어카드 · 4채널 탭
                 check("결과: 7축 위험 스코어카드", page.locator("[data-testid='block-scorecard']").count() == 1 and page.locator("[data-testid='block-scorecard'] svg polygon").count() >= 5)
+
+                # ── 사건 조사 블록 (AI 개요 + 업종 매뉴얼 체크 병합) ──
+                inv_block = page.locator("[data-testid='block-investigation']")
+                check("결과: 사건 조사 블록이 스코어카드 아래에 표시", inv_block.count() == 1)
+                inv_text = inv_block.inner_text() if inv_block.count() else ""
+                check(
+                    "사건 조사: AI 개요·쟁점·로컬 매뉴얼 체크 병합",
+                    "모의 조사 개요" in inv_text
+                    and page.locator("[data-testid='investigation-issues'] li").count() >= 3
+                    and page.locator("[data-testid^='investigation-check-']").count() >= 5
+                    and "식품의약품안전처" in inv_text,
+                    inv_text[:240],
+                )
+                check(
+                    "사건 조사: 확산 경로·참고 사례·규제 접점",
+                    "이 유형이 커지는 경로" in inv_text
+                    and ("참고 맥락" in inv_text or "참고 사례" in inv_text)
+                    and "관련 법령" in inv_text,
+                    inv_text[-240:],
+                )
+                page.locator("[data-testid='block-investigation']").scroll_into_view_if_needed()
+                page.wait_for_timeout(3400)  # 공유 토스트가 사라질 때까지
+                # 스크린샷에만 상단 고정 바를 잠시 숨깁니다(캡처 후 즉시 복구).
+                page.evaluate("() => { const el = document.querySelector(\"[data-testid='exec-bar']\"); if (el) el.style.display = 'none'; }")
+                page.wait_for_timeout(120)
+                inv_block.screenshot(path=str(SHOTS / "56-investigation.png"))
+                page.evaluate("() => { const el = document.querySelector(\"[data-testid='exec-bar']\"); if (el) el.style.display = ''; }")
+                page.wait_for_timeout(120)
+                check_progress_before = page.inner_text("[data-testid='investigation-progress']")
+                page.locator("[data-testid^='investigation-check-']").first.click()
+                page.wait_for_timeout(250)
+                check_progress = page.inner_text("[data-testid='investigation-progress']")
+                check(
+                    "사건 조사: 체크하면 진행률이 갱신",
+                    "0/" in check_progress_before and "1/" in check_progress,
+                    f"{check_progress_before} -> {check_progress}",
+                )
+                page.screenshot(path=str(SHOTS / "57-investigation-viewport.png"))
+                page.locator("[data-testid^='investigation-check-']").first.click()
+                page.wait_for_timeout(150)
                 check(
                     "결과: 4채널 탭(입장문/기자/사내/SNS)",
                     all(page.locator(f"[data-testid='channel-tab-{k}']").count() == 1 for k in ["official", "qa", "internal", "social"]),
@@ -862,6 +939,14 @@ def main() -> int:
                     download.suggested_filename.endswith(".md") and "경영진 요약" in downloaded and "사내 임직원 공지문" in downloaded and all(a in downloaded for a in ["브랜드 신뢰 타격", "법적·규제 노출", "커뮤니티 확산도"]),
                     f"{download.suggested_filename} {len(downloaded)}자",
                 )
+                check(
+                    "내보내기: .md 파일에 사건 조사 섹션(체크리스트·규제 접점·확산 경로)",
+                    "## 2. 사건 조사" in downloaded
+                    and "실무 팩트체크" in downloaded
+                    and "이 유형이 커지는 경로" in downloaded
+                    and ("규제 접점" in downloaded or "관련 법령" in downloaded),
+                    downloaded[:160],
+                )
 
                 # 임원 보고서 인쇄 레이아웃 — 인쇄 미디어에서 4채널이 모두 펼쳐지는지
                 page.emulate_media(media="print")
@@ -898,6 +983,12 @@ def main() -> int:
                     and "crisis communication report" in str(header_info.get("text", "")).lower()
                     and "종합 위험지수" in str(header_info.get("text", "")),
                     f"{header_info}",
+                )
+                check(
+                    "인쇄: 사건 조사 블록이 보고서에 그대로 인쇄됨",
+                    page.locator("[data-testid='block-investigation']").count() == 1
+                    and page.locator("[data-testid='block-investigation']").evaluate("el => getComputedStyle(el).display") != "none"
+                    and "실무 팩트체크" in page.locator("[data-testid='block-investigation']").inner_text(),
                 )
                 page.screenshot(path=str(SHOTS / "46-print-layout.png"), full_page=False)
                 page.emulate_media(media="screen")
@@ -1116,6 +1207,24 @@ def main() -> int:
                 check("로컬: 사과 입장 문안", "사과드립니다" in apology_text and "섭취" in apology_text)
                 check("로컬: 소비재 유형 반영(회수·로트)", "로트" in apology_actions or "제조번호" in apology_actions)
                 check("로컬 모드 배지", "매뉴얼 엔진" in page.inner_text("[data-testid='package-view']"))
+                local_inv = page.locator("[data-testid='block-investigation']")
+                local_inv_text = local_inv.inner_text() if local_inv.count() else ""
+                check(
+                    "로컬: 사건 조사 — 업종 규제기관·팩트체크 6개·확산 경로",
+                    local_inv.count() == 1
+                    and "식품의약품안전처" in local_inv_text
+                    and page.locator("[data-testid^='investigation-check-']").count() >= 5
+                    and "이 유형이 커지는 경로" in local_inv_text
+                    and "실시간 AI 조사" not in local_inv_text,
+                    local_inv_text[:240],
+                )
+                page.locator("[data-testid='block-investigation']").scroll_into_view_if_needed()
+                page.wait_for_timeout(200)
+                page.evaluate("() => { const el = document.querySelector(\"[data-testid='exec-bar']\"); if (el) el.style.display = 'none'; }")
+                page.wait_for_timeout(120)
+                local_inv.screenshot(path=str(SHOTS / "58-investigation-local.png"))
+                page.evaluate("() => { const el = document.querySelector(\"[data-testid='exec-bar']\"); if (el) el.style.display = ''; }")
+                page.wait_for_timeout(120)
 
                 page.click("button:has-text('새 상황')")
                 page.wait_for_timeout(300)
@@ -1296,11 +1405,12 @@ def main() -> int:
                     pricing_text[:220],
                 )
                 check(
-                    "가격 인상: 00 쟁점 확장에 기존 고객·언론 포인트",
+                    "가격 인상: 쟁점 확장에 기존 고객, 사건 조사에 언론·여론 포인트",
                     page.locator("[data-testid='block-issue-brief']").count() == 1
                     and "기존 고객 vs 신규 고객" in page.locator("[data-testid='block-issue-brief']").inner_text()
-                    and "언론이 파고들 지점" in page.locator("[data-testid='block-issue-brief']").inner_text(),
-                    page.locator("[data-testid='block-issue-brief']").inner_text()[:200] if page.locator("[data-testid='block-issue-brief']").count() else "none",
+                    and "인상률" in page.locator("[data-testid='investigation-issues']").inner_text()
+                    and "기존 고객 적용일" in page.locator("[data-testid='investigation-issues']").inner_text(),
+                    page.locator("[data-testid='investigation-issues']").inner_text()[:200] if page.locator("[data-testid='investigation-issues']").count() else "none",
                 )
                 pricing_actions = page.locator("[data-testid='block-actions']").inner_text()
                 check(
@@ -1333,7 +1443,7 @@ def main() -> int:
 
                 # 모바일 390 (데스크톱 페이지를 닫아 메모리를 확보)
                 page.close()
-                mobile = ctx.new_page()
+                mobile = new_page_retry(ctx)
                 mobile.set_viewport_size({"width": 390, "height": 844})
                 mobile.goto("http://127.0.0.1:4195/", wait_until="networkidle")
                 mobile.wait_for_timeout(400)

@@ -8,6 +8,7 @@ import { normalizeCase } from "./case-store";
 import { findSimilarCases } from "./similar";
 import { CASE_VERDICT_LABEL } from "./cases";
 import { getProtocol, STAGE_META, SCALE_META, type IssueBrief } from "./issue-protocols";
+import type { IncidentInvestigation, InvestigationCheck, InvestigationIssue, InvestigationTeam } from "./investigation";
 import { STANCE_AI, getStance } from "./stances";
 import { buildChannelKit, mergeChannelKit } from "./channels";
 import { situationDigest, getSituation } from "./situations";
@@ -385,8 +386,89 @@ function mergeIssueBrief(base: IssueBrief | undefined, raw: unknown): IssueBrief
   };
 }
 
-function mergeOutlook(base: ResponsePackage["outlook"], raw: unknown): ResponsePackage["outlook"] {
+const SIDES = new Set(["언론", "여론", "규제"]);
+const TEAMS = new Set(["PR", "법무", "운영", "데이터", "총괄"]);
+const keyOf = (text: string) => text.replace(/[\s·,.:;\-–—()[\]{}'"“”]/g, "").slice(0, 16);
+
+/**
+ * 사건 조사 병합 — AI 응답이 잘려 일부 칸이 비어도 로컬 조사 파일을 그대로 씁니다.
+ * AI 항목을 앞에 두고, 로컬 업종 매뉴얼 항목 중 겹치지 않는 것을 뒤에 붙입니다.
+ */
+function mergeInvestigation(base: IncidentInvestigation | undefined, raw: unknown): IncidentInvestigation | undefined {
   const row = asRecord(raw);
+  if (!row) return base;
+  const summary = str(row.summary, 700);
+  const trigger = str(row.trigger, 300);
+  const background = strList(row.background, 4, 400);
+  const evidence = strList(row.evidence ?? row.proof, 5, 200);
+  const pattern = strList(row.pattern ?? row.spread, 4, 300);
+
+  const aiIssues: InvestigationIssue[] = (Array.isArray(row.issues) ? row.issues : [])
+    .map((item) => {
+      const rec = asRecord(item);
+      if (!rec) return null;
+      const title = str(rec.title ?? rec.label, 120) || undefined;
+      const detail = str(rec.detail ?? rec.question ?? rec.desc, 500) || title || "";
+      const side = SIDES.has(str(rec.side, 10)) ? (str(rec.side, 10) as InvestigationIssue["side"]) : "언론";
+      if (!detail) return null;
+      const issue: InvestigationIssue = { side, detail };
+      if (title) issue.title = title;
+      return issue;
+    })
+    .filter((v): v is InvestigationIssue => Boolean(v));
+
+  const aiChecks: InvestigationCheck[] = (Array.isArray(row.checks) ? row.checks : [])
+    .map((item, i) => {
+      const rec = asRecord(item);
+      if (!rec) return null;
+      const label = str(rec.item ?? rec.label, 160);
+      if (!label) return null;
+      const team = TEAMS.has(str(rec.team, 10)) ? (str(rec.team, 10) as InvestigationTeam) : "PR";
+      return {
+        id: `ai-${i}-${keyOf(label)}`,
+        team,
+        item: label,
+        question: str(rec.question ?? rec.ask, 300),
+        why: str(rec.why ?? rec.reason, 400),
+        severity: level(rec.severity),
+      };
+    })
+    .filter((v): v is InvestigationCheck => Boolean(v));
+
+  if (!summary && !aiIssues.length && !aiChecks.length && !pattern.length) return base;
+
+  const seenIssue = new Set(aiIssues.map((i) => keyOf(i.title ?? i.detail)));
+  const issues = [
+    ...aiIssues,
+    ...(base?.issues ?? []).filter(
+      (i) => !seenIssue.has(keyOf(i.title ?? i.detail)) && !seenIssue.has(keyOf(i.detail)),
+    ),
+  ].slice(0, 5);
+
+  const seenCheck = new Set(aiChecks.map((c) => keyOf(c.item)));
+  const checks = [
+    ...aiChecks,
+    ...(base?.checks ?? []).filter((c) => !seenCheck.has(keyOf(c.item))),
+  ].slice(0, 8);
+
+  return {
+    fileNo: base?.fileNo ?? "INV",
+    summary: summary || base?.summary || "",
+    trigger: trigger || base?.trigger || "",
+    background: background.length ? background : base?.background ?? [],
+    context: base?.context ?? [],
+    issues: issues.length ? issues : base?.issues ?? [],
+    checks: checks.length ? checks : base?.checks ?? [],
+    evidence: evidence.length
+      ? [...evidence, ...(base?.evidence ?? []).filter((e) => !evidence.some((a) => keyOf(a) === keyOf(e)))].slice(0, 6)
+      : base?.evidence ?? [],
+    pattern: pattern.length ? pattern : base?.pattern ?? [],
+    precedent: base?.precedent,
+    source: "ai",
+  };
+}
+
+function mergeOutlook(base: ResponsePackage["outlook"], raw: unknown): ResponsePackage["outlook"] {  const row = asRecord(raw);
   if (!row) return base;
   const reactions = (Array.isArray(row.reactions) ? row.reactions : [])
     .map((item) => {
@@ -436,6 +518,7 @@ export function mergePackage(
     outlook: mergeOutlook(base.outlook, row.outlook),
     watchouts: strList(row.watchouts, 4, 300).length ? strList(row.watchouts, 4, 300) : base.watchouts,
     issueBrief: mergeIssueBrief(base.issueBrief, row.issueBrief),
+    investigation: mergeInvestigation(base.investigation, row.investigation),
     channels: mergeChannelKit(base.channels ?? buildChannelKit(base), row.channels),
     fetch: source ?? base.fetch,
     ai: { model: meta.model, latencyMs: meta.latencyMs, provider: meta.provider },

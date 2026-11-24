@@ -150,6 +150,39 @@ export function BriefingView({ brief, error }: { brief: SharePayload | null; err
           </div>
         </div>
 
+        {brief.inv && (
+          <div className="mt-3">
+            <SectionHead n="INV" title="사건 조사 — 확인된 것과 확인할 것" note={brief.inv.n} />
+            <div className="card px-3.5 py-3" data-testid="briefing-investigation">
+              <p className="text-[12.5px] leading-[1.7] text-ink-2">{brief.inv.s}</p>
+              <div className="mt-2.5 grid gap-2 sm:grid-cols-2">
+                <div>
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-faint">핵심 쟁점</div>
+                  <ol className="mt-1 space-y-1">
+                    {brief.inv.is.map(([side, title], i) => (
+                      <li key={`${side}-${i}`} className="flex gap-1.5 text-[11.5px] leading-relaxed text-ink-2">
+                        <span className="rounded bg-paper-deep px-1 py-[1px] text-[10px] font-semibold text-muted">{side}</span>
+                        <span className="min-w-0 flex-1">{title}</span>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+                <div>
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-faint">발표 전 확인 대기</div>
+                  <ul className="mt-1 space-y-1">
+                    {brief.inv.ck.map((item) => (
+                      <li key={item} className="flex gap-1.5 text-[11.5px] leading-relaxed text-muted">
+                        <span className="mt-[1px] text-faint">☐</span>
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="mt-5">
           <SectionHead n="01" title="4채널 실행 문안" note="배포 전 [확인 필요] 값만 채우세요" />
           <div className="grid gap-2.5 lg:grid-cols-2">
