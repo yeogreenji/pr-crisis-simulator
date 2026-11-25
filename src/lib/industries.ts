@@ -15,7 +15,7 @@ const CORE_INDUSTRIES: Industry[] = [
     tagline: "이물·식중독·원산지 — 회수 범위가 신뢰를 가른다",
     description:
       "섭취 중단과 회수 범위를 첫 6시간에 확정하지 못하면, 그다음 문장은 모두 변명으로 읽힙니다. 로트·검사기관·환불 절차가 사과문의 뼈대입니다.",
-    accent: "#B4551D",
+    accent: "#b45309",
     recommended: ["econ-press", "consumer-cafe", "sns-x", "youtube"],
     weights: { evidence: 0.03, liability: 0.02 },
     baseline: 3,

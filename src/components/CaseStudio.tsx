@@ -109,7 +109,7 @@ function Field({ label, children, hint }: { label: string; children: React.React
   return (
     <label className="block">
       <span className="text-[13px] font-semibold text-ink">{label}</span>
-      {hint && <span className="ml-1.5 text-[12px] text-faint">{hint}</span>}
+      {hint && <span className="ml-1.5 text-[12.5px] text-faint">{hint}</span>}
       <div className="mt-1">{children}</div>
     </label>
   );
@@ -266,7 +266,7 @@ export function CaseStudio({
           >
             {busy ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />} AI 초안 만들기
           </button>
-          {!aiReady && <span className="text-[12.5px] text-muted">AI가 연결되지 않아 직접 입력만 가능합니다.</span>}
+          {!aiReady && <span className="text-[13px] text-muted">AI가 연결되지 않아 직접 입력만 가능합니다.</span>}
           <button type="button" onClick={() => setForm({ ...EMPTY, company: " " })} className="btn btn-ghost h-9 px-3 text-[13px] text-muted">
             직접 입력
           </button>
@@ -402,7 +402,7 @@ export function CaseStudio({
                 <li key={c.id} className="flex flex-wrap items-center gap-2 py-2.5">
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-[13.5px] font-medium text-ink">{c.title}</div>
-                    <div className="text-[12px] text-muted">
+                    <div className="text-[12.5px] text-muted">
                       {c.company} · {c.date} · 출처 {c.sources.length}건
                       {c.sources[0] && (
                         <>
@@ -415,15 +415,15 @@ export function CaseStudio({
                     </div>
                   </div>
                   {approved ? (
-                    <button type="button" onClick={() => decide(c.id, "reset")} className="btn btn-ghost h-8 px-2 text-[12.5px]">
+                    <button type="button" onClick={() => decide(c.id, "reset")} className="btn btn-ghost h-8 px-2 text-[13px]">
                       승인됨 · 되돌리기
                     </button>
                   ) : (
                     <>
-                      <button type="button" onClick={() => decide(c.id, "approve")} className="btn btn-accent h-8 px-2 text-[12.5px]">
+                      <button type="button" onClick={() => decide(c.id, "approve")} className="btn btn-accent h-8 px-2 text-[13px]">
                         <Check size={12} /> 승인
                       </button>
-                      <button type="button" onClick={() => decide(c.id, "reject")} className="btn btn-outline h-8 px-2 text-[12.5px]">
+                      <button type="button" onClick={() => decide(c.id, "reject")} className="btn btn-outline h-8 px-2 text-[13px]">
                         <X size={12} /> 반려
                       </button>
                     </>
@@ -454,7 +454,7 @@ export function CaseStudio({
                     setConfirmed(false);
                     window.scrollTo({ top: 0, behavior: "smooth" });
                   }}
-                  className="btn btn-outline h-8 px-2 text-[12.5px]"
+                  className="btn btn-outline h-8 px-2 text-[13px]"
                 >
                   수정
                 </button>
@@ -468,7 +468,7 @@ export function CaseStudio({
 
         <div className="mt-4 rounded-xl border border-line bg-surface p-3">
           <div className="text-[13px] font-semibold text-ink">내보내기·가져오기</div>
-          <p className="mt-1 text-[12.5px] text-muted">
+          <p className="mt-1 text-[13px] text-muted">
             등록·승인한 사례는 이 브라우저에만 저장됩니다. 팀 공용·영구 보관은 JSON을 내보내 저장소(src/data/cases)에 넣거나 서버 DB를 붙여야 합니다.
           </p>
           <div className="mt-2 flex flex-wrap gap-2">
@@ -484,7 +484,7 @@ export function CaseStudio({
                   notify("복사가 막혀 있습니다. 파일 저장을 이용해 주세요.");
                 }
               }}
-              className="btn btn-outline h-8 px-2 text-[12.5px] disabled:opacity-50"
+              className="btn btn-outline h-8 px-2 text-[13px] disabled:opacity-50"
             >
               <Copy size={12} /> JSON 복사 ({exportable.length})
             </button>
@@ -492,7 +492,7 @@ export function CaseStudio({
               type="button"
               disabled={exportable.length === 0}
               onClick={() => download(`prism-cases-${new Date().toISOString().slice(0, 10)}.json`, exportJson())}
-              className="btn btn-outline h-8 px-2 text-[12.5px] disabled:opacity-50"
+              className="btn btn-outline h-8 px-2 text-[13px] disabled:opacity-50"
             >
               <Download size={12} /> 파일 저장
             </button>
@@ -503,9 +503,9 @@ export function CaseStudio({
             rows={3}
             data-testid="studio-import"
             placeholder="사례 JSON 배열을 붙여 넣으면 검토 대기 초안으로 가져옵니다."
-            className="field mt-2 text-[12.5px]"
+            className="field mt-2 text-[13px]"
           />
-          <button type="button" data-testid="studio-import-btn" onClick={importJson} disabled={!importText.trim()} className="btn btn-outline mt-2 h-8 px-2 text-[12.5px] disabled:opacity-50">
+          <button type="button" data-testid="studio-import-btn" onClick={importJson} disabled={!importText.trim()} className="btn btn-outline mt-2 h-8 px-2 text-[13px] disabled:opacity-50">
             <Upload size={12} /> 가져오기
           </button>
         </div>

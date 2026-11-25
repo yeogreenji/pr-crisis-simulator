@@ -271,10 +271,10 @@ def main() -> int:
         start("mock-gemini.mjs", 4196, {"MOCK_CAPTURE": str(TMP / "gemini-last.json")})
         start("mock-gemini.mjs", 4201, {"MOCK_503_TIMES": "1"})
         start("mock-gemini.mjs", 4202, {"MOCK_503_TIMES": "9"})
-        start("mock-openai.mjs", 4191)
+        start("mock-openai.mjs", 4291)
         start("mock-openai.mjs", 4193, {"MOCK_FAIL": "1"})
-        start("serve-ai.mjs", 4190, {"OPENAI_API_KEY": "sk-test-harness", "OPENAI_BASE_URL": "http://127.0.0.1:4191/v1"})
-        start("serve-ai.mjs", 4192, {"OPENAI_BASE_URL": "http://127.0.0.1:4191/v1"})
+        start("serve-ai.mjs", 4190, {"OPENAI_API_KEY": "sk-test-harness", "OPENAI_BASE_URL": "http://127.0.0.1:4291/v1"})
+        start("serve-ai.mjs", 4192, {"OPENAI_BASE_URL": "http://127.0.0.1:4291/v1"})
         start("serve-ai.mjs", 4194, {"OPENAI_API_KEY": "sk-test-harness", "OPENAI_BASE_URL": "http://127.0.0.1:4193/v1"})
         start(
             "serve-ai.mjs",
@@ -284,7 +284,7 @@ def main() -> int:
         start(
             "serve-ai.mjs",
             4198,
-            {"GEMINI_BASE_URL": "http://127.0.0.1:4196", "OPENAI_BASE_URL": "http://127.0.0.1:4191/v1", "PRISM_ALLOW_LOCAL_FETCH": "1"},
+            {"GEMINI_BASE_URL": "http://127.0.0.1:4196", "OPENAI_BASE_URL": "http://127.0.0.1:4291/v1", "PRISM_ALLOW_LOCAL_FETCH": "1"},
         )
         start(
             "serve-ai.mjs",
@@ -302,7 +302,7 @@ def main() -> int:
             stderr=subprocess.STDOUT,
         )
         procs.append(static)
-        for port in (4190, 4191, 4192, 4193, 4194, 4195, 4196, 4197, 4198, 4199, 4200, 4201, 4202, 4203):
+        for port in (4190, 4291, 4192, 4193, 4194, 4195, 4196, 4197, 4198, 4199, 4200, 4201, 4202, 4203):
             if SCOPE == "ui" and port not in UI_PORTS:
                 continue
             wait_port(port)
@@ -565,7 +565,7 @@ def main() -> int:
             check("API: 개인 sk- 키 → OpenAI 호환", status == 200 and body.get("provider") == "openai", f"{status} {body.get('provider')}")
 
             # 브라우저 단계 전에 API 전용 서버를 내려 프로세스/스레드 한도를 확보합니다.
-            for port in (4190, 4191, 4192, 4193, 4194, 4198, 4200, 4201, 4202, 4203):
+            for port in (4190, 4291, 4192, 4193, 4194, 4198, 4200, 4201, 4202, 4203):
                 proc = servers.pop(port, None)
                 if proc is not None:
                     proc.terminate()
@@ -583,6 +583,7 @@ def main() -> int:
                 attach(page)
                 page.goto("http://127.0.0.1:4197/", wait_until="networkidle")
                 page.wait_for_timeout(500)
+                page.screenshot(path=str(SHOTS / "30-compose-hero.png"))
 
                 check("첫 화면: 단일 입력 카드", page.locator("[data-testid='situation-input']").count() == 1)
                 check("첫 화면: 대응 대안 7개(6종 + 직접 입력)", page.locator("[data-testid^='stance-']").count() == 7)
@@ -610,18 +611,41 @@ def main() -> int:
                 page.wait_for_selector("[data-testid='pricing-modal']", timeout=8000)
                 page.wait_for_timeout(250)
                 check(
-                    "요금제: 3개 플랜 + 월 가격 표시",
+                    "요금제: 3개 플랜 + B2B 월 가격(19만/49만/149만)",
                     all(page.locator(f"[data-testid='plan-card-{k}']").count() == 1 for k in ["starter", "pro", "enterprise"])
-                    and "49,000원" in page.inner_text("[data-testid='plan-card-pro']")
-                    and "199,000원" in page.inner_text("[data-testid='plan-card-enterprise']"),
+                    and "190,000원" in page.inner_text("[data-testid='plan-card-starter']")
+                    and "490,000원" in page.inner_text("[data-testid='plan-card-pro']")
+                    and "1,490,000원" in page.inner_text("[data-testid='plan-card-enterprise']"),
                     page.inner_text("[data-testid='pricing-modal']")[:200],
                 )
-                check("요금제: B2B 비교표 13행", page.locator("[data-testid^='plan-row-']").count() == 13, str(page.locator("[data-testid^='plan-row-']").count()))
+                check(
+                    "요금제: 결제 인상 전 49,000원 흔적 없음",
+                    "49,000원" not in page.inner_text("[data-testid='pricing-modal']")
+                    and "199,000원" not in page.inner_text("[data-testid='pricing-modal']"),
+                )
+                check(
+                    "요금제: 건당 단가 산출(Pro 16,334원)",
+                    "건당 16,334원" in page.inner_text("[data-testid='plan-card-pro']"),
+                    page.inner_text("[data-testid='plan-card-pro']")[:160],
+                )
+                check("요금제: B2B 구매 결정 포인트 17행", page.locator("[data-testid^='plan-row-']").count() == 17, str(page.locator("[data-testid^='plan-row-']").count()))
+                check(
+                    "요금제: 비교표 그룹 구분(사용량·산출물·분석·협업)",
+                    all(k in page.inner_text("[data-testid='pricing-modal']") for k in ["사용량", "산출물·내보내기", "분석·매뉴얼", "협업·보안·계약"]),
+                )
+                check(
+                    "요금제: Pro 추천 배지·블루 하이라이트 프레임",
+                    page.locator("[data-testid='plan-card-pro']").get_attribute("data-highlight") == "true"
+                    and "가장 많이 도입" in page.inner_text("[data-testid='plan-card-pro']")
+                    and page.evaluate(
+                        "() => { const cs = getComputedStyle(document.querySelector(\"[data-testid='plan-card-pro']\")); return cs.borderTopLeftRadius === '16px' && cs.borderTopColor === 'rgb(168, 194, 251)' && cs.boxShadow !== 'none'; }"
+                    ),
+                )
                 page.click("[data-testid='billing-annual']")
                 page.wait_for_timeout(200)
                 check(
                     "요금제: 연 결제 토글 → 월 환산·절약액",
-                    "40,833원" in page.inner_text("[data-testid='plan-card-pro']") and "98,000원" in page.inner_text("[data-testid='plan-card-pro']"),
+                    "408,333원" in page.inner_text("[data-testid='plan-card-pro']") and "980,000원" in page.inner_text("[data-testid='plan-card-pro']"),
                     page.inner_text("[data-testid='plan-card-pro']")[:160],
                 )
                 page.screenshot(path=str(SHOTS / "48-pricing.png"))
@@ -634,6 +658,46 @@ def main() -> int:
                 page.click("[data-testid='pricing-close']")
                 page.wait_for_timeout(250)
                 check("요금제: 헤더 배지가 Pro 체험으로 변경", "Pro" in page.inner_text("[data-testid='plan-badge']"))
+
+                # ── v11: 모던 B2B SaaS 시각 위계 (화이트 카드 · 라운드 · 블루) ──
+                check(
+                    "디자인: 3단계 STEP 헤더",
+                    all(page.locator(f"[data-testid='step-{k}']").count() == 1 for k in ["situation", "stance", "output"])
+                    and "STEP 1 / 03" in page.inner_text("[data-testid='step-situation']")
+                    and "STEP 3 / 03" in page.inner_text("[data-testid='step-output']"),
+                )
+                check(
+                    "디자인: 단계 헤더 = 화이트 + 로열 블루 번호 배지",
+                    page.evaluate("getComputedStyle(document.querySelector(\"[data-testid='step-situation'] header\")).backgroundColor") == "rgb(255, 255, 255)"
+                    and page.evaluate("getComputedStyle(document.querySelector(\"[data-testid='step-situation'] header h2\")).color") == "rgb(15, 23, 42)"
+                    and page.evaluate("getComputedStyle(document.querySelector(\"[data-testid='step-badge']\")).backgroundColor") == "rgb(238, 244, 255)"
+                    and page.evaluate("getComputedStyle(document.querySelector(\"[data-testid='step-badge']\")).color") == "rgb(29, 78, 216)",
+                )
+                check(
+                    "디자인: 카드 = 14px 라운드 · 소프트 그림자 · 쿨그레이 경계",
+                    page.evaluate(
+                        """() => {
+                            const el = document.querySelector("[data-testid='step-situation']");
+                            const cs = getComputedStyle(el);
+                            return cs.boxShadow !== 'none' && cs.borderTopWidth === '1px'
+                              && cs.borderTopColor === 'rgb(226, 232, 240)' && cs.borderTopLeftRadius === '14px';
+                        }"""
+                    ),
+                    page.evaluate(
+                        "() => { const cs = getComputedStyle(document.querySelector(\"[data-testid='step-situation']\")); return cs.borderTopLeftRadius + ' / ' + cs.borderTopColor + ' / ' + cs.boxShadow; }"
+                    ),
+                )
+                check(
+                    "디자인: 히어로 = 실전 워크스페이스 + 예시 리포트 미리보기(01~04 목록 없음)",
+                    page.locator("[data-testid='hero-preview']").count() == 1
+                    and "예시 리포트" in page.inner_text("[data-testid='hero-preview']")
+                    and page.get_by_text("한 번 생성에 나오는 것").count() == 0,
+                )
+                check(
+                    "디자인: 대응 스탠스 비교표(고르는 상황·감수할 위험)",
+                    page.locator("[data-testid='cmp-apology']").count() == 1
+                    and page.locator("[data-testid='step-stance'] table").count() == 1,
+                )
 
                 # 대응 대안 확장: 직접 입력 상자
                 page.click("[data-testid='stance-custom']")
@@ -745,6 +809,28 @@ def main() -> int:
                 brief.close()
 
                 body_text = page.locator("[data-testid='package-view']").inner_text()
+                check(
+                    "결과: 문서 목차(섹션 이동) + A/B/C 챕터 구분",
+                    page.locator("nav[aria-label='섹션 이동'] a").count() >= 6
+                    and "상황 진단" in body_text
+                    and "근거 · 검증" in body_text,
+                    str(page.locator("nav[aria-label='섹션 이동'] a").count()),
+                )
+                check(
+                    "결과: 사건 조사·4채널은 어두운 띠 헤더로 분리",
+                    page.evaluate("getComputedStyle(document.querySelector(\"[data-testid='block-investigation'] header\")).backgroundColor") == "rgb(15, 23, 42)"
+                    and page.evaluate("getComputedStyle(document.querySelector(\"[data-testid='block-channels'] header\")).backgroundColor") == "rgb(15, 23, 42)",
+                )
+                check(
+                    "결과: 모범/실패 비교가 색 띠로 분리",
+                    page.evaluate(
+                        """() => {
+                            const sec = document.querySelector("[data-testid='block-compare']");
+                            const heads = sec.querySelectorAll("div[class*='bg-ok-soft'], div[class*='bg-risk-soft']");
+                            return heads.length >= 2;
+                        }"""
+                    ),
+                )
                 check("결과: 5개 블록 + 전체 시스템", all(page.locator(f"[data-testid='{k}']").count() == 1 for k in ["overview", "block-actions", "block-statements", "block-qa", "block-stakeholders", "block-outlook"]))
                 check("결과: 위험도·입장·유형 칩", "위험도 높음" in body_text and "즉시 사과" in body_text and "소비재" in body_text)
                 check("결과: 유사 사례 06·대응 순서 07 동시 출력", page.locator("[data-testid='block-similar']").count() == 1 and page.locator("[data-testid='block-playbook']").count() == 1)
@@ -1079,7 +1165,7 @@ def main() -> int:
                 check("Pro: 사내 공지 잠금 해제", page.locator("[data-testid='channel-gate-internal']").count() == 0)
                 page.screenshot(path=str(SHOTS / "54-package-pro.png"))
 
-                page.locator("button:has-text('참고 매뉴얼')").first.click()
+                page.locator("button:has-text('매뉴얼·실제 사례 보기')").first.click()
                 page.wait_for_timeout(300)
                 check(
                     "매뉴얼 모달: 4탭(상황·대안·업종·사례)",

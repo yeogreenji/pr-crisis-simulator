@@ -50,8 +50,8 @@ export function SettingsModal({
           <div>
             <div className="eyebrow">Realtime AI</div>
             <h2 className="mt-1 text-[15px] font-semibold tracking-tight">AI 연결 설정</h2>
-            <p className="mt-1 text-[12.5px] leading-relaxed text-muted">
-              <code className="num rounded bg-paper-deep px-1 py-[1px] text-[12px]">{ANALYZE_ENDPOINT}</code>가 Gemini(또는
+            <p className="mt-1 text-[13px] leading-relaxed text-muted">
+              <code className="num rounded bg-paper-deep px-1 py-[1px] text-[12.5px]">{ANALYZE_ENDPOINT}</code>가 Gemini(또는
               OpenAI)로 패키지를 다시 씁니다. 연결되지 않아도 매뉴얼 엔진으로 패키지가 나옵니다.
             </p>
           </div>
@@ -61,10 +61,10 @@ export function SettingsModal({
         </div>
 
         <div className="space-y-3.5 px-5 py-4">
-          <div className="flex items-center justify-between rounded-lg border border-line bg-[#fcfcfa] px-3 py-2.5">
+          <div className="flex items-center justify-between rounded-lg border border-line bg-tint px-3 py-2.5">
             <div>
               <div className="text-[13px] font-semibold text-ink">패키지 만들 때 실시간 AI 사용</div>
-              <div className="text-[12px] text-muted">꺼두면 매뉴얼 엔진만으로 즉시 생성합니다.</div>
+              <div className="text-[12.5px] text-muted">꺼두면 매뉴얼 엔진만으로 즉시 생성합니다.</div>
             </div>
             <Toggle checked={draft.enabled} onChange={(v) => setDraft({ ...draft, enabled: v })} label="실시간 AI 사용" />
           </div>
@@ -72,7 +72,7 @@ export function SettingsModal({
           <div
             className={cx(
               "flex items-start gap-2 rounded-lg border px-3 py-2.5",
-              healthy ? "border-ok/25 bg-ok-soft" : status?.ok ? "border-warn/25 bg-warn-soft" : "border-line bg-[#fcfcfa]",
+              healthy ? "border-ok/25 bg-ok-soft" : status?.ok ? "border-warn/25 bg-warn-soft" : "border-line bg-tint",
             )}
           >
             {checking ? (
@@ -86,11 +86,11 @@ export function SettingsModal({
               <p className="text-[13px] font-semibold text-ink">
                 {checking ? "서버 상태 확인 중…" : healthy ? "서버 키 연결됨" : status?.ok ? "서버 키 없음 · 개인 키 필요" : "AI 백엔드 연결 안 됨"}
               </p>
-              <p className="mt-0.5 text-[12px] leading-relaxed text-muted">
+              <p className="mt-0.5 text-[12.5px] leading-relaxed text-muted">
                 {status?.message ?? "잠시만 기다려 주세요."}
               </p>
               {status?.ok && (
-                <p className="mt-1 text-[12px] text-faint">
+                <p className="mt-1 text-[12.5px] text-faint">
                   제공자 {status.provider ?? "없음"} · 모델 {status.model} · 기사 URL 읽기 {status.urlFetch ? "지원" : "미지원"}
                 </p>
               )}
@@ -103,7 +103,7 @@ export function SettingsModal({
                 setStatus(s);
                 setChecking(false);
               }}
-              className="btn btn-outline ml-auto h-7 shrink-0 px-2 text-[12px]"
+              className="btn btn-outline ml-auto h-7 shrink-0 px-2 text-[12.5px]"
             >
               <RefreshCw size={10} /> 다시 확인
             </button>
@@ -136,7 +136,7 @@ export function SettingsModal({
 
           <div className="flex items-start gap-2 rounded-lg border border-line bg-paper/60 px-3 py-2.5">
             <ShieldCheck size={13} className="mt-[1px] shrink-0 text-ok" />
-            <p className="text-[12px] leading-relaxed text-muted">
+            <p className="text-[12.5px] leading-relaxed text-muted">
               서버에 GEMINI_API_KEY나 OPENAI_API_KEY가 있으면 개인 키는 쓰이지 않습니다. 개인 키는 이 브라우저에만 저장되고,
               이 사이트의 /api/analyze 프록시를 거쳐 해당 AI 제공자로 전달됩니다. 입력한 상황·기사 본문은 분석에만 쓰이고
               서버에 저장하지 않습니다.
@@ -144,7 +144,7 @@ export function SettingsModal({
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 border-t border-line bg-[#fbfbf8] px-5 py-3.5">
+        <div className="flex flex-wrap items-center gap-2 border-t border-line bg-tint px-5 py-3.5">
           {config.apiKey && (
             <button
               type="button"

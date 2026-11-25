@@ -19,12 +19,12 @@ function Chip({ active, onClick, children, count }: { active: boolean; onClick: 
       type="button"
       onClick={onClick}
       className={cx(
-        "inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-[13px] font-medium transition-colors",
-        active ? "border-ink bg-ink text-white" : "border-line-strong bg-white text-ink-2 hover:border-ink/40",
+        "inline-flex items-center gap-1 border px-2.5 py-1 text-[13px] font-semibold transition-colors",
+        active ? "border-ink bg-ink text-white" : "border-line-strong bg-white text-ink-2 hover:border-ink",
       )}
     >
       {children}
-      {count !== undefined && <span className={cx("num text-[11px]", active ? "text-white/70" : "text-faint")}>{count}</span>}
+      {count !== undefined && <span className={cx("num text-[11.5px]", active ? "text-white/70" : "text-faint")}>{count}</span>}
     </button>
   );
 }
@@ -34,11 +34,11 @@ function CaseDetail({ c }: { c: CrisisCase }) {
   return (
     <div className="animate-rise" data-testid="case-detail">
       <div className="flex flex-wrap items-center gap-1.5">
-        <span className={cx("chip px-2 py-0.5 text-[12px]", VERDICT_STYLE[c.verdict])}>{CASE_VERDICT_LABEL[c.verdict]}</span>
-        <span className="chip border border-line bg-surface px-2 py-0.5 text-[12px] text-ink-2">{industry?.label}</span>
-        <span className="chip border border-line bg-surface px-2 py-0.5 text-[12px] text-ink-2">{CASE_TYPE_LABEL[c.type]}</span>
-        {c.stance && <span className="chip border border-line bg-surface px-2 py-0.5 text-[12px] text-muted">초기 입장 · {CASE_STANCE_LABEL[c.stance]}</span>}
-        {c.status === "draft" && <span className="chip border border-amber-300 bg-amber-50 px-2 py-0.5 text-[12px] text-amber-900">검토 대기 · 출처 확인 전</span>}
+        <span className={cx("chip px-2 py-0.5 text-[12.5px]", VERDICT_STYLE[c.verdict])}>{CASE_VERDICT_LABEL[c.verdict]}</span>
+        <span className="chip border border-line bg-surface px-2 py-0.5 text-[12.5px] text-ink-2">{industry?.label}</span>
+        <span className="chip border border-line bg-surface px-2 py-0.5 text-[12.5px] text-ink-2">{CASE_TYPE_LABEL[c.type]}</span>
+        {c.stance && <span className="chip border border-line bg-surface px-2 py-0.5 text-[12.5px] text-muted">초기 입장 · {CASE_STANCE_LABEL[c.stance]}</span>}
+        {c.status === "draft" && <span className="chip border border-amber-300 bg-amber-50 px-2 py-0.5 text-[12.5px] text-amber-900">검토 대기 · 출처 확인 전</span>}
       </div>
       <h3 className="mt-2.5 text-[19px] font-semibold leading-snug tracking-[-0.03em] text-ink">{c.title}</h3>
       <p className="mt-1 text-[13px] text-faint">
@@ -51,7 +51,7 @@ function CaseDetail({ c }: { c: CrisisCase }) {
         {c.scale.length > 0 && (
           <ul className="mt-2 flex flex-wrap gap-1.5">
             {c.scale.map((s) => (
-              <li key={s} className="rounded-lg bg-paper-deep px-2.5 py-1 text-[12.5px] text-ink-2">
+              <li key={s} className="border border-line bg-paper-deep px-2 py-0.5 text-[12.5px] text-ink-2">
                 {s}
               </li>
             ))}
@@ -64,7 +64,7 @@ function CaseDetail({ c }: { c: CrisisCase }) {
         <ol className="mt-2 space-y-0">
           {c.timeline.map((t, i) => (
             <li key={`${t.when}-${i}`} className="relative grid grid-cols-[84px_1fr] gap-3 pb-3 last:pb-0">
-              <span className="num pt-[1px] text-[12.5px] font-semibold text-ink">{t.when}</span>
+              <span className="num pt-[1px] text-[13px] font-semibold text-ink">{t.when}</span>
               <span className="relative border-l border-line-strong pl-3 text-[14px] leading-relaxed text-ink-2">
                 <span className="absolute -left-[4.5px] top-[7px] h-2 w-2 rounded-full bg-ink/70" />
                 {t.what}
@@ -91,7 +91,7 @@ function CaseDetail({ c }: { c: CrisisCase }) {
         <p className="mt-1 text-[14px] leading-relaxed text-ink-2">{c.outcome}</p>
       </section>
 
-      <section className="mt-5 rounded-xl border border-ink/10 bg-[#fcfcfa] px-4 py-3">
+      <section className="mt-5 border border-ink/20 border-l-4 border-l-ink bg-tint px-4 py-3">
         <div className="eyebrow">교훈</div>
         <p className="mt-1 text-[14px] leading-relaxed text-ink">{c.lesson}</p>
       </section>
@@ -99,7 +99,7 @@ function CaseDetail({ c }: { c: CrisisCase }) {
       {c.tags && c.tags.length > 0 && (
         <div className="mt-4 flex flex-wrap gap-1.5">
           {c.tags.map((t) => (
-            <span key={t} className="text-[12px] text-faint">
+            <span key={t} className="text-[12.5px] text-faint">
               #{t}
             </span>
           ))}
@@ -174,8 +174,8 @@ export function CaseLibrary({ onBack, initialCaseId, onOpenStudio }: { onBack: (
 
   return (
     <div className="mx-auto w-full max-w-[1240px] px-4 pb-20 pt-5 sm:px-6" data-testid="case-library">
-      <div className="flex items-center gap-3">
-        <button type="button" onClick={onBack} className="btn btn-outline h-9 px-3 text-[13px]" data-testid="library-back">
+      <div className="flex flex-wrap items-center gap-3 border-b-2 border-ink pb-2.5">
+        <button type="button" onClick={onBack} className="btn btn-outline h-8 px-2.5 text-[13px]" data-testid="library-back">
           <ArrowLeft size={14} /> 돌아가기
         </button>
         <div className="min-w-0">
@@ -192,8 +192,8 @@ export function CaseLibrary({ onBack, initialCaseId, onOpenStudio }: { onBack: (
         )}
       </div>
 
-      <div className="mt-4 rounded-2xl border border-line bg-surface p-4">
-        <label className="flex items-center gap-2 rounded-xl border border-line-strong bg-white px-3 py-2.5 focus-within:border-ink">
+      <div className="mt-4 border border-line-strong bg-surface p-3 sm:p-4">
+        <label className="flex items-center gap-2 border border-line-strong bg-white px-3 py-2.5 focus-within:border-ink">
           <Search size={16} className="text-faint" />
           <input
             value={query}
@@ -211,7 +211,7 @@ export function CaseLibrary({ onBack, initialCaseId, onOpenStudio }: { onBack: (
 
         <div className="mt-3 space-y-2.5">
           <div>
-            <div className="mb-1.5 text-[12px] font-semibold text-muted">업종</div>
+            <div className="mb-1.5 text-[12.5px] font-semibold text-muted">업종</div>
             <div className="flex flex-wrap gap-1.5">
               <Chip active={industry === "all"} onClick={() => setIndustry("all")} count={CRISIS_CASES.length}>
                 전체
@@ -224,7 +224,7 @@ export function CaseLibrary({ onBack, initialCaseId, onOpenStudio }: { onBack: (
             </div>
           </div>
           <div>
-            <div className="mb-1.5 text-[12px] font-semibold text-muted">위기 유형</div>
+            <div className="mb-1.5 text-[12.5px] font-semibold text-muted">위기 유형</div>
             <div className="flex flex-wrap gap-1.5">
               <Chip active={type === "all"} onClick={() => setType("all")}>
                 전체
@@ -238,7 +238,7 @@ export function CaseLibrary({ onBack, initialCaseId, onOpenStudio }: { onBack: (
           </div>
           <div className="grid gap-2.5 sm:grid-cols-2">
             <div>
-              <div className="mb-1.5 text-[12px] font-semibold text-muted">대응 평가</div>
+              <div className="mb-1.5 text-[12.5px] font-semibold text-muted">대응 평가</div>
               <div className="flex flex-wrap gap-1.5">
                 <Chip active={verdict === "all"} onClick={() => setVerdict("all")}>
                   전체
@@ -251,7 +251,7 @@ export function CaseLibrary({ onBack, initialCaseId, onOpenStudio }: { onBack: (
               </div>
             </div>
             <div>
-              <div className="mb-1.5 text-[12px] font-semibold text-muted">초기 입장</div>
+              <div className="mb-1.5 text-[12.5px] font-semibold text-muted">초기 입장</div>
               <div className="flex flex-wrap gap-1.5">
                 <Chip active={stance === "all"} onClick={() => setStance("all")}>
                   전체
@@ -278,7 +278,7 @@ export function CaseLibrary({ onBack, initialCaseId, onOpenStudio }: { onBack: (
         )}
         <label className="ml-auto flex items-center gap-1.5 text-[13px] text-muted">
           정렬
-          <select value={sort} onChange={(e) => setSort(e.target.value as SortKey)} className="rounded-lg border border-line-strong bg-white px-2 py-1.5 text-[13px] text-ink">
+          <select value={sort} onChange={(e) => setSort(e.target.value as SortKey)} className="border border-line-strong bg-white px-2 py-1.5 text-[13px] text-ink">
             <option value="recent">최신순</option>
             <option value="old">오래된 순</option>
             <option value="title">제목순</option>
@@ -300,13 +300,13 @@ export function CaseLibrary({ onBack, initialCaseId, onOpenStudio }: { onBack: (
                   }}
                   data-testid={`case-card-${c.id}`}
                   className={cx(
-                    "w-full rounded-xl border bg-surface p-3.5 text-left transition-colors",
-                    open ? "border-ink shadow-[0_8px_24px_-18px_rgba(16,19,25,0.5)]" : "border-line hover:border-ink/40",
+                    "w-full border bg-surface p-3 text-left transition-colors",
+                    open ? "border-l-4 border-ink bg-tint" : "border-line-strong hover:border-ink",
                   )}
                 >
                   <div className="flex flex-wrap items-center gap-1.5">
-                    <span className={cx("chip px-2 py-0.5 text-[11.5px]", VERDICT_STYLE[c.verdict])}>{CASE_VERDICT_LABEL[c.verdict]}</span>
-                    <span className="text-[12.5px] text-faint">
+                    <span className={cx("chip px-2 py-0.5 text-[12px]", VERDICT_STYLE[c.verdict])}>{CASE_VERDICT_LABEL[c.verdict]}</span>
+                    <span className="text-[13px] text-faint">
                       {INDUSTRIES.find((i) => i.id === c.industry)?.short} · {CASE_TYPE_LABEL[c.type]} · {c.date}
                     </span>
                   </div>
@@ -315,7 +315,7 @@ export function CaseLibrary({ onBack, initialCaseId, onOpenStudio }: { onBack: (
                   <p className="mt-1.5 line-clamp-2 text-[13.5px] leading-relaxed text-ink-2">{c.trigger}</p>
                 </button>
                 {open && (
-                  <div className="mt-2 rounded-xl border border-line bg-surface p-4 lg:hidden">
+                  <div className="mt-2 border border-line-strong bg-surface p-4 lg:hidden">
                     <CaseDetail c={c} />
                   </div>
                 )}
@@ -323,7 +323,7 @@ export function CaseLibrary({ onBack, initialCaseId, onOpenStudio }: { onBack: (
             );
           })}
           {filtered.length === 0 && (
-            <div className="rounded-xl border border-dashed border-line-strong bg-surface px-4 py-10 text-center text-[14px] text-muted">
+            <div className="border border-dashed border-line-strong bg-surface px-4 py-10 text-center text-[13.5px] text-muted">
               조건에 맞는 사례가 없습니다.
               <button type="button" onClick={reset} className="ml-1 text-accent hover:underline">
                 필터 초기화
@@ -333,7 +333,7 @@ export function CaseLibrary({ onBack, initialCaseId, onOpenStudio }: { onBack: (
         </div>
 
         <aside className="hidden lg:block">
-          <div ref={detailRef} className="sticky top-4 max-h-[calc(100vh-2rem)] overflow-y-auto rounded-2xl border border-line bg-surface p-5">
+          <div ref={detailRef} className="sticky top-4 max-h-[calc(100vh-2rem)] overflow-y-auto border border-line-strong bg-surface p-5">
             {selectedCase ? (
               <CaseDetail c={selectedCase} />
             ) : (

@@ -213,7 +213,7 @@ export const EXTRA_INDUSTRIES: Industry[] = [
     tagline: "회수·부작용·허가 — 환자 안전이 먼저, 의료 정보는 확인된 범위로만",
     description:
       "의약품·의료기기 사안은 환자의 복약·사용 중단 여부와 대체 방안이 사과보다 먼저 나가야 합니다. 회수 등급과 대상 품목·제조번호, 원인 조사 범위를 확인된 사실로만 밝히고, 허가·공시 사항은 단정하지 않습니다.",
-    accent: "#0F766E",
+    accent: "#0d9488",
     recommended: ["econ-press", "consumer-cafe", "sns-x"],
     weights: { evidence: 0.05, liability: 0.03 },
     baseline: 5,

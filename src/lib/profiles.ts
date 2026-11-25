@@ -57,7 +57,7 @@ export const ENTITY_PROFILES: EntityProfile[] = [
     label: "일반 기업·브랜드",
     short: "일반",
     tagline: "기본형 — 사실 확인, 창구 단일화, 공식 입장 순서로 움직입니다.",
-    accent: "#1e3a5f",
+    accent: "#1d4ed8",
     industry: "consumer",
     frame: "원인·범위·책임 소재를 확인해 공식 입장으로 정리하는 기본 상황",
     roadmap: [
@@ -254,7 +254,7 @@ export const ENTITY_PROFILES: EntityProfile[] = [
     label: "소비재·식품 (리콜·CS)",
     short: "소비재·식품",
     tagline: "회수 범위와 섭취 중단이 신뢰를 가릅니다 — 첫 6시간이 전부입니다.",
-    accent: "#B4551D",
+    accent: "#b45309",
     industry: "food",
     frame: "제품·서비스 피해가 소비자에게 직접 닿아 회수·환불·검사 일정이 걸린 상황",
     roadmap: [
@@ -362,7 +362,7 @@ export const ENTITY_PROFILES: EntityProfile[] = [
     label: "IT·플랫폼 (유출·장애)",
     short: "IT·플랫폼",
     tagline: "72시간 신고와 개별 통지 — 기술 설명보다 피해자 보호가 먼저입니다.",
-    accent: "#17694c",
+    accent: "#059669",
     industry: "tech",
     frame: "이용자 데이터·서비스 접근이 걸린 사안이라 신고 의무와 개별 통지가 함께 걸린 상황",
     roadmap: [
@@ -579,7 +579,7 @@ export const ENTITY_PROFILES: EntityProfile[] = [
     label: "노사·내부 고발·오너 리스크",
     short: "노사·내부고발",
     tagline: "관계기관 보고와 증거 보전, 고발자 보호가 첫 순서입니다.",
-    accent: "#96620d",
+    accent: "#d97706",
     industry: "steel",
     frame: "내부 고발·노사 갈등·경영진 사법 리스크가 겹쳐 관계기관과 이해관계자 대응이 걸린 상황",
     roadmap: [

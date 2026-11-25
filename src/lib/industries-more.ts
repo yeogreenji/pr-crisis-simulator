@@ -175,7 +175,7 @@ export const MORE_INDUSTRIES: Industry[] = [
     tagline: "장애·단가·정책 변경 — 계약서와 SLA가 기준이다",
     description:
       "B2B 사안은 여론보다 계약이 먼저입니다. 고객사의 서비스 중단 시간, SLA 위반 보상, 단가·정책 변경의 근거를 숫자로 제시하고, 개별 고객사에 먼저 알린 뒤 공개하는 순서가 신뢰를 지킵니다.",
-    accent: "#0F766E",
+    accent: "#0d9488",
     recommended: ["it-press", "econ-press", "office-community"],
     weights: { evidence: 0.05, liability: 0.03 },
     baseline: 5,

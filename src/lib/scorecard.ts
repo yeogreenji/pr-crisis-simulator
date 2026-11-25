@@ -287,10 +287,10 @@ const TEXT_SIGNALS: { re: RegExp; mods: { axis: AxisId; delta: number; why: stri
 ];
 
 const BANDS: { max: number; band: ScoreBand }[] = [
-  { max: 32, band: { label: "낮음", tone: "ok", color: "#17694c", desc: "문안을 그대로 실행해도 프레임이 크게 흔들릴 지점은 적습니다." } },
-  { max: 48, band: { label: "관찰", tone: "info", color: "#2f5f8a", desc: "한두 축이 남아 있습니다. 확인 항목을 채우면 위험을 더 낮출 수 있습니다." } },
-  { max: 62, band: { label: "주의", tone: "warn", color: "#96620d", desc: "후속 보도·2차 확산을 전제로 대응 일정을 잡아야 합니다." } },
-  { max: 101, band: { label: "심각", tone: "risk", color: "#b02a22", desc: "첫 6시간 안에 숫자·일정을 확정하지 않으면 프레임이 굳습니다." } },
+  { max: 32, band: { label: "낮음", tone: "ok", color: "#059669", desc: "문안을 그대로 실행해도 프레임이 크게 흔들릴 지점은 적습니다." } },
+  { max: 48, band: { label: "관찰", tone: "info", color: "#2563eb", desc: "한두 축이 남아 있습니다. 확인 항목을 채우면 위험을 더 낮출 수 있습니다." } },
+  { max: 62, band: { label: "주의", tone: "warn", color: "#d97706", desc: "후속 보도·2차 확산을 전제로 대응 일정을 잡아야 합니다." } },
+  { max: 101, band: { label: "심각", tone: "risk", color: "#dc2626", desc: "첫 6시간 안에 숫자·일정을 확정하지 않으면 프레임이 굳습니다." } },
 ];
 
 const clamp = (n: number) => Math.max(4, Math.min(97, Math.round(n)));

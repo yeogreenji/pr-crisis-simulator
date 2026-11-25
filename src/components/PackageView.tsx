@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
-  ArrowRight,
   BookOpen,
   Check,
   ClipboardList,
@@ -40,42 +39,57 @@ import { buildSharePayload, buildShareUrl, encodeShare } from "../lib/share";
 import { usePlan } from "./PlanContext";
 import { ExecutiveBar } from "./ExecutiveBar";
 import { SharePanel } from "./SharePanel";
-import { CopyButton, cx } from "./ui";
+import { BlockHead, CopyButton, cx } from "./ui";
 import type { CrisisCase } from "../types";
 
 const RISK_STYLE: Record<string, { bg: string; color: string; border: string }> = {
-  높음: { bg: "#fbedea", color: "#b02a22", border: "rgba(200,53,43,0.25)" },
-  보통: { bg: "#fbf2df", color: "#96620d", border: "rgba(169,102,10,0.25)" },
-  낮음: { bg: "#e8f4ee", color: "#17694c", border: "rgba(22,113,79,0.25)" },
+  높음: { bg: "#fef2f2", color: "#b91c1c", border: "rgba(220,38,38,0.28)" },
+  보통: { bg: "#fff8eb", color: "#b45309", border: "rgba(217,119,6,0.28)" },
+  낮음: { bg: "#ecfdf5", color: "#059669", border: "rgba(5,150,105,0.28)" },
 };
 
-function BlockHeader({
-  n,
-  title,
-  desc,
-  icon: Icon,
-  copy,
-}: {
-  n: string;
-  title: string;
-  desc: string;
-  icon: typeof Target;
-  copy?: string;
-}) {
+/** 챕터 구분 띠 — 결과 문서를 분석 / 실행 / 검증 세 구간으로 끊습니다. */
+function Chapter({ n, title, note, first }: { n: string; title: string; note: string; first?: boolean }) {
   return (
-    <div className="flex flex-wrap items-start gap-3 border-b border-line px-4 py-3.5 sm:px-5">
-      <span className="num mt-[1px] grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-ink text-[12px] font-semibold text-white">
-        {n}
-      </span>
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-1.5">
-          <Icon size={13} className="text-muted" />
-          <h2 className="text-[14px] font-semibold tracking-[-0.02em] text-ink">{title}</h2>
-        </div>
-        <p className="mt-0.5 text-[12.5px] leading-relaxed text-muted">{desc}</p>
-      </div>
-      {copy && <CopyButton text={copy} label="블록 전체 복사" className="btn btn-outline h-7 shrink-0 px-2 text-[12.5px]" />}
+    <div className={cx("chapter", first && "chapter-first")} aria-hidden={undefined}>
+      <span className="chapter-num">{n}</span>
+      <span className="chapter-title">{title}</span>
+      <span className="chapter-rule" />
+      <span className="chapter-note">{note}</span>
     </div>
+  );
+}
+
+const NAV: { id: string; n: string; label: string }[] = [
+  { id: "sec-scorecard", n: "01", label: "스코어카드" },
+  { id: "sec-investigation", n: "02", label: "사건 조사" },
+  { id: "sec-issue", n: "03", label: "쟁점" },
+  { id: "sec-actions", n: "05", label: "체크리스트" },
+  { id: "sec-channels", n: "06", label: "4채널 문안" },
+  { id: "sec-stakeholders", n: "07", label: "유관기관" },
+  { id: "sec-similar", n: "09", label: "사례" },
+  { id: "sec-compare", n: "11", label: "모범 vs 실패" },
+];
+
+function SectionNav() {
+  return (
+    <nav className="border-b border-line bg-white print:hidden" aria-label="섹션 이동">
+      <div className="no-scrollbar mx-auto flex w-full max-w-[1120px] items-center gap-1 overflow-x-auto px-3 py-1.5 sm:px-5">
+        <span className="mr-1 flex shrink-0 items-center gap-1 pr-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-faint">
+          목차
+        </span>
+        {NAV.map((item) => (
+          <a
+            key={item.id}
+            href={`#${item.id}`}
+            className="flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12.5px] font-medium text-muted transition-colors hover:bg-tint-2 hover:text-ink"
+          >
+            <span className="num text-[10px] text-faint">{item.n}</span>
+            {item.label}
+          </a>
+        ))}
+      </div>
+    </nav>
   );
 }
 
@@ -83,42 +97,36 @@ function IssueBriefBlock({ pkg }: { pkg: ResponsePackage }) {
   const brief = pkg.issueBrief;
   if (!brief) return null;
   return (
-    <section className="card overflow-hidden" data-testid="block-issue-brief">
-      <div className="flex flex-wrap items-start gap-3 border-b border-line bg-[#fbfbf8] px-4 py-3.5 sm:px-5">
-        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-accent text-[12px] font-semibold text-white">
-          00
-        </span>
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <h2 className="text-[14px] font-semibold tracking-[-0.02em] text-ink">쟁점 확장 — 이 상황을 이렇게 읽었습니다</h2>
-            <span className="chip border border-accent/20 bg-accent-soft px-1.5 py-0 text-[11.5px] text-accent-deep">{brief.label}</span>
-            {brief.stageLabel && <span className="chip border border-line bg-white px-1.5 py-0 text-[11.5px] text-muted">{brief.stageLabel}</span>}
-            {brief.scaleLabel && <span className="chip border border-line bg-white px-1.5 py-0 text-[11.5px] text-muted">{brief.scaleLabel}</span>}
-          </div>
-          <p className="mt-1 text-[13px] leading-[1.7] text-ink-2">{brief.summary}</p>
-          {brief.stageNote && (
-            <p className="mt-1 text-[12px] leading-relaxed text-faint">
-              <span className="font-semibold text-muted">단계</span> · {brief.stageNote}
-            </p>
-          )}
-          {brief.scaleNote && (
-            <p className="mt-0.5 text-[12px] leading-relaxed text-faint">
-              <span className="font-semibold text-muted">규모</span> · {brief.scaleNote}
-            </p>
-          )}
-        </div>
-      </div>
+    <section className="sheet overflow-hidden" data-testid="block-issue-brief">
+      <BlockHead
+        n="03"
+        id="sec-issue"
+        icon={Target}
+        title="쟁점 확장 — 이 상황을 이렇게 읽었습니다"
+        meta={
+          <>
+            <span className="chip border border-accent/30 bg-accent-soft px-1.5 py-0 text-[11.5px] text-accent-deep">{brief.label}</span>
+            {brief.stageLabel && (
+              <span className="chip border border-line bg-white px-1.5 py-0 text-[11.5px] text-muted">{brief.stageLabel}</span>
+            )}
+            {brief.scaleLabel && (
+              <span className="chip border border-line bg-white px-1.5 py-0 text-[11.5px] text-muted">{brief.scaleLabel}</span>
+            )}
+          </>
+        }
+        desc={brief.summary}
+      />
       <div className="grid gap-0 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
         <div className="px-4 py-3.5 sm:px-5">
           <div className="flex items-center gap-1.5">
             <Target size={12} className="text-muted" />
-            <span className="text-[12.5px] font-semibold text-ink">먼저 잡아야 할 쟁점 {brief.issues.length}개</span>
+            <span className="text-[12.5px] font-bold text-ink">먼저 잡아야 할 쟁점 {brief.issues.length}개</span>
           </div>
-          <ol className="mt-2 grid gap-2 sm:grid-cols-2">
+          <ol className="mt-2 grid gap-0 border-t border-line">
             {brief.issues.map((issue, i) => (
-              <li key={issue.title} className="rounded-xl border border-line bg-[#fcfcfa] px-3 py-2.5">
+              <li key={issue.title} className="border-b border-line py-2 last:border-b-0">
                 <div className="flex items-start gap-2">
-                  <span className="num mt-[1px] text-[11.5px] font-semibold text-accent">{String(i + 1).padStart(2, "0")}</span>
+                  <span className="num pt-[1px] text-[11.5px] font-semibold text-accent">{String(i + 1).padStart(2, "0")}</span>
                   <div className="min-w-0">
                     <div className="text-[13px] font-semibold text-ink">{issue.title}</div>
                     <p className="mt-0.5 text-[12.5px] leading-relaxed text-muted">{issue.detail}</p>
@@ -131,29 +139,26 @@ function IssueBriefBlock({ pkg }: { pkg: ResponsePackage }) {
         <div className="border-t border-line px-4 py-3.5 sm:px-5 lg:border-l lg:border-t-0">
           <div className="flex items-center gap-1.5">
             <ClipboardList size={12} className="text-warn" />
-            <span className="text-[12.5px] font-semibold text-ink">숫자로 채워야 할 항목</span>
+            <span className="text-[12.5px] font-bold text-ink">숫자로 채워야 할 항목</span>
           </div>
           <ul className="mt-1.5 space-y-1">
             {brief.factsToConfirm.map((fact) => (
-              <li key={fact} className="flex gap-1.5 text-[12px] leading-relaxed text-ink-2">
-                <span className="mt-[6px] h-1 w-1 shrink-0 rounded-full bg-warn/70" />
+              <li key={fact} className="flex gap-1.5 text-[12.5px] leading-relaxed text-ink-2">
+                <span className="mt-[6px] h-1 w-1 shrink-0 bg-warn" />
                 <span>{fact}</span>
               </li>
             ))}
           </ul>
-          <div className="mt-3 flex items-center gap-1.5">
-            <Target size={12} className="text-muted" />
-            <span className="text-[12.5px] font-semibold text-ink">여론·보도 포인트는 위 ‘사건 조사’에 정리했습니다</span>
-          </div>
-          <p className="mt-1 text-[12px] leading-relaxed text-faint">
-            기자가 물을 질문과 업종에서 반복되는 여론 공격 지점은 조사 파일에서 조사 항목과 함께 봅니다.
+          <p className="mt-2.5 border-t border-line pt-2 text-[12px] leading-relaxed text-muted">
+            기자가 물을 질문과 업종에서 반복되는 여론 공격 지점은 <span className="font-semibold text-ink-2">02 사건 조사</span>에서
+            조사 항목과 함께 봅니다.
           </p>
           {brief.assumptions.length > 0 && (
-            <div className="mt-3 rounded-lg border border-line bg-white px-2.5 py-2">
+            <div className="mt-2 border border-line bg-tint px-2.5 py-2">
               <span className="text-[11.5px] font-semibold text-faint">입력에 없어 가정한 부분</span>
               <ul className="mt-1 space-y-0.5">
                 {brief.assumptions.map((a) => (
-                  <li key={a} className="text-[11.5px] leading-relaxed text-muted">
+                  <li key={a} className="text-[12px] leading-relaxed text-muted">
                     · {a}
                   </li>
                 ))}
@@ -168,53 +173,52 @@ function IssueBriefBlock({ pkg }: { pkg: ResponsePackage }) {
 
 function Overview({ pkg }: { pkg: ResponsePackage }) {
   return (
-    <section className="card overflow-hidden" data-testid="overview">
-      <div className="flex flex-wrap items-end justify-between gap-2 px-4 pb-1 pt-4 sm:px-5">
-        <div>
-          <div className="eyebrow">Response system</div>
-          <h2 className="mt-1 text-[14px] font-semibold tracking-[-0.02em]">전체 대응 시스템 — 1시간 → 6시간 → 24시간</h2>
-        </div>
-        <span className="text-[12px] text-faint">각 단계의 ‘통과 기준’을 넘겨야 다음으로 갑니다</span>
-      </div>
-      <div className="grid gap-2 px-4 pb-4 pt-3 sm:px-5 lg:grid-cols-3">
+    <section className="sheet overflow-hidden" data-testid="overview">
+      <BlockHead
+        n="04"
+        icon={Gauge}
+        title="전체 대응 시스템 — 1시간 → 6시간 → 24시간"
+        desc="각 단계의 ‘통과 기준’을 넘겨야 다음으로 갑니다. 세 칸은 동시에 움직이는 것이 아니라 순서대로 엽니다."
+      />
+      <div className="grid gap-0 lg:grid-cols-3">
         {pkg.roadmap.map((phase, i) => (
-          <div key={phase.window} className="relative rounded-xl border border-line bg-[#fcfcfa] p-3">
-            <div className="flex items-center gap-1.5">
-              <span className="num text-[13px] font-semibold text-faint">{"①②③"[i]}</span>
-              <span className="chip bg-ink px-2 py-0.5 text-[12px] text-white">{phase.window}</span>
+          <div
+            key={phase.window}
+            className={cx("px-4 py-3.5 sm:px-5", i > 0 && "border-t border-line lg:border-l lg:border-t-0")}
+          >
+            <div className="flex items-center gap-2">
+              <span className="num text-[12.5px] font-bold text-faint">{"①②③"[i]}</span>
+              <span className="rounded-md bg-navy px-2 py-[2px] text-[11.5px] font-semibold text-white">{phase.window}</span>
               <span className="ml-auto text-[12px] font-medium text-muted">{i === 0 ? "지금" : i === 1 ? "오늘 안" : "이후"}</span>
             </div>
-            <div className="mt-1.5 text-[14px] font-semibold text-ink">{phase.title}</div>
+            <div className="mt-2 text-[13.5px] font-bold text-ink">{phase.title}</div>
             <p className="mt-1 text-[12.5px] leading-relaxed text-muted">{phase.goal}</p>
             <ul className="mt-2 space-y-1">
               {phase.items.map((item) => (
                 <li key={item} className="flex gap-1.5 text-[12.5px] leading-relaxed text-ink-2">
-                  <span className="mt-[5px] h-1 w-1 shrink-0 rounded-full bg-ink/40" />
+                  <span className="mt-[5px] h-1 w-1 shrink-0 bg-ink/50" />
                   <span>{item}</span>
                 </li>
               ))}
             </ul>
-            <div className="mt-2.5 rounded-lg border border-line bg-white px-2 py-1.5">
-              <span className="text-[11.5px] font-semibold uppercase tracking-wide text-faint">통과 기준</span>
-              <p className="mt-0.5 text-[12px] leading-snug text-ink-2">{phase.gate}</p>
+            <div className="mt-2.5 border border-line bg-tint px-2 py-1.5">
+              <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-faint">통과 기준</span>
+              <p className="mt-0.5 text-[12.5px] leading-snug text-ink-2">{phase.gate}</p>
             </div>
-            {i < pkg.roadmap.length - 1 && (
-              <ArrowRight size={12} className="absolute -right-[7px] top-1/2 hidden -translate-y-1/2 text-line-strong lg:block" />
-            )}
           </div>
         ))}
       </div>
-      <div className="flex flex-wrap items-center gap-1.5 border-t border-line bg-paper/60 px-4 py-2.5 sm:px-5">
-        <span className="flex items-center gap-1 text-[12px] font-semibold uppercase tracking-wide text-faint">
+      <div className="flex flex-wrap items-center gap-1.5 border-t border-line-strong bg-tint px-4 py-2.5 sm:px-5">
+        <span className="flex items-center gap-1 text-[11px] font-bold uppercase tracking-[0.12em] text-faint">
           <Users size={11} /> 동시에 움직일 곳
         </span>
         {pkg.stakeholders.slice(0, 6).map((s) => (
-          <span key={s.who} className="chip border border-line bg-white text-[12px] text-ink-2">
+          <span key={s.who} className="chip border border-line-strong bg-white text-[12px] text-ink-2">
             {s.who}
             <span className="text-[11px] text-faint">{s.when}</span>
           </span>
         ))}
-        <span className="ml-auto text-[12px] text-faint">→ 블록 03에서 대상별 할 일·첫 문장</span>
+        <span className="ml-auto text-[12px] text-muted">→ 07 유관기관 블록에서 대상별 첫 문장</span>
       </div>
     </section>
   );
@@ -232,13 +236,14 @@ function ActionsBlock({ groups }: { groups: ActionGroup[] }) {
     });
 
   return (
-    <section className="card overflow-hidden" data-testid="block-actions">
-      <BlockHeader
-        n="01"
+    <section className="sheet overflow-hidden" data-testid="block-actions">
+      <BlockHead
+        n="05"
+        id="sec-actions"
+        icon={ClipboardList}
         title="지금 당장 할 일 — 골든타임 체크리스트"
         desc={`1시간 → 6시간 → 24시간 순서. 담당까지 적혀 있으니 그대로 지시하면 됩니다. (${done.size}/${total} 완료)`}
-        icon={ClipboardList}
-        copy={actionsToText(groups)}
+        action={<CopyButton text={actionsToText(groups)} label="블록 전체 복사" className="btn btn-outline h-7 px-2 text-[12px]" />}
       />
       <div className="grid gap-0 lg:grid-cols-3">
         {groups.map((group, i) => (
@@ -247,19 +252,18 @@ function ActionsBlock({ groups }: { groups: ActionGroup[] }) {
             className={cx(
               "px-4 py-3.5 sm:px-5",
               i > 0 && "border-t border-line lg:border-l lg:border-t-0",
-              i === 0 && "bg-[#fdfcf9]",
             )}
           >
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 border-b border-line pb-2">
               <span
                 className={cx(
-                  "chip px-2 py-0.5 text-[12px]",
-                  i === 0 ? "bg-risk text-white" : i === 1 ? "bg-warn text-white" : "bg-ink text-white",
+                  "rounded-md px-2 py-[2px] text-[11.5px] font-semibold text-white",
+                  i === 0 ? "bg-risk" : i === 1 ? "bg-warn" : "bg-navy",
                 )}
               >
                 {group.window} 내
               </span>
-              <span className="text-[13px] font-semibold text-ink">{group.title}</span>
+              <span className="text-[13px] font-bold text-ink">{group.title}</span>
             </div>
             <ul className="mt-2 space-y-1.5">
               {group.items.map((item, idx) => {
@@ -276,8 +280,8 @@ function ActionsBlock({ groups }: { groups: ActionGroup[] }) {
                     >
                       <span
                         className={cx(
-                          "mt-[1px] grid h-4 w-4 shrink-0 place-items-center rounded border transition-colors",
-                          checked ? "border-ok bg-ok text-white" : "border-line-strong bg-white text-transparent group-hover:border-ink/40",
+                          "mt-[1px] grid h-4 w-4 shrink-0 place-items-center rounded-[5px] border transition-colors",
+                          checked ? "border-ok bg-ok text-white" : "border-line-strong bg-white text-transparent group-hover:border-ink",
                         )}
                       >
                         <Check size={10} strokeWidth={3} />
@@ -292,7 +296,7 @@ function ActionsBlock({ groups }: { groups: ActionGroup[] }) {
                           {item.text}
                         </span>
                         {item.owner && (
-                          <span className="mt-0.5 inline-block rounded bg-paper-deep px-1 py-[1px] text-[11px] font-semibold text-muted">
+                          <span className="mt-0.5 inline-block bg-paper-deep px-1 py-[1px] text-[11px] font-semibold text-muted">
                             {item.owner}
                           </span>
                         )}
@@ -311,30 +315,40 @@ function ActionsBlock({ groups }: { groups: ActionGroup[] }) {
 
 function StakeholdersBlock({ pkg }: { pkg: ResponsePackage }) {
   return (
-    <section className="card overflow-hidden" data-testid="block-stakeholders">
-      <BlockHeader
-        n="03"
+    <section className="sheet overflow-hidden" data-testid="block-stakeholders">
+      <BlockHead
+        n="07"
+        id="sec-stakeholders"
+        icon={Users}
         title="유관기관·이해관계자 대응"
         desc="누구에게 언제 무엇을 말할지, 전화·메일 첫 문장까지 준비했습니다. 순서대로 접점을 잡으세요."
-        icon={Users}
-        copy={pkg.stakeholders
-          .map((s) => `${s.who} (${s.when})\n- 할 일: ${s.action}\n- 첫 문장: “${s.line}”`)
-          .join("\n\n")}
+        action={
+          <CopyButton
+            text={pkg.stakeholders
+              .map((s) => `${s.who} (${s.when})\n- 할 일: ${s.action}\n- 첫 문장: “${s.line}”`)
+              .join("\n\n")}
+            label="블록 전체 복사"
+            className="btn btn-outline h-7 px-2 text-[12px]"
+          />
+        }
       />
-      <div className="divide-y divide-line">
-        {pkg.stakeholders.map((s) => (
-          <div key={`${s.who}-${s.when}`} className="grid gap-2 px-4 py-3 sm:grid-cols-[168px_minmax(0,1fr)] sm:px-5">
+      <div>
+        {pkg.stakeholders.map((s, i) => (
+          <div
+            key={`${s.who}-${s.when}`}
+            className={cx("grid gap-2 px-4 py-3 sm:grid-cols-[176px_minmax(0,1fr)] sm:px-5", i > 0 && "border-t border-line")}
+          >
             <div className="flex items-start gap-2 sm:block">
-              <div className="text-[13px] font-semibold text-ink">{s.who}</div>
-              <span className="chip mt-1 border border-line bg-paper-deep px-1.5 py-0 text-[11px] text-muted">
+              <div className="text-[13px] font-bold text-ink">{s.who}</div>
+              <span className="chip mt-1 border border-line-strong bg-paper-deep px-1.5 py-0 text-[11px] text-muted">
                 {s.when} 내
               </span>
             </div>
             <div className="min-w-0">
               <p className="text-[13px] leading-relaxed text-ink-2">{s.action}</p>
               {s.line && (
-                <div className="mt-1.5 flex items-start gap-2 rounded-lg border border-line bg-[#fcfcfa] px-2.5 py-1.5">
-                  <span className="mt-[2px] text-[11.5px] font-semibold text-faint">첫 문장</span>
+                <div className="mt-1.5 flex items-start gap-2 border border-line border-l-2 border-l-ink bg-tint px-2.5 py-1.5">
+                  <span className="mt-[2px] text-[11px] font-bold uppercase tracking-[0.1em] text-faint">첫 문장</span>
                   <span className="min-w-0 flex-1 text-[12.5px] leading-relaxed text-ink-2">“{s.line}”</span>
                   <CopyButton text={s.line} label="복사" className="btn btn-ghost h-6 shrink-0 px-1 text-[12px]" />
                 </div>
@@ -349,28 +363,34 @@ function StakeholdersBlock({ pkg }: { pkg: ResponsePackage }) {
 
 function OutlookBlock({ pkg }: { pkg: ResponsePackage }) {
   return (
-    <section className="card overflow-hidden" data-testid="block-outlook">
-      <BlockHeader
-        n="04"
+    <section className="sheet overflow-hidden" data-testid="block-outlook">
+      <BlockHead
+        n="08"
+        icon={Gauge}
         title="예상 여론 반응과 악화 시 다음 대응"
         desc="이 입장을 냈을 때 실제로 나올 반응입니다. 아래 트리거가 보이면 다음 대응으로 바로 넘어가세요."
-        icon={Gauge}
-        copy={[
-          ...pkg.outlook.reactions.map((r) => `[${r.channel}] ${r.text}`),
-          "",
-          "악화 트리거",
-          ...pkg.outlook.triggers.map((t) => `- ${t}`),
-          "",
-          "다음 대응",
-          ...pkg.outlook.escalation.map((t, i) => `${i + 1}. ${t}`),
-        ].join("\n")}
+        action={
+          <CopyButton
+            text={[
+              ...pkg.outlook.reactions.map((r) => `[${r.channel}] ${r.text}`),
+              "",
+              "악화 트리거",
+              ...pkg.outlook.triggers.map((t) => `- ${t}`),
+              "",
+              "다음 대응",
+              ...pkg.outlook.escalation.map((t, i) => `${i + 1}. ${t}`),
+            ].join("\n")}
+            label="블록 전체 복사"
+            className="btn btn-outline h-7 px-2 text-[12px]"
+          />
+        }
       />
-      <div className="grid gap-2 px-4 py-3.5 sm:grid-cols-2 sm:px-5">
-        {pkg.outlook.reactions.map((r) => (
-          <div key={r.channel + r.text} className="rounded-xl border border-line bg-[#fcfcfa] px-3 py-2.5">
+      <div className="grid gap-0 sm:grid-cols-2">
+        {pkg.outlook.reactions.map((r, i) => (
+          <div key={r.channel + r.text} className={cx("px-4 py-3 sm:px-5", i > 0 && "border-t border-line", i % 2 === 1 && "sm:border-l")}>
             <div className="flex items-center gap-1.5">
-              <span className="text-[12px] font-semibold text-muted">{r.channel}</span>
-              <span className="rounded-full bg-white px-1.5 py-[1px] text-[11px] text-faint">{r.tone}</span>
+              <span className="text-[12px] font-bold text-ink-2">{r.channel}</span>
+              <span className="border border-line bg-white px-1.5 py-[1px] text-[11px] text-faint">{r.tone}</span>
             </div>
             <p className="mt-1 text-[13px] leading-relaxed text-ink-2">{r.text}</p>
           </div>
@@ -380,7 +400,7 @@ function OutlookBlock({ pkg }: { pkg: ResponsePackage }) {
         <div className="px-4 py-3.5 sm:border-r sm:border-line sm:px-5">
           <div className="flex items-center gap-1.5">
             <AlertTriangle size={12} className="text-warn" />
-            <span className="text-[12.5px] font-semibold text-warn">악화 트리거</span>
+            <span className="text-[12.5px] font-bold text-warn">악화 트리거</span>
           </div>
           <ul className="mt-2 space-y-1.5">
             {pkg.outlook.triggers.map((t, i) => (
@@ -394,7 +414,7 @@ function OutlookBlock({ pkg }: { pkg: ResponsePackage }) {
         <div className="border-t border-line px-4 py-3.5 sm:border-t-0 sm:px-5">
           <div className="flex items-center gap-1.5">
             <RotateCcw size={12} className="text-ink-2" />
-            <span className="text-[12.5px] font-semibold text-ink-2">악화 시 다음 대응</span>
+            <span className="text-[12.5px] font-bold text-ink-2">악화 시 다음 대응</span>
           </div>
           <ol className="mt-2 space-y-1.5">
             {pkg.outlook.escalation.map((t, i) => (
@@ -427,9 +447,10 @@ function SimilarCasesBlock({ pkg, onOpenCase }: { pkg: ResponsePackage; onOpenCa
   );
   const protocol = getProtocol(pkg.caseType);
   return (
-    <section className="card overflow-hidden" data-testid="block-similar">
-      <BlockHeader
-        n="05"
+    <section className="sheet overflow-hidden" data-testid="block-similar">
+      <BlockHead
+        n="09"
+        id="sec-similar"
         icon={BookOpen}
         title={similar.length ? "같은 유형의 실제 사례" : "표준 대응 프로토콜"}
         desc={
@@ -439,52 +460,60 @@ function SimilarCasesBlock({ pkg, onOpenCase }: { pkg: ResponsePackage; onOpenCa
         }
       />
       {similar.length > 0 ? (
-        <div className="grid gap-2.5 px-4 pb-4 sm:grid-cols-2">
-          {similar.map(({ case: c, reasons }) => (
+        <div className="grid gap-0 sm:grid-cols-2">
+          {similar.map(({ case: c, reasons }, i) => (
             <button
               key={c.id}
               type="button"
               data-testid={`similar-case-${c.type}`}
               onClick={() => onOpenCase(c.id)}
-              className="rounded-xl border border-line bg-white p-3 text-left transition-colors hover:border-ink/40"
+              className={cx(
+                "border-t border-line px-4 py-3 text-left transition-colors first:border-t-0 hover:bg-tint sm:px-5",
+                i > 0 && "sm:border-l",
+                i === 1 && "sm:border-t-0",
+              )}
             >
               <div className="flex flex-wrap items-center gap-1.5">
-                <span className={cx("chip px-1.5 py-0 text-[13px]", SIMILAR_VERDICT_STYLE[c.verdict])}>{CASE_VERDICT_LABEL[c.verdict]}</span>
-                <span className="text-[13px] text-faint">{CASE_TYPE_LABEL[c.type]} · {c.date}</span>
+                <span className={cx("chip px-1.5 py-0 text-[11.5px] font-semibold", SIMILAR_VERDICT_STYLE[c.verdict])}>
+                  {CASE_VERDICT_LABEL[c.verdict]}
+                </span>
+                <span className="text-[11.5px] text-faint">
+                  {CASE_TYPE_LABEL[c.type]} · {c.date}
+                </span>
               </div>
-              <div className="mt-1.5 text-[13.5px] font-semibold leading-snug text-ink">{c.title}</div>
-              <p className="mt-1 line-clamp-3 text-[14px] leading-relaxed text-muted">{c.lesson}</p>
-              <div className="mt-1.5 text-[13px] text-accent">{reasons.join(" · ")} · 전체 보기 →</div>
+              <div className="mt-1.5 text-[13px] font-bold leading-snug text-ink">{c.title}</div>
+              <p className="mt-1 line-clamp-3 text-[12.5px] leading-relaxed text-muted">{c.lesson}</p>
+              <div className="mt-1.5 text-[12px] font-semibold text-accent">{reasons.join(" · ")} · 전체 보기 →</div>
             </button>
           ))}
         </div>
       ) : protocol ? (
-        <div className="px-4 pb-4 sm:px-5" data-testid="protocol-fallback">
-          <div className="rounded-xl border border-accent/20 bg-accent-soft/60 px-3.5 py-3">
+        <div className="px-4 pb-4 pt-3 sm:px-5" data-testid="protocol-fallback">
+          <div className="border border-accent/30 border-l-4 border-l-accent bg-accent-soft/70 px-3.5 py-3">
             <div className="flex flex-wrap items-center gap-1.5">
-              <span className="chip bg-white px-1.5 py-0 text-[12px] font-semibold text-accent-deep">{protocol.label} 표준 프로토콜</span>
-              <span className="text-[12px] text-accent-deep/70">검수 사례가 쌓이면 이 자리에 실제 사례가 표시됩니다</span>
+              <span className="bg-white px-1.5 py-0 text-[12px] font-bold text-accent-deep">{protocol.label} 표준 프로토콜</span>
+              <span className="text-[11.5px] text-accent-deep/75">검수 사례가 쌓이면 이 자리에 실제 사례가 표시됩니다</span>
             </div>
             <p className="mt-1.5 text-[13px] leading-relaxed text-ink-2">{protocol.summary}</p>
           </div>
-          <div className="mt-2 grid gap-2 sm:grid-cols-2">
-            <div className="rounded-xl border border-line bg-[#fcfcfa] p-3">
-              <div className="text-[12.5px] font-semibold text-ink">반드시 숫자로 알릴 것</div>
+          <div className="mt-2 grid gap-0 border border-line sm:grid-cols-2">
+            <div className="px-3 py-2.5 sm:border-r sm:border-line">
+              <div className="text-[12.5px] font-bold text-ink">반드시 숫자로 알릴 것</div>
               <ul className="mt-1 space-y-1">
                 {protocol.facts.map((f) => (
                   <li key={f} className="flex gap-1.5 text-[12.5px] leading-relaxed text-ink-2">
-                    <span className="mt-[6px] h-1 w-1 shrink-0 rounded-full bg-warn/70" />
+                    <span className="mt-[6px] h-1 w-1 shrink-0 bg-warn" />
                     <span>{f}</span>
                   </li>
                 ))}
               </ul>
             </div>
-            <div className="rounded-xl border border-line bg-[#fcfcfa] p-3">
-              <div className="text-[12.5px] font-semibold text-ink">고객·거래처 보호 조치</div>
+            <div className="border-t border-line px-3 py-2.5 sm:border-t-0">
+              <div className="text-[12.5px] font-bold text-ink">고객·거래처 보호 조치</div>
               <ul className="mt-1 space-y-1">
                 {protocol.measures.map((m) => (
                   <li key={m} className="flex gap-1.5 text-[12.5px] leading-relaxed text-ink-2">
-                    <span className="mt-[6px] h-1 w-1 shrink-0 rounded-full bg-ok/70" />
+                    <span className="mt-[6px] h-1 w-1 shrink-0 bg-ok" />
                     <span>{m}</span>
                   </li>
                 ))}
@@ -493,8 +522,8 @@ function SimilarCasesBlock({ pkg, onOpenCase }: { pkg: ResponsePackage; onOpenCa
           </div>
         </div>
       ) : (
-        <div className="px-4 pb-4 text-[12.5px] text-muted sm:px-5">
-          이 유형은 아직 검수 사례가 없습니다. 업종 매뉴얼과 01~05 블록을 기준으로 대응하세요.
+        <div className="px-4 pb-4 pt-3 text-[12.5px] text-muted sm:px-5">
+          이 유형은 아직 검수 사례가 없습니다. 업종 매뉴얼과 01~08 블록을 기준으로 대응하세요.
         </div>
       )}
     </section>
@@ -512,9 +541,9 @@ function CasePlaybookBlock({ pkg, onOpenCase }: { pkg: ResponsePackage; onOpenCa
   const protocol = getProtocol(pkg.caseType);
   if (!book && !protocol) return null;
   return (
-    <section className="card overflow-hidden" data-testid="block-playbook">
-      <BlockHeader
-        n="06"
+    <section className="sheet overflow-hidden" data-testid="block-playbook">
+      <BlockHead
+        n="10"
         icon={ListChecks}
         title={book ? "같은 유형 사례에서 뽑은 대응 순서" : `${protocol?.label ?? ""} 표준 대응 순서`}
         desc={
@@ -530,27 +559,35 @@ function CasePlaybookBlock({ pkg, onOpenCase }: { pkg: ResponsePackage; onOpenCa
       />
       {book ? (
         <>
-          <ol className="space-y-2 px-4 pb-4 sm:px-5">
+          <ol className="space-y-0">
             {book.phases.map(({ phase, doers, core }, i) => (
-              <li key={phase.id} className="rounded-xl border border-line bg-white p-3" data-testid={`playbook-phase-${phase.id}`}>
+              <li
+                key={phase.id}
+                className={cx("px-4 py-3 sm:px-5", i > 0 && "border-t border-line")}
+                data-testid={`playbook-phase-${phase.id}`}
+              >
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="num grid h-6 w-6 place-items-center rounded-md bg-paper-deep text-[12px] font-semibold text-ink">{i + 1}</span>
-                  <span className="text-[14px] font-semibold text-ink">
-                    {core && <span className="mr-1 rounded bg-warn-soft px-1 py-[1px] text-[10px] font-semibold text-warn">핵심</span>}
+                  <span className="num grid h-6 w-6 place-items-center rounded-md border border-line bg-tint text-[11.5px] font-bold text-ink-2">
+                    {i + 1}
+                  </span>
+                  <span className="text-[13px] font-bold text-ink">
+                    {core && <span className="mr-1 rounded bg-warn-soft px-1.5 py-[1px] text-[10px] font-semibold text-warn">핵심</span>}
                     {phase.label}
                   </span>
-                  <span className="ml-auto text-[12.5px] text-muted">
+                  <span className="ml-auto text-[12px] text-muted">
                     {doers.length}/{book.cases.length}건에서 실행
                   </span>
                 </div>
-                <p className="mt-1 text-[13.5px] leading-relaxed text-ink-2">{phase.advice}</p>
+                <p className="mt-1 text-[13px] leading-relaxed text-ink-2">{phase.advice}</p>
                 <ul className="mt-1.5 space-y-1">
                   {doers.slice(0, 2).map(({ c, line }) => (
-                    <li key={c.id} className="text-[13px] leading-relaxed text-muted">
-                      <button type="button" onClick={() => onOpenCase(c.id)} className="font-medium text-accent hover:underline">
+                    <li key={c.id} className="text-[12.5px] leading-relaxed text-muted">
+                      <button type="button" onClick={() => onOpenCase(c.id)} className="font-semibold text-accent hover:underline">
                         {c.company}
                       </button>
-                      <span className={cx("chip ml-1 px-1.5 py-0 text-[12px]", SIMILAR_VERDICT_STYLE[c.verdict])}>{CASE_VERDICT_LABEL[c.verdict]}</span>
+                      <span className={cx("chip ml-1 px-1.5 py-0 text-[11px]", SIMILAR_VERDICT_STYLE[c.verdict])}>
+                        {CASE_VERDICT_LABEL[c.verdict]}
+                      </span>
                       <span className="ml-1">{line}</span>
                     </li>
                   ))}
@@ -559,12 +596,12 @@ function CasePlaybookBlock({ pkg, onOpenCase }: { pkg: ResponsePackage; onOpenCa
             ))}
           </ol>
           {book.pitfalls.length > 0 && (
-            <div className="mx-4 mb-4 rounded-xl border border-warn/30 bg-warn-soft px-3.5 py-3 sm:mx-5">
-              <div className="text-[13px] font-semibold text-warn">반복된 실수</div>
+            <div className="border-t border-warn/40 bg-warn-soft px-4 py-3 sm:px-5">
+              <div className="text-[13px] font-bold text-warn">반복된 실수</div>
               <ul className="mt-1 space-y-1">
                 {book.pitfalls.map(({ c, text }) => (
-                  <li key={c.id} className="text-[13px] leading-relaxed text-ink-2">
-                    <button type="button" onClick={() => onOpenCase(c.id)} className="font-medium text-accent hover:underline">
+                  <li key={c.id} className="text-[12.5px] leading-relaxed text-ink-2">
+                    <button type="button" onClick={() => onOpenCase(c.id)} className="font-semibold text-accent hover:underline">
                       {c.company}
                     </button>
                     <span className="ml-1">{text}</span>
@@ -576,30 +613,40 @@ function CasePlaybookBlock({ pkg, onOpenCase }: { pkg: ResponsePackage; onOpenCa
         </>
       ) : (
         protocol && (
-          <ol className="space-y-2 px-4 pb-4 sm:px-5">
+          <ol className="space-y-0">
             {protocol.roadmap.map((phase, i) => (
-              <li key={phase.title} className="rounded-xl border border-line bg-white p-3" data-testid={`playbook-phase-step-${i}`}>
+              <li
+                key={phase.title}
+                className={cx("px-4 py-3 sm:px-5", i > 0 && "border-t border-line")}
+                data-testid={`playbook-phase-step-${i}`}
+              >
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="num grid h-6 w-6 place-items-center rounded-md bg-paper-deep text-[12px] font-semibold text-ink">{i + 1}</span>
-                  <span className="text-[14px] font-semibold text-ink">{["1시간", "6시간", "24시간~"][i]} · {phase.title}</span>
+                  <span className="num grid h-6 w-6 place-items-center rounded-md border border-line bg-tint text-[11.5px] font-bold text-ink-2">
+                    {i + 1}
+                  </span>
+                  <span className="text-[13px] font-bold text-ink">
+                    {["1시간", "6시간", "24시간~"][i]} · {phase.title}
+                  </span>
                   <span className="ml-auto text-[12px] text-muted">통과 기준: {phase.gate}</span>
                 </div>
-                <p className="mt-1 text-[13.5px] leading-relaxed text-ink-2">{phase.goal}</p>
+                <p className="mt-1 text-[13px] leading-relaxed text-ink-2">{phase.goal}</p>
                 <ul className="mt-1.5 space-y-1">
                   {phase.items.map((item) => (
-                    <li key={item} className="flex gap-1.5 text-[13px] leading-relaxed text-muted">
-                      <span className="mt-[6px] h-1 w-1 shrink-0 rounded-full bg-ink/30" />
+                    <li key={item} className="flex gap-1.5 text-[12.5px] leading-relaxed text-muted">
+                      <span className="mt-[6px] h-1 w-1 shrink-0 bg-ink/30" />
                       <span>{item}</span>
                     </li>
                   ))}
                 </ul>
               </li>
             ))}
-            <li className="rounded-xl border border-warn/30 bg-warn-soft px-3.5 py-3">
-              <div className="text-[13px] font-semibold text-warn">이 유형에서 반복되는 실수</div>
+            <li className="border-t border-warn/40 bg-warn-soft px-4 py-3 sm:px-5">
+              <div className="text-[13px] font-bold text-warn">이 유형에서 반복되는 실수</div>
               <ul className="mt-1 space-y-1">
                 {protocol.watchouts.map((w) => (
-                  <li key={w} className="text-[13px] leading-relaxed text-ink-2">· {w}</li>
+                  <li key={w} className="text-[12.5px] leading-relaxed text-ink-2">
+                    · {w}
+                  </li>
                 ))}
               </ul>
             </li>
@@ -620,22 +667,24 @@ const GAP_STYLE: Record<string, { label: string; cls: string }> = {
 function CompareHead({ c, tone, onOpenCase }: { c: CaseRow; tone: "good" | "bad"; onOpenCase: (id: string) => void }) {
   const good = tone === "good";
   return (
-    <div
-      className={cx(
-        "rounded-xl border px-3 py-2.5",
-        good ? "border-ok/25 bg-ok-soft/50" : "border-risk/20 bg-risk-soft/40",
-      )}
-    >
+    <div className={cx("px-4 py-3 sm:px-5", good ? "bg-ok-soft/45" : "bg-risk-soft/45")}>
       <div className="flex flex-wrap items-center gap-1.5">
-        <span className={cx("chip px-1.5 py-0 text-[12px] font-semibold", good ? "bg-ok-soft text-ok" : "bg-risk-soft text-risk")}>
-          {good ? "모범" : "실패"}
+        <span
+          className={cx(
+            "rounded-md px-2 py-[2px] text-[11px] font-bold text-white",
+            good ? "bg-ok" : "bg-risk",
+          )}
+        >
+          {good ? "모범 사례" : "실패 사례"}
         </span>
-        <span className="text-[12px] text-faint">{CASE_TYPE_LABEL[c.type]} · {c.date}</span>
+        <span className="text-[11.5px] text-faint">
+          {CASE_TYPE_LABEL[c.type]} · {c.date}
+        </span>
       </div>
       <button
         type="button"
         onClick={() => onOpenCase(c.id)}
-        className="mt-1 block text-left text-[13.5px] font-semibold leading-snug text-ink hover:underline"
+        className="mt-1.5 block text-left text-[13px] font-bold leading-snug text-ink hover:underline"
       >
         {c.title}
       </button>
@@ -654,28 +703,24 @@ const BASIS_LABEL: Record<string, string> = {
 
 function CompareRows({ rows }: { rows: CompareRow[] }) {
   return (
-    <div className="mt-2 space-y-1.5 px-4 pb-4 sm:px-5">
-      {rows.map((row) => {
+    <div>
+      {rows.map((row, i) => {
         const gap = GAP_STYLE[row.gap] ?? GAP_STYLE.both;
         return (
-          <div key={row.label} className="rounded-lg border border-line bg-white px-3 py-2" data-testid="compare-row">
+          <div key={row.label} data-testid="compare-row" className={cx("px-4 py-2.5 sm:px-5", i > 0 && "border-t border-line")}>
             <div className="flex flex-wrap items-center gap-1.5">
-              <span className="text-[13px] font-semibold text-ink">{row.label}</span>
-              <span className={cx("chip px-1.5 py-0 text-[11.5px] font-medium", gap.cls)}>{gap.label}</span>
+              <span className="text-[12.5px] font-bold text-ink">{row.label}</span>
+              <span className={cx("chip px-1.5 py-0 text-[11px] font-semibold", gap.cls)}>{gap.label}</span>
               <span className="text-[11.5px] text-faint">{row.hint}</span>
             </div>
             <div className="mt-1 grid gap-1 sm:grid-cols-2">
               <div className="flex gap-1.5 text-[12.5px] leading-relaxed">
                 <Check size={12} className={cx("mt-[3px] shrink-0", row.good.hit ? "text-ok" : "text-faint/50")} />
-                <span className={row.good.hit ? "text-ink-2" : "text-faint"}>
-                  {row.good.hit ? row.good.text : "해당 조치 없음"}
-                </span>
+                <span className={row.good.hit ? "text-ink-2" : "text-faint"}>{row.good.hit ? row.good.text : "해당 조치 없음"}</span>
               </div>
               <div className="flex gap-1.5 text-[12.5px] leading-relaxed">
-                <X size={12} className={cx("mt-[3px] shrink-0", row.bad.hit ? "text-warn" : "text-faint/50")} />
-                <span className={row.bad.hit ? "text-ink-2" : "text-faint"}>
-                  {row.bad.hit ? row.bad.text : "해당 조치 없음"}
-                </span>
+                <X size={12} className={cx("mt-[3px] shrink-0", row.bad.hit ? "text-risk" : "text-faint/50")} />
+                <span className={row.bad.hit ? "text-ink-2" : "text-faint"}>{row.bad.hit ? row.bad.text : "해당 조치 없음"}</span>
               </div>
             </div>
           </div>
@@ -691,26 +736,27 @@ function VerdictCompareBlock({ pkg, onOpenCase }: { pkg: ResponsePackage; onOpen
 
   if (compare.mode === "standard") {
     return (
-      <section className="card overflow-hidden" data-testid="block-compare">
-        <BlockHeader
-          n="07"
+      <section className="sheet overflow-hidden" data-testid="block-compare">
+        <BlockHead
+          n="11"
+          id="sec-compare"
           icon={Scale}
           title={`실패 사례 vs ${compare.label} 표준`}
           desc={`검수된 모범 사례가 아직 없는 유형입니다. 대신 ${BASIS_LABEL[compare.basis] ?? ""} 실패 사례를 이 유형의 표준 절차와 비교해, 빠진 항목을 짚었습니다.`}
         />
-        <div className="px-4 pt-3 sm:px-5">
+        <div className="border-t-0">
           <CompareHead c={compare.bad} tone="bad" onOpenCase={onOpenCase} />
         </div>
-        <div className="mt-3 grid gap-2 px-4 pb-4 sm:grid-cols-2 sm:px-5">
-          <div className="rounded-xl border border-warn/30 bg-warn-soft/60 p-3" data-testid="compare-missing">
-            <div className="text-[12.5px] font-semibold text-warn">이 실패 사례에서 확인되지 않은 항목</div>
+        <div className="mt-0 grid gap-0 border-t border-line sm:grid-cols-2">
+          <div className="bg-warn-soft/50 px-4 py-3 sm:border-r sm:border-line sm:px-5" data-testid="compare-missing">
+            <div className="text-[12.5px] font-bold text-warn">이 실패 사례에서 확인되지 않은 항목</div>
             {compare.missing.length ? (
               <ul className="mt-1 space-y-1">
                 {compare.missing.map((m) => (
                   <li key={m.label} className="flex gap-1.5 text-[12.5px] leading-relaxed text-ink-2">
                     <X size={12} className="mt-[3px] shrink-0 text-warn" />
                     <span>
-                      <span className="font-medium">{m.label}</span> — {m.hint}
+                      <span className="font-semibold">{m.label}</span> — {m.hint}
                     </span>
                   </li>
                 ))}
@@ -721,8 +767,8 @@ function VerdictCompareBlock({ pkg, onOpenCase }: { pkg: ResponsePackage; onOpen
               </p>
             )}
           </div>
-          <div className="rounded-xl border border-line bg-[#fcfcfa] p-3">
-            <div className="text-[12.5px] font-semibold text-ink">이 유형 표준이 반드시 넣는 것</div>
+          <div className="border-t border-line px-4 py-3 sm:border-t-0 sm:px-5">
+            <div className="text-[12.5px] font-bold text-ink">이 유형 표준이 반드시 넣는 것</div>
             <ul className="mt-1 space-y-1">
               {[...compare.facts, ...compare.measures].slice(0, 7).map((f) => (
                 <li key={f} className="flex gap-1.5 text-[12.5px] leading-relaxed text-ink-2">
@@ -733,7 +779,7 @@ function VerdictCompareBlock({ pkg, onOpenCase }: { pkg: ResponsePackage; onOpen
             </ul>
           </div>
         </div>
-        <div className="mx-4 mb-4 rounded-xl border border-accent/20 bg-accent-soft/50 px-3.5 py-2.5 sm:mx-5">
+        <div className="border-t border-line bg-accent-soft/50 px-4 py-2.5 sm:px-5">
           <p className="text-[12.5px] leading-relaxed text-accent-deep">
             실패 사례는 남의 일이 아닙니다. 위 ‘확인되지 않은 항목’을 이번 사안의 첫 6시간 체크리스트에 그대로 넣으세요.
           </p>
@@ -744,23 +790,30 @@ function VerdictCompareBlock({ pkg, onOpenCase }: { pkg: ResponsePackage; onOpen
 
   const { good, bad, rows, gaps, basis } = compare;
   return (
-    <section className="card overflow-hidden" data-testid="block-compare">
-      <BlockHeader
-        n="07"
+    <section className="sheet overflow-hidden" data-testid="block-compare">
+      <BlockHead
+        n="11"
+        id="sec-compare"
         icon={Scale}
-        title="모범 사례 vs 실패 사례"
+        title="모범 사례 vs 실패 사례 — 같은 축 비교"
         desc={`${BASIS_LABEL[basis] ?? ""}에서 결과가 갈린 두 사례를 같은 축으로 나란히 놓았습니다. 사례 원문에 적힌 대응만 표시하고, 없으면 ‘해당 조치 없음’으로 표시합니다.`}
       />
-      <div className="grid gap-2 px-4 pt-3 sm:grid-cols-2 sm:px-5">
-        <CompareHead c={good} tone="good" onOpenCase={onOpenCase} />
-        <CompareHead c={bad} tone="bad" onOpenCase={onOpenCase} />
+      <div className="grid gap-0 border-t border-line sm:grid-cols-2">
+        <div className="border-b-2 border-ok sm:border-b-2">
+          <CompareHead c={good} tone="good" onOpenCase={onOpenCase} />
+        </div>
+        <div className="border-b-2 border-risk border-t border-line sm:border-l sm:border-t-0">
+          <CompareHead c={bad} tone="bad" onOpenCase={onOpenCase} />
+        </div>
       </div>
-      <CompareRows rows={rows} />
-      <div className="mx-4 mb-4 rounded-xl border border-accent/20 bg-accent-soft/50 px-3.5 py-2.5 sm:mx-5">
-        <div className="text-[12.5px] font-semibold text-accent-deep">
+      <div className="bg-white">
+        <CompareRows rows={rows} />
+      </div>
+      <div className="border-t border-line bg-accent-soft/50 px-4 py-2.5 sm:px-5">
+        <div className="text-[12.5px] font-bold text-accent-deep">
           {gaps.length ? `결과를 가른 지점 — ${gaps.join(" · ")}` : "두 사례의 조치 구성은 비슷합니다"}
         </div>
-        <p className="mt-1 text-[12.5px] leading-relaxed text-accent-deep/80">
+        <p className="mt-1 text-[12.5px] leading-relaxed text-accent-deep/85">
           {gaps.length
             ? "모범 사례는 했고 실패 사례는 하지 않은 항목입니다. 이번 사안의 첫 6시간 체크리스트에 그대로 넣으세요."
             : "같은 조치를 했는데 결과가 갈렸다면 실행 시점·범위·속도가 달랐다는 뜻입니다. 두 사례의 타임라인을 비교해 보세요."}
@@ -842,183 +895,190 @@ export function PackageView({
         onNotice={onNotice}
         onShare={() => void openShare()}
       />
-      <div className="mx-auto w-full max-w-[1000px] px-3 pb-20 pt-0 sm:px-5">
+      <SectionNav />
+      <div className="mx-auto w-full max-w-[1040px] px-3 pb-20 pt-0 sm:px-5">
         <div className="animate-rise" data-testid="package-view">
-        {/* 인쇄·PDF 전용 임원 보고서 머리말 — 화면에는 보이지 않습니다 */}
-        <div className="mb-4 hidden border-b-2 border-ink pb-3 print:block" data-testid="print-header">
-          <div className="eyebrow">PRISM · Crisis Communication Report</div>
-          <h1 className="mt-1 text-[20pt] font-semibold leading-tight text-ink">
-            {pkg.brand} — {pkg.caseTypeLabel ?? pkg.eventLabel} 임원 보고서
-          </h1>
-          <p className="mt-1 text-[9.5pt] text-muted">
-            {new Date(pkg.createdAt).toLocaleString("ko-KR")} · {stance.label} 기준 · 종합 위험지수 {card.overall}/100
-            ({card.band.label}) · 내부 검토용
-          </p>
-          <table className="mt-2 w-full border-collapse text-[9pt]">
-            <tbody>
-              <tr>
-                {card.axes.map((axis) => (
-                  <td key={axis.id} className="border border-line px-1.5 py-1 align-top">
-                    <span className="block text-[8pt] text-muted">{axis.short}</span>
-                    <span className="num font-semibold" style={{ color: axis.value >= 60 ? "#b02a22" : "#0f172a" }}>
-                      {axis.value}
-                    </span>
-                  </td>
-                ))}
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <div className="px-1 pt-4">
-          <div className="flex flex-wrap items-center gap-1.5 border-b border-line pb-2.5">
-            <span className="eyebrow mr-1 shrink-0">Case file</span>
-            <span
-              className="chip"
-              style={{ background: risk.bg, color: risk.color, border: `1px solid ${risk.border}` }}
-            >
-              위험도 {pkg.risk}
-            </span>
-            <span className="chip border border-line bg-surface text-ink-2" title={pkg.stanceCustom ?? undefined}>
-              {stance.short}
-            </span>
-            {situationLabels.map((label) => (
-              <span key={label} className="chip border border-accent/25 bg-accent-soft/60 text-accent-deep">
-                {label}
-              </span>
-            ))}
-            {entityLabels.map((label) => (
-              <span key={label} className="chip border border-line bg-surface text-muted">
-                {label}
-              </span>
-            ))}
-            <span className="chip border border-line bg-surface text-muted">
-              {pkg.industryLabel}
-              {pkg.industrySource === "manual" && <span className="text-[10px] text-accent">직접 선택</span>}
-            </span>
-            {pkg.caseTypeLabel && (
-              <span className="chip border border-line bg-surface text-muted">
-                {pkg.caseTypeLabel}
-                <span className="text-[10px] text-faint">{pkg.caseTypeSource === "manual" ? "직접 선택" : "자동"}</span>
-              </span>
-            )}
-            <span
-              className={cx(
-                "chip",
-                pkg.mode === "ai" ? "bg-ok-soft text-ok" : "bg-paper-deep text-muted",
-              )}
-            >
-              {pkg.mode === "ai" ? `실시간 AI${pkg.ai?.model ? ` · ${pkg.ai.model}` : ""}` : "매뉴얼 엔진"}
-            </span>
-            {pkg.issueBrief?.stageLabel && (
-              <span className="chip border border-line bg-surface text-muted">단계 · {pkg.issueBrief.stageLabel}</span>
-            )}
-            {pkg.issueBrief?.scaleLabel && (
-              <span className="chip border border-line bg-surface text-muted">규모 · {pkg.issueBrief.scaleLabel}</span>
-            )}
-          </div>
-
-          <h1 className="display mt-3 text-[22px] leading-[1.32] tracking-[-0.03em] text-ink sm:text-[29px]">
-            {pkg.headline}
-          </h1>
-
-          <div className="mt-3 rounded-lg border border-line border-l-2 border-l-accent/70 bg-surface px-3.5 py-3">
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="eyebrow">상황</span>
-              {pkg.fetch?.ok && pkg.fetch.url && (
-                <a
-                  href={pkg.fetch.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex min-w-0 items-center gap-1 text-[12px] text-accent hover:underline"
-                >
-                  기사 원문 {pkg.fetch.title ? `· ${pkg.fetch.title.slice(0, 34)}` : ""} ({pkg.fetch.chars.toLocaleString()}자 읽음)
-                </a>
-              )}
-            </div>
-            {pkg.fetch?.ok && pkg.fetch.title && (
-              <p className="mt-1.5 text-[13.5px] font-semibold leading-snug text-ink">{pkg.fetch.title}</p>
-            )}
-            <p className="mt-1.5 whitespace-pre-wrap text-[13px] leading-[1.7] text-ink-2">
-              {pkg.fetch
-                ? pkg.situation.replace(pkg.fetch.url, "").trim() || (pkg.fetch.ok ? "기사 본문을 서버가 직접 읽어 분석했습니다." : "기사 링크로 접수된 상황입니다.")
-                : pkg.situation}
+          {/* 인쇄·PDF 전용 임원 보고서 머리말 — 화면에는 보이지 않습니다 */}
+          <div className="mb-4 hidden border-b border-line pb-3 print:block" data-testid="print-header">
+            <div className="eyebrow">PRISM · Crisis Communication Report</div>
+            <h1 className="mt-1 text-[20pt] font-semibold leading-tight text-ink">
+              {pkg.brand} — {pkg.caseTypeLabel ?? pkg.eventLabel} 임원 보고서
+            </h1>
+            <p className="mt-1 text-[9.5pt] text-muted">
+              {new Date(pkg.createdAt).toLocaleString("ko-KR")} · {stance.label} 기준 · 종합 위험지수 {card.overall}/100
+              ({card.band.label}) · 내부 검토용
             </p>
-            {pkg.fetch && !pkg.fetch.ok && (
-              <p className="mt-1.5 flex items-start gap-1.5 rounded-lg border border-warn/25 bg-warn-soft px-2 py-1.5 text-[12px] leading-relaxed text-warn">
-                <Info size={11} className="mt-[2px] shrink-0" />
-                <span>기사 본문을 읽지 못해({pkg.fetch.note ?? "접근 제한"}) 입력한 설명과 매뉴얼로 만들었습니다.</span>
-              </p>
-            )}
-            {pkg.fetch?.ok && pkg.fetch.partial && (
-              <p className="mt-1.5 flex items-start gap-1.5 rounded-lg border border-warn/25 bg-warn-soft px-2 py-1.5 text-[12px] leading-relaxed text-warn">
-                <Info size={11} className="mt-[2px] shrink-0" />
-                <span>
-                  본문은 로그인·페이월 등으로 읽지 못해 <span className="font-semibold">제목·요약만</span> 참고했습니다. 요약에
-                  없는 수치·규모는 [확인 필요]로 남겼습니다.
+            <table className="mt-2 w-full border-collapse text-[9pt]">
+              <tbody>
+                <tr>
+                  {card.axes.map((axis) => (
+                    <td key={axis.id} className="border border-line px-1.5 py-1 align-top">
+                      <span className="block text-[8pt] text-muted">{axis.short}</span>
+                      <span className="num font-semibold" style={{ color: axis.value >= 60 ? "#b91c1c" : "#0f172a" }}>
+                        {axis.value}
+                      </span>
+                    </td>
+                  ))}
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          {/* ── 사건 파일 머리 ── */}
+          <section className="sheet mt-3 overflow-hidden">
+            <div className="flex flex-wrap items-center gap-1.5 rounded-t-2xl border-b border-line bg-tint px-4 py-2 sm:px-5">
+              <span className="eyebrow mr-1 shrink-0">Case file</span>
+              <span className="chip" style={{ background: risk.bg, color: risk.color, border: `1px solid ${risk.border}` }}>
+                위험도 {pkg.risk}
+              </span>
+              <span className="chip border border-line-strong bg-white text-ink-2" title={pkg.stanceCustom ?? undefined}>
+                {stance.short}
+              </span>
+              {situationLabels.map((label) => (
+                <span key={label} className="chip border border-accent/30 bg-accent-soft text-accent-deep">
+                  {label}
                 </span>
-              </p>
-            )}
-            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-faint">
-              <span>{pkg.brand}</span>
-              <span>{new Date(pkg.createdAt).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
-              <span>대괄호 {placeholders}곳만 채우면 배포 가능</span>
-              {pkg.ai?.latencyMs && <span>{(pkg.ai.latencyMs / 1000).toFixed(1)}초</span>}
+              ))}
+              {entityLabels.map((label) => (
+                <span key={label} className="chip border border-line bg-white text-muted">
+                  {label}
+                </span>
+              ))}
+              <span className="chip border border-line bg-white text-muted">
+                {pkg.industryLabel}
+                {pkg.industrySource === "manual" && <span className="text-[10px] text-accent">직접 선택</span>}
+              </span>
+              {pkg.caseTypeLabel && (
+                <span className="chip border border-line bg-white text-muted">
+                  {pkg.caseTypeLabel}
+                  <span className="text-[10px] text-faint">{pkg.caseTypeSource === "manual" ? "직접 선택" : "자동"}</span>
+                </span>
+              )}
+              <span className={cx("chip", pkg.mode === "ai" ? "bg-ok-soft text-ok" : "bg-paper-deep text-muted")}>
+                {pkg.mode === "ai" ? `실시간 AI${pkg.ai?.model ? ` · ${pkg.ai.model}` : ""}` : "매뉴얼 엔진"}
+              </span>
+              {pkg.issueBrief?.stageLabel && (
+                <span className="chip hidden border border-line bg-white text-muted sm:inline-flex">단계 · {pkg.issueBrief.stageLabel}</span>
+              )}
+              {pkg.issueBrief?.scaleLabel && (
+                <span className="chip hidden border border-line bg-white text-muted sm:inline-flex">규모 · {pkg.issueBrief.scaleLabel}</span>
+              )}
             </div>
-          </div>
 
-          {pkg.modeNote && (
-            <div className="mt-2 flex items-start gap-2 rounded-xl border border-warn/25 bg-warn-soft px-3 py-2 text-[12.5px] leading-relaxed text-warn">
-              <Info size={12} className="mt-[2px] shrink-0" />
-              <span>{pkg.modeNote}</span>
+            <div className="px-4 py-4 sm:px-5">
+              <h1 className="display text-[23px] leading-[1.3] tracking-[-0.03em] text-ink sm:text-[31px]">{pkg.headline}</h1>
+
+              <div className="mt-3 rounded-xl border border-line border-l-4 border-l-accent bg-tint px-3.5 py-3">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="eyebrow">접수한 상황</span>
+                  {pkg.fetch?.ok && pkg.fetch.url && (
+                    <a
+                      href={pkg.fetch.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex min-w-0 items-center gap-1 text-[12px] font-semibold text-accent hover:underline"
+                    >
+                      기사 원문 {pkg.fetch.title ? `· ${pkg.fetch.title.slice(0, 34)}` : ""} ({pkg.fetch.chars.toLocaleString()}자 읽음)
+                    </a>
+                  )}
+                </div>
+                {pkg.fetch?.ok && pkg.fetch.title && (
+                  <p className="mt-1.5 text-[13px] font-semibold leading-snug text-ink">{pkg.fetch.title}</p>
+                )}
+                <p className="mt-1.5 whitespace-pre-wrap text-[13px] leading-[1.7] text-ink-2">
+                  {pkg.fetch
+                    ? pkg.situation.replace(pkg.fetch.url, "").trim() ||
+                      (pkg.fetch.ok ? "기사 본문을 서버가 직접 읽어 분석했습니다." : "기사 링크로 접수된 상황입니다.")
+                    : pkg.situation}
+                </p>
+                {pkg.fetch && !pkg.fetch.ok && (
+                  <p className="mt-1.5 flex items-start gap-1.5 border border-warn/30 bg-warn-soft px-2 py-1.5 text-[12px] leading-relaxed text-warn">
+                    <Info size={11} className="mt-[2px] shrink-0" />
+                    <span>기사 본문을 읽지 못해({pkg.fetch.note ?? "접근 제한"}) 입력한 설명과 매뉴얼로 만들었습니다.</span>
+                  </p>
+                )}
+                {pkg.fetch?.ok && pkg.fetch.partial && (
+                  <p className="mt-1.5 flex items-start gap-1.5 border border-warn/30 bg-warn-soft px-2 py-1.5 text-[12px] leading-relaxed text-warn">
+                    <Info size={11} className="mt-[2px] shrink-0" />
+                    <span>
+                      본문은 로그인·페이월 등으로 읽지 못해 <span className="font-semibold">제목·요약만</span> 참고했습니다.
+                      요약에 없는 수치·규모는 [확인 필요]로 남겼습니다.
+                    </span>
+                  </p>
+                )}
+                <div className="num mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-line pt-2 text-[11px] text-faint">
+                  <span>{pkg.brand}</span>
+                  <span>
+                    {new Date(pkg.createdAt).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                  <span>대괄호 {placeholders}곳만 채우면 배포 가능</span>
+                  {pkg.ai?.latencyMs && <span>{(pkg.ai.latencyMs / 1000).toFixed(1)}초</span>}
+                </div>
+              </div>
+
+              {pkg.modeNote && (
+                <div className="mt-2 flex items-start gap-2 rounded-xl border border-warn/25 border-l-4 border-l-warn bg-warn-soft px-3 py-2 text-[12.5px] leading-relaxed text-warn">
+                  <Info size={12} className="mt-[2px] shrink-0" />
+                  <span>{pkg.modeNote}</span>
+                </div>
+              )}
             </div>
-          )}
-        </div>
+          </section>
 
-        <div className="mt-3 space-y-2.5">
-          <ScorecardBlock pkg={pkg} card={card} onCompareStance={onCompareStance} onOpenHistory={onOpenHistory} />
-          {pkg.investigation && <InvestigationBlock inv={pkg.investigation} onOpenCase={onOpenCase} />}
-          <IssueBriefBlock pkg={pkg} />
-          <Overview pkg={pkg} />
-
-          <div className="flex items-center gap-2 px-1 pt-1">
-            <span className="eyebrow">실행 순서</span>
-            <div className="hairline flex-1" />
-            <span className="text-[12px] text-faint">위에서 아래로 그대로</span>
+          {/* ── A. 상황 진단 ── */}
+          <Chapter n="A" title="상황 진단" note="스코어카드 · 사건 조사 · 쟁점 · 대응 시스템" first />
+          <div className="space-y-3">
+            <ScorecardBlock pkg={pkg} card={card} onCompareStance={onCompareStance} onOpenHistory={onOpenHistory} />
+            {pkg.investigation && <InvestigationBlock inv={pkg.investigation} onOpenCase={onOpenCase} />}
+            <IssueBriefBlock pkg={pkg} />
+            <Overview pkg={pkg} />
           </div>
 
-          <ActionsBlock groups={pkg.actions} />
-          <ChannelsBlock pkg={pkg} kit={kit} />
-          <StakeholdersBlock pkg={pkg} />
-          <OutlookBlock pkg={pkg} />
-          <SimilarCasesBlock pkg={pkg} onOpenCase={onOpenCase} />
-          <CasePlaybookBlock pkg={pkg} onOpenCase={onOpenCase} />
-          <VerdictCompareBlock pkg={pkg} onOpenCase={onOpenCase} />
-        </div>
-
-        <div className="mt-3 rounded-xl border border-line bg-surface px-3.5 py-3">
-          <div className="flex items-center gap-1.5">
-            <ShieldAlert size={12} className="text-warn" />
-            <span className="text-[12.5px] font-semibold text-ink-2">이 유형에서만 생기는 함정</span>
+          {/* ── B. 실행 ── */}
+          <Chapter n="B" title="실행" note="체크리스트 → 4채널 문안 → 접점 → 예상 반응" />
+          <div className="space-y-3">
+            <ActionsBlock groups={pkg.actions} />
+            <ChannelsBlock pkg={pkg} kit={kit} />
+            <StakeholdersBlock pkg={pkg} />
+            <OutlookBlock pkg={pkg} />
           </div>
-          <ul className="mt-1.5 space-y-1">
-            {pkg.watchouts.map((w) => (
-              <li key={w} className="flex gap-1.5 text-[12.5px] leading-relaxed text-muted">
-                <span className="mt-[6px] h-1 w-1 shrink-0 rounded-full bg-warn/60" />
-                <span>{w}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
 
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-2 px-1">
-          <button type="button" onClick={onOpenManual} className="btn btn-ghost h-8 px-2 text-[12.5px] text-muted hover:text-ink">
-            <BookOpen size={12} /> 참고 매뉴얼·실제 사례 보기
-          </button>
-          <span className="text-[12px] leading-relaxed text-faint">
-            확인되지 않은 사실은 만들지 않습니다. [확인 필요] 값은 담당자가 확인해 채우세요.
-          </span>
-        </div>
+          {/* ── C. 근거·검증 ── */}
+          <Chapter n="C" title="근거 · 검증" note="실제 사례 · 대응 순서 · 모범 vs 실패" />
+          <div className="space-y-3">
+            <SimilarCasesBlock pkg={pkg} onOpenCase={onOpenCase} />
+            <CasePlaybookBlock pkg={pkg} onOpenCase={onOpenCase} />
+            <VerdictCompareBlock pkg={pkg} onOpenCase={onOpenCase} />
+          </div>
+
+          <section className="sheet mt-3 overflow-hidden">
+            <div className="sheet-head">
+              <span className="blk-no">!</span>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5">
+                  <ShieldAlert size={12} className="text-warn" />
+                  <h2 className="text-[13.5px] font-bold text-ink">이 유형에서만 생기는 함정</h2>
+                </div>
+              </div>
+            </div>
+            <ul className="px-4 py-3 sm:px-5">
+              {pkg.watchouts.map((w, i) => (
+                <li key={w} className={cx("flex gap-1.5 py-1 text-[12.5px] leading-relaxed text-muted", i > 0 && "border-t border-line")}>
+                  <span className="mt-[6px] h-1 w-1 shrink-0 bg-warn" />
+                  <span>{w}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-3">
+            <button type="button" onClick={onOpenManual} className="btn btn-ghost h-8 px-2 text-[12.5px] text-muted hover:text-ink">
+              <BookOpen size={12} /> 매뉴얼·실제 사례 보기
+            </button>
+            <span className="text-[12px] leading-relaxed text-faint">
+              확인되지 않은 사실은 만들지 않습니다. [확인 필요] 값은 담당자가 확인해 채우세요.
+            </span>
+          </div>
         </div>
       </div>
 
@@ -1042,73 +1102,62 @@ export function PackageSkeleton({ stage, note, onSkip }: { stage: string; note: 
   }, []);
 
   return (
-    <div className="mx-auto w-full max-w-[860px] px-4 pb-20 pt-6 sm:px-6">
-      <div className="card p-5 sm:p-7">
-        <div className="flex items-center gap-2">
-          <span className="relative flex h-2 w-2">
-            <span className="absolute inline-flex h-full w-full animate-pulse-ring rounded-full bg-accent" />
-            <span className="relative inline-flex h-2 w-2 rounded-full bg-accent" />
-          </span>
-          <span className="text-[13.5px] font-semibold text-ink">대응 패키지를 만드는 중</span>
-          <span className="num ml-auto text-[12px] text-faint">{elapsed}초 · 보통 20~40초</span>
+    <div className="mx-auto w-full max-w-[1000px] px-4 pb-20 pt-6 sm:px-6">
+      <div className="sheet">
+        <div className="sheet-head-dark">
+          <span className="step-tag">Generating</span>
+          <span className="text-[13px] font-semibold text-white">대응 패키지를 만드는 중</span>
+          <span className="num ml-auto text-[12px] text-white/60">{elapsed}초 · 보통 20~40초</span>
         </div>
-        <p className="mt-2 text-[13px] text-muted">{stage}</p>
-        <p className="mt-0.5 text-[12px] text-faint">{note}</p>
+        <div className="px-4 py-4 sm:px-6">
+          <p className="text-[13px] font-medium text-ink-2">{stage}</p>
+          <p className="mt-0.5 text-[12px] text-muted">{note}</p>
 
-        <div className="mt-3 space-y-1.5" aria-hidden>
-          {["① 상황·유형 판별", "② 쟁점 · 숫자 확인 항목", "③ 골든타임 체크리스트", "④ 4채널 문안 (입장문·사내·SNS)", "⑤ 위험 스코어카드"]
-            .map((label, i) => {
-              const state = elapsed > 4 + i * 3 ? "done" : elapsed > i * 2 ? "doing" : "wait";
-              return (
-                <div key={label} className="flex items-center gap-2.5 rounded-lg border border-line bg-[#fcfcfa] px-3 py-1.5">
-                  <span
-                    className={cx(
-                      "grid h-4 w-4 shrink-0 place-items-center rounded-full border text-[9px] font-bold",
-                      state === "done"
-                        ? "border-ok bg-ok text-white"
-                        : state === "doing"
-                          ? "border-accent bg-accent-soft text-accent-deep"
-                          : "border-line-strong bg-white text-transparent",
-                    )}
-                  >
-                    <Check size={8} strokeWidth={3.5} />
-                  </span>
-                  <span className={cx("text-[12.5px]", state === "wait" ? "text-faint" : "text-ink-2")}>{label}</span>
-                  {state === "doing" && <span className="skeleton-sweep ml-auto h-2 w-16 rounded bg-paper-deep" />}
-                </div>
-              );
-            })}
-        </div>
-
-        {onSkip && elapsed >= 8 && (
-          <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-warn/25 bg-warn-soft px-3 py-2" data-testid="skip-to-local">
-            <span className="text-[12px] leading-relaxed text-warn">
-              AI 응답이 느립니다. 기다리지 않고 매뉴얼 결과를 먼저 볼 수 있습니다.
-            </span>
-            <button type="button" onClick={onSkip} className="btn btn-outline ml-auto h-7 px-2 text-[12px]">
-              매뉴얼 결과 먼저 보기
-            </button>
+          <div className="mt-3 border border-line-strong" aria-hidden>
+            {["① 상황·유형 판별", "② 쟁점 · 숫자 확인 항목", "③ 골든타임 체크리스트", "④ 4채널 문안 (입장문·사내·SNS)", "⑤ 위험 스코어카드"].map(
+              (label, i) => {
+                const state = elapsed > 4 + i * 3 ? "done" : elapsed > i * 2 ? "doing" : "wait";
+                return (
+                  <div key={label} className={cx("flex items-center gap-2.5 px-3 py-2", i > 0 && "border-t border-line")}>
+                    <span
+                      className={cx(
+                        "grid h-4 w-4 shrink-0 place-items-center rounded-full border text-[9px] font-bold",
+                        state === "done"
+                          ? "border-ok bg-ok text-white"
+                          : state === "doing"
+                            ? "border-accent bg-accent-soft text-accent-deep"
+                            : "border-line-strong bg-white text-transparent",
+                      )}
+                    >
+                      <Check size={8} strokeWidth={3.5} />
+                    </span>
+                    <span className={cx("text-[12.5px]", state === "wait" ? "text-faint" : "text-ink-2")}>{label}</span>
+                    {state === "doing" && <span className="skeleton-sweep ml-auto h-2 w-16 bg-paper-deep" />}
+                  </div>
+                );
+              },
+            )}
           </div>
-        )}
 
-        <div className="mt-4 space-y-2 opacity-60">
-          {["전체 대응 시스템 정리", "골든타임 체크리스트", "입장문 2종 작성", "압박 질문·답변 스크립트", "유관기관·악화 시나리오"].map((label, i) => (
-            <div key={label} className="flex items-center gap-2.5 rounded-lg border border-line bg-[#fcfcfa] px-3 py-2">
-              <span className="num text-[11.5px] text-faint">{`0${i + 1}`}</span>
-              <span className="text-[13px] text-ink-2">{label}</span>
-              <span className="skeleton-sweep ml-auto h-2 w-16 rounded bg-paper-deep" />
+          {onSkip && elapsed >= 8 && (
+            <div className="mt-3 flex flex-wrap items-center gap-2 border border-warn/30 border-l-4 border-l-warn bg-warn-soft px-3 py-2" data-testid="skip-to-local">
+              <span className="text-[12.5px] leading-relaxed text-warn">AI 응답이 느립니다. 기다리지 않고 매뉴얼 결과를 먼저 볼 수 있습니다.</span>
+              <button type="button" onClick={onSkip} className="btn btn-outline ml-auto h-7 px-2 text-[12.5px]">
+                매뉴얼 결과 먼저 보기
+              </button>
             </div>
-          ))}
-        </div>
-      </div>
-      <div className="mt-3 grid gap-2 sm:grid-cols-3">
-        {[0, 1, 2].map((i) => (
-          <div key={i} className="card h-24 p-3">
-            <div className="skeleton-sweep h-2 w-20 rounded bg-paper-deep" />
-            <div className="skeleton-sweep mt-2 h-2 w-full rounded bg-paper-deep" />
-            <div className="skeleton-sweep mt-1.5 h-2 w-3/4 rounded bg-paper-deep" />
+          )}
+
+          <div className="mt-3 space-y-2 opacity-70">
+            {["전체 대응 시스템 정리", "골든타임 체크리스트", "입장문 2종 작성", "압박 질문·답변 스크립트", "유관기관·악화 시나리오"].map((label, i) => (
+              <div key={label} className="flex items-center gap-2.5 border border-line px-3 py-2">
+                <span className="num text-[11.5px] text-faint">{`0${i + 1}`}</span>
+                <span className="text-[13px] text-ink-2">{label}</span>
+                <span className="skeleton-sweep ml-auto h-2 w-16 bg-paper-deep" />
+              </div>
+            ))}
           </div>
-        ))}
+        </div>
       </div>
     </div>
   );

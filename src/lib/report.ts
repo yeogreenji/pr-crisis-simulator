@@ -281,7 +281,7 @@ export function buildExecutiveHtml(pkg: ResponsePackage, card: Scorecard, kit: C
     .map(
       (axis) => `<tr>
   <td class="axis">${esc(axis.label)}</td>
-  <td class="score"><b style="color:${axis.value >= 70 ? "#b02a22" : axis.value >= 50 ? "#96620d" : "#17694c"}">${axis.value}</b><span class="bar"><i style="width:${axis.value}%"></i></span></td>
+  <td class="score"><b style="color:${axis.value >= 70 ? "#dc2626" : axis.value >= 50 ? "#d97706" : "#059669"}">${axis.value}</b><span class="bar"><i style="width:${axis.value}%"></i></span></td>
   <td class="why">${esc(axis.reasons[0] ?? "")}</td>
 </tr>`,
     )
@@ -367,34 +367,34 @@ ${inv.precedent ? `<p class="muted"><b>참고 사례</b> — ${esc(inv.precedent
   * { box-sizing: border-box; }
   body { font-family: "Malgun Gothic","Apple SD Gothic Neo","Pretendard",sans-serif; color:#0f172a; font-size:10.5pt; line-height:1.55; margin:0; }
   .cover { border-bottom:3px solid #0f172a; padding-bottom:14px; margin-bottom:18px; }
-  .eyebrow { font-size:8.5pt; letter-spacing:.16em; text-transform:uppercase; color:#8b8f98; font-weight:700; }
+  .eyebrow { font-size:8.5pt; letter-spacing:.16em; text-transform:uppercase; color:#8593a8; font-weight:700; }
   h1 { font-size:20pt; margin:6px 0 8px; letter-spacing:-.02em; line-height:1.28; }
-  h2 { font-size:12pt; margin:22px 0 8px; padding-bottom:5px; border-bottom:1px solid #deddd5; }
+  h2 { font-size:12pt; margin:22px 0 8px; padding-bottom:5px; border-bottom:1px solid #e2e8f0; }
   h3 { font-size:10.5pt; margin:14px 0 6px; }
   table { width:100%; border-collapse:collapse; margin:8px 0 4px; }
-  th, td { border:1px solid #e2e1da; padding:5px 7px; text-align:left; vertical-align:top; font-size:9.5pt; }
+  th, td { border:1px solid #e2e8f0; padding:5px 7px; text-align:left; vertical-align:top; font-size:9.5pt; }
   th { background:#f6f6f2; font-weight:700; }
-  table.meta th { width:26%; background:#fbfbf8; }
+  table.meta th { width:26%; background:#f8fafc; }
   .axis { width:30%; font-weight:600; }
   .score { width:26%; white-space:nowrap; }
   .score b { font-size:11pt; margin-right:6px; }
-  .bar { display:inline-block; width:70px; height:5px; background:#ecece7; border-radius:3px; vertical-align:middle; overflow:hidden; }
-  .bar i { display:block; height:100%; background:#1e3a5f; }
-  .why { color:#5c616c; font-size:9pt; }
+  .bar { display:inline-block; width:70px; height:5px; background:#eef2f8; border-radius:3px; vertical-align:middle; overflow:hidden; }
+  .bar i { display:block; height:100%; background:#1d4ed8; }
+  .why { color:#5b6b82; font-size:9pt; }
   .scoreboard { display:flex; gap:14px; align-items:flex-start; }
-  .total { min-width:118px; border:1px solid #deddd5; border-radius:10px; padding:10px; text-align:center; background:#fbfbf8; }
+  .total { min-width:118px; border:1px solid #e2e8f0; border-radius:10px; padding:10px; text-align:center; background:#f8fafc; }
   .total b { display:block; font-size:26pt; line-height:.98; color:${bandColor}; }
-  .total span { font-size:9pt; color:#5c616c; }
-  .doc { border:1px solid #e2e1da; border-radius:8px; padding:10px 12px; margin:10px 0; page-break-inside:avoid; }
-  .doc-head { font-size:8.5pt; color:#8b8f98; font-weight:700; }
+  .total span { font-size:9pt; color:#5b6b82; }
+  .doc { border:1px solid #e2e8f0; border-radius:8px; padding:10px 12px; margin:10px 0; page-break-inside:avoid; }
+  .doc-head { font-size:8.5pt; color:#8593a8; font-weight:700; }
   .doc-title { font-weight:700; margin:3px 0 6px; }
   pre { white-space:pre-wrap; font-family:inherit; font-size:9.5pt; line-height:1.55; margin:0; }
-  .qa { border-bottom:1px dashed #e2e1da; padding:7px 0; page-break-inside:avoid; }
+  .qa { border-bottom:1px dashed #e2e8f0; padding:7px 0; page-break-inside:avoid; }
   .qa .q { font-weight:700; }
   .qa .a { margin-top:2px; }
-  .muted { color:#5c616c; font-size:9pt; }
+  .muted { color:#5b6b82; font-size:9pt; }
   .defense li { margin-bottom:5px; }
-  .foot { margin-top:20px; border-top:1px solid #deddd5; padding-top:8px; font-size:8.5pt; color:#8b8f98; }
+  .foot { margin-top:20px; border-top:1px solid #e2e8f0; padding-top:8px; font-size:8.5pt; color:#8593a8; }
   section { page-break-inside:auto; }
   h2, h3 { page-break-after:avoid; }
   @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }

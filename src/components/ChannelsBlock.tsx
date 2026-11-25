@@ -11,7 +11,7 @@ import {
   ShieldCheck,
   Users,
 } from "lucide-react";
-import { CopyButton, cx } from "./ui";
+import { BlockHead, CopyButton, cx } from "./ui";
 import { usePlan } from "./PlanContext";
 import {
   countPlaceholders,
@@ -43,13 +43,13 @@ const TAG_CLS: Record<string, string> = {
 function StatementCard({ statement }: { statement: Statement }) {
   const placeholders = countPlaceholders(statement.body);
   return (
-    <div className="flex flex-col rounded-xl border border-line bg-[#fcfcfa]" data-testid={`statement-${statement.id}`}>
+    <div className="flex flex-col rounded-xl border border-line bg-tint" data-testid={`statement-${statement.id}`}>
       <div className="flex items-center gap-1.5 border-b border-line px-3 py-2">
         {statement.id === "public" ? <Megaphone size={12} className="text-muted" /> : <ClipboardList size={12} className="text-muted" />}
         <span className="text-[13px] font-semibold text-ink">
           {statement.id === "public" ? "①" : "②"} {statement.label}
         </span>
-        <span className="ml-auto text-[11.5px] text-faint">{statement.channel}</span>
+        <span className="ml-auto text-[12px] text-faint">{statement.channel}</span>
       </div>
       <div className="flex flex-1 flex-col px-3 py-3">
         <div className="text-[13.5px] font-semibold leading-snug text-ink">{statement.title}</div>
@@ -58,10 +58,10 @@ function StatementCard({ statement }: { statement: Statement }) {
         </div>
       </div>
       <div className="flex items-center gap-2 border-t border-line px-3 py-2">
-        <span className="text-[11.5px] text-faint">
+        <span className="text-[12px] text-faint">
           {statement.body.length.toLocaleString()}자 · 대괄호 {placeholders}곳
         </span>
-        <CopyButton text={statementToText(statement)} label="이 입장문 복사" className="btn btn-outline ml-auto h-7 px-2 text-[12.5px]" />
+        <CopyButton text={statementToText(statement)} label="이 입장문 복사" className="btn btn-outline ml-auto h-7 px-2 text-[13px]" />
       </div>
     </div>
   );
@@ -70,16 +70,16 @@ function StatementCard({ statement }: { statement: Statement }) {
 function QaItem({ item, index }: { item: QaScript; index: number }) {
   const [open, setOpen] = useState(index === 0);
   return (
-    <div className="rounded-xl border border-line bg-[#fcfcfa]" data-testid="qa-item">
+    <div className="rounded-xl border border-line bg-tint" data-testid="qa-item">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         className="flex w-full items-start gap-2 px-3 py-2.5 text-left"
       >
-        <span className="num mt-[1px] text-[12px] font-semibold text-faint">Q{index + 1}</span>
+        <span className="num mt-[1px] text-[12.5px] font-semibold text-faint">Q{index + 1}</span>
         <span className="min-w-0 flex-1 text-[13px] font-semibold leading-snug text-ink">{item.question}</span>
-        {item.level === 3 && <span className="chip bg-risk-soft px-1.5 py-0 text-[11px] text-risk">급함</span>}
+        {item.level === 3 && <span className="chip bg-risk-soft px-1.5 py-0 text-[11.5px] text-risk">급함</span>}
         <ChevronDown size={13} className={cx("mt-[2px] shrink-0 text-muted transition-transform", open && "rotate-180")} />
       </button>
       <div className={cx("border-t border-line px-3 pb-3 pt-2.5", open ? "block" : "hidden print:block")}>
@@ -88,19 +88,19 @@ function QaItem({ item, index }: { item: QaScript; index: number }) {
             {item.answer}
           </div>
           <div className="mt-2 flex items-center gap-2">
-            <CopyButton text={item.answer} label="답변 복사" className="btn btn-outline h-6 px-1.5 text-[12px]" />
+            <CopyButton text={item.answer} label="답변 복사" className="btn btn-outline h-6 px-1.5 text-[12.5px]" />
           </div>
         </div>
         {item.guide && (
-          <p className="mt-2 text-[12px] leading-relaxed text-muted">
+          <p className="mt-2 text-[12.5px] leading-relaxed text-muted">
             <span className="font-semibold text-ink-2">요령</span> · {item.guide}
           </p>
         )}
         {item.avoid.length > 0 && (
           <div className="mt-1.5 flex flex-wrap items-center gap-1">
-            <span className="text-[11.5px] font-semibold text-risk">피할 말</span>
+            <span className="text-[12px] font-semibold text-risk">피할 말</span>
             {item.avoid.map((a) => (
-              <span key={a} className="rounded bg-risk-soft px-1.5 py-[1px] text-[11.5px] text-risk">
+              <span key={a} className="rounded bg-risk-soft px-1.5 py-[1px] text-[12px] text-risk">
                 {a}
               </span>
             ))}
@@ -128,35 +128,35 @@ function LockedChannel({
 }) {
   return (
     <div className="px-4 py-6 sm:px-5" data-testid={`channel-gate-${slot}`}>
-      <div className="mx-auto max-w-[560px] rounded-lg border border-dashed border-line-strong bg-[#fbfbf8] px-4 py-5">
+      <div className="mx-auto max-w-[560px] rounded-lg border border-dashed border-line-strong bg-tint px-4 py-5">
         <div className="flex items-center gap-2">
           <span className="grid h-7 w-7 place-items-center rounded-md bg-ink text-white">
             <Lock size={13} />
           </span>
           <div>
             <div className="text-[13.5px] font-semibold text-ink">{title}</div>
-            <div className="text-[11.5px] text-faint">Pro 플랜 · 결제 연동 전 데모</div>
+            <div className="text-[12px] text-faint">Pro 플랜 · 결제 연동 전 데모</div>
           </div>
           <span className="ml-auto rounded-full border border-ink/15 bg-ink px-2 py-[3px] text-[10px] font-semibold tracking-[0.1em] text-white">PRO</span>
         </div>
-        <p className="mt-2 text-[12.5px] leading-relaxed text-ink-2">{desc}</p>
+        <p className="mt-2 text-[13px] leading-relaxed text-ink-2">{desc}</p>
         <div className="mt-2 rounded-md border border-line bg-white px-2.5 py-2">
-          <div className="text-[10.5px] font-semibold uppercase tracking-[0.12em] text-faint">문안 미리보기</div>
-          <p className="mt-1 line-clamp-3 text-[12px] leading-relaxed text-muted">{preview}</p>
+          <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-faint">문안 미리보기</div>
+          <p className="mt-1 line-clamp-3 text-[12.5px] leading-relaxed text-muted">{preview}</p>
         </div>
         <ul className="mt-2 grid gap-1 sm:grid-cols-2">
           {bullets.map((b) => (
-            <li key={b} className="flex gap-1.5 text-[11.5px] leading-snug text-muted">
+            <li key={b} className="flex gap-1.5 text-[12px] leading-snug text-muted">
               <ShieldCheck size={11} className="mt-[2px] shrink-0 text-ok" />
               <span>{b}</span>
             </li>
           ))}
         </ul>
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <button type="button" onClick={onUpgrade} data-testid={`channel-upgrade-${slot}`} className="btn btn-primary h-8 px-3 text-[12.5px]">
+          <button type="button" onClick={onUpgrade} data-testid={`channel-upgrade-${slot}`} className="btn btn-primary h-8 px-3 text-[13px]">
             Pro 14일 무료 체험 켜기
           </button>
-          <span className="text-[11.5px] text-faint">카드 등록 없음 · 언제든 Starter로 전환</span>
+          <span className="text-[12px] text-faint">카드 등록 없음 · 체험 후 플랜 선택</span>
         </div>
       </div>
     </div>
@@ -182,23 +182,17 @@ export function ChannelsBlock({ pkg, kit }: { pkg: ResponsePackage; kit: Channel
 
   return (
     <section className="card overflow-hidden" data-testid="block-channels">
-      <div className="flex flex-wrap items-start gap-3 border-b border-line px-4 py-3.5 sm:px-5">
-        <span className="num mt-[1px] grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-ink text-[12px] font-semibold text-white">
-          02
-        </span>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1.5">
-            <Megaphone size={13} className="text-muted" />
-            <h2 className="text-[14px] font-semibold tracking-[-0.02em] text-ink">4채널 실행 문안 — 오늘 그대로 배포</h2>
-          </div>
-          <p className="mt-0.5 text-[12.5px] leading-relaxed text-muted">
-            대외 공지·기자 응대·사내 공지·SNS를 한 세트로 만들었습니다. 채널을 바꿔 확인하고 각 문안을 그대로 복사하세요.
-          </p>
-        </div>
-        <span className="shrink-0 text-[11.5px] text-faint">대괄호 {placeholders}곳 채우면 배포 가능</span>
-      </div>
+      <BlockHead
+        dark
+        n="06"
+        id="sec-channels"
+        icon={Megaphone}
+        title="4채널 실행 문안 — 오늘 그대로 배포"
+        desc="대외 공지·기자 응대·사내 공지·SNS를 한 세트로 만들었습니다. 채널 탭을 바꿔 확인하고 각 문안을 그대로 복사하세요."
+        meta={<span className="num border border-white/25 px-1.5 py-0 text-[11.5px] text-white/75">대괄호 {placeholders}곳</span>}
+      />
 
-      <div className="flex flex-wrap items-center gap-1 border-b border-line bg-[#fbfbf8] px-3 py-2 print:hidden sm:px-4" role="tablist">
+      <div className="doctabs print:hidden" role="tablist">
         {TABS.map((t) => {
           const Icon = t.icon;
           const on = t.id === tab;
@@ -209,17 +203,15 @@ export function ChannelsBlock({ pkg, kit }: { pkg: ResponsePackage; kit: Channel
               role="tab"
               aria-selected={on}
               data-testid={`channel-tab-${t.id}`}
+              data-on={on}
               onClick={() => setTab(t.id)}
-              className={cx(
-                "flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[12.5px] font-semibold transition-colors",
-                on ? "border-ink bg-ink text-white" : "border-transparent text-muted hover:border-line hover:bg-white",
-              )}
+              className="doctab"
             >
-              <span className={cx("num text-[11.5px]", on ? "text-white/70" : "text-faint")}>{t.n}</span>
-              <Icon size={12} className={on ? "opacity-90" : "opacity-60"} />
+              <span className={cx("num text-[11.5px]", on ? "text-ink/50" : "text-faint")}>{t.n}</span>
+              <Icon size={12} className={on ? "opacity-90" : "opacity-50"} />
               <span className="hidden sm:inline">{t.label}</span>
               <span className="sm:hidden">{t.label.split(" ")[0]}</span>
-              <span className={cx("rounded px-1 text-[11px]", on ? "bg-white/15 text-white/80" : "bg-paper-deep text-faint")}>
+              <span className={cx("px-1 text-[11px] font-semibold", on ? "bg-ink text-white" : "bg-paper-deep text-faint")}>
                 {counts[t.id]}
               </span>
               {!channelsOpen && (t.id === "internal" || t.id === "social") && <Lock size={10} className="opacity-50" />}
@@ -239,7 +231,7 @@ export function ChannelsBlock({ pkg, kit }: { pkg: ResponsePackage; kit: Channel
             <StatementCard key={s.id} statement={s} />
           ))}
         </div>
-        <div className="flex items-start gap-2 border-t border-line bg-paper/60 px-4 py-2.5 text-[12px] leading-relaxed text-muted sm:px-5">
+        <div className="flex items-start gap-2 border-t border-line bg-paper/60 px-4 py-2.5 text-[12.5px] leading-relaxed text-muted sm:px-5">
           <Info size={11} className="mt-[2px] shrink-0" />
           <span>
             <span className="font-semibold text-ink-2">톤 체크</span> — {stance.rule}
@@ -256,27 +248,27 @@ export function ChannelsBlock({ pkg, kit }: { pkg: ResponsePackage; kit: Channel
             <CopyButton
               text={defenseToText(kit.defense, kit.bridge)}
               label="방어 논리 복사"
-              className="btn btn-outline ml-auto h-7 px-2 text-[12px]"
+              className="btn btn-outline ml-auto h-7 px-2 text-[12.5px]"
             />
           </div>
           <div className="mt-2 grid gap-2 lg:grid-cols-3">
             {kit.defense.map((point, i) => (
-              <div key={point.frame} className="rounded-xl border border-line bg-[#fcfcfa] px-3 py-2.5">
+              <div key={point.frame} className="rounded-xl border border-line bg-tint px-3 py-2.5">
                 <div className="flex items-center gap-1.5">
-                  <span className="num text-[11.5px] font-semibold text-accent">{String(i + 1).padStart(2, "0")}</span>
-                  <span className="text-[12.5px] font-semibold text-ink">{point.frame}</span>
+                  <span className="num text-[12px] font-semibold text-accent">{String(i + 1).padStart(2, "0")}</span>
+                  <span className="text-[13px] font-semibold text-ink">{point.frame}</span>
                 </div>
-                <p className="mt-1 text-[12.5px] leading-relaxed text-ink-2">“{point.line}”</p>
-                <p className="mt-1 text-[11.5px] leading-snug text-muted">근거 · {point.proof}</p>
-                <p className="mt-0.5 text-[11.5px] leading-snug text-risk">피할 말 · {point.avoid}</p>
+                <p className="mt-1 text-[13px] leading-relaxed text-ink-2">“{point.line}”</p>
+                <p className="mt-1 text-[12px] leading-snug text-muted">근거 · {point.proof}</p>
+                <p className="mt-0.5 text-[12px] leading-snug text-risk">피할 말 · {point.avoid}</p>
               </div>
             ))}
           </div>
           <div className="mt-2 rounded-xl border border-line bg-white px-3 py-2">
-            <span className="text-[12px] font-semibold text-ink">브릿지 문장 — 공격적 질문을 사실로 되돌리기</span>
+            <span className="text-[12.5px] font-semibold text-ink">브릿지 문장 — 공격적 질문을 사실로 되돌리기</span>
             <ul className="mt-1 space-y-0.5">
               {kit.bridge.map((line) => (
-                <li key={line} className="text-[12px] leading-relaxed text-muted">
+                <li key={line} className="text-[12.5px] leading-relaxed text-muted">
                   · {line}
                 </li>
               ))}
@@ -298,8 +290,8 @@ export function ChannelsBlock({ pkg, kit }: { pkg: ResponsePackage; kit: Channel
           <div className="mt-2 grid gap-1.5 sm:grid-cols-2">
             {pkg.banned.map((b) => (
               <div key={b.phrase} className="rounded-lg border border-risk/15 bg-white px-2.5 py-1.5">
-                <div className="text-[12.5px] font-semibold text-risk">{b.phrase}</div>
-                <div className="mt-0.5 text-[12px] leading-snug text-muted">{b.why}</div>
+                <div className="text-[13px] font-semibold text-risk">{b.phrase}</div>
+                <div className="mt-0.5 text-[12.5px] leading-snug text-muted">{b.why}</div>
               </div>
             ))}
           </div>
@@ -322,26 +314,26 @@ export function ChannelsBlock({ pkg, kit }: { pkg: ResponsePackage; kit: Channel
         <div className="px-4 py-3.5 sm:px-5">
           <div className="flex flex-wrap items-center gap-1.5">
             <span className="text-[13.5px] font-semibold text-ink">{kit.internal.title}</span>
-            <span className="chip border border-warn/25 bg-warn-soft px-1.5 py-0 text-[11.5px] text-warn">외부 공유 금지</span>
-            <span className="chip border border-line bg-white px-1.5 py-0 text-[11.5px] text-muted">임직원 대상</span>
+            <span className="chip border border-warn/25 bg-warn-soft px-1.5 py-0 text-[12px] text-warn">외부 공유 금지</span>
+            <span className="chip border border-line bg-white px-1.5 py-0 text-[12px] text-muted">임직원 대상</span>
             <CopyButton
               text={internalToText(kit.internal)}
               label="사내 공지 복사"
-              className="btn btn-outline ml-auto h-7 px-2 text-[12.5px]"
+              className="btn btn-outline ml-auto h-7 px-2 text-[13px]"
             />
           </div>
-          <p className="mt-1.5 rounded-lg border border-accent/20 bg-accent-soft/50 px-2.5 py-1.5 text-[12.5px] leading-relaxed text-accent-deep">
+          <p className="mt-1.5 rounded-lg border border-accent/20 bg-accent-soft/50 px-2.5 py-1.5 text-[13px] leading-relaxed text-accent-deep">
             {kit.internal.lead}
           </p>
-          <div className="mt-2 rounded-xl border border-line bg-[#fcfcfa] px-3 py-3">
+          <div className="mt-2 rounded-xl border border-line bg-tint px-3 py-3">
             <div className="whitespace-pre-wrap text-[13px] leading-[1.75] text-ink-2">{kit.internal.body}</div>
           </div>
           <div className="mt-2 grid gap-2 sm:grid-cols-2">
             <div className="rounded-xl border border-ok/20 bg-ok-soft/40 px-3 py-2.5">
-              <span className="text-[12px] font-semibold text-ok">임직원이 할 일</span>
+              <span className="text-[12.5px] font-semibold text-ok">임직원이 할 일</span>
               <ul className="mt-1 space-y-1">
                 {kit.internal.dos.map((d) => (
-                  <li key={d} className="flex gap-1.5 text-[12px] leading-relaxed text-ink-2">
+                  <li key={d} className="flex gap-1.5 text-[12.5px] leading-relaxed text-ink-2">
                     <span className="mt-[6px] h-1 w-1 shrink-0 rounded-full bg-ok/70" />
                     <span>{d}</span>
                   </li>
@@ -349,10 +341,10 @@ export function ChannelsBlock({ pkg, kit }: { pkg: ResponsePackage; kit: Channel
               </ul>
             </div>
             <div className="rounded-xl border border-risk/20 bg-risk-soft/40 px-3 py-2.5">
-              <span className="text-[12px] font-semibold text-risk">하지 말아야 할 말·행동</span>
+              <span className="text-[12.5px] font-semibold text-risk">하지 말아야 할 말·행동</span>
               <ul className="mt-1 space-y-1">
                 {kit.internal.donts.map((d) => (
-                  <li key={d} className="flex gap-1.5 text-[12px] leading-relaxed text-ink-2">
+                  <li key={d} className="flex gap-1.5 text-[12.5px] leading-relaxed text-ink-2">
                     <span className="mt-[6px] h-1 w-1 shrink-0 rounded-full bg-risk/60" />
                     <span>{d}</span>
                   </li>
@@ -361,10 +353,10 @@ export function ChannelsBlock({ pkg, kit }: { pkg: ResponsePackage; kit: Channel
             </div>
           </div>
           <div className="mt-2 rounded-xl border border-line bg-white px-3 py-2.5">
-            <span className="text-[12px] font-semibold text-ink">임직원이 물을 질문</span>
+            <span className="text-[12.5px] font-semibold text-ink">임직원이 물을 질문</span>
             <div className="mt-1 space-y-1.5">
               {kit.internal.qa.map((row) => (
-                <div key={row.q} className="text-[12px] leading-relaxed">
+                <div key={row.q} className="text-[12.5px] leading-relaxed">
                   <span className="font-medium text-ink-2">Q. {row.q}</span>
                   <p className="text-muted">A. {row.a}</p>
                 </div>
@@ -391,40 +383,40 @@ export function ChannelsBlock({ pkg, kit }: { pkg: ResponsePackage; kit: Channel
         <div className="px-4 py-3.5 sm:px-5">
           <div className="flex flex-wrap items-center gap-1.5">
             <span className="text-[13.5px] font-semibold text-ink">공식 계정 공지 — 짧은 문안</span>
-            <span className="chip border border-line bg-white px-1.5 py-0 text-[11.5px] text-muted">{kit.social.short.length}자</span>
+            <span className="chip border border-line bg-white px-1.5 py-0 text-[12px] text-muted">{kit.social.short.length}자</span>
             <CopyButton
               text={kit.social.short}
               label="짧은 공지 복사"
-              className="btn btn-outline ml-auto h-7 px-2 text-[12.5px]"
+              className="btn btn-outline ml-auto h-7 px-2 text-[13px]"
             />
           </div>
-          <div className="mt-1.5 rounded-xl border border-line bg-[#fcfcfa] px-3 py-2.5">
-            <div className="flex items-center gap-1.5 text-[11.5px] text-faint">
+          <div className="mt-1.5 rounded-xl border border-line bg-tint px-3 py-2.5">
+            <div className="flex items-center gap-1.5 text-[12px] text-faint">
               <Smartphone size={11} /> X(스레드) · 인스타그램 공통
             </div>
             <p className="mt-1 whitespace-pre-wrap text-[13px] leading-[1.7] text-ink-2">{kit.social.short}</p>
-            <p className="mt-1 text-[11.5px] text-accent-deep">{kit.social.hashtags.join(" ")}</p>
+            <p className="mt-1 text-[12px] text-accent-deep">{kit.social.hashtags.join(" ")}</p>
           </div>
 
           <div className="mt-2 grid gap-2 lg:grid-cols-2">
             <div className="rounded-xl border border-line bg-white px-3 py-2.5">
               <div className="flex items-center gap-1.5">
-                <span className="text-[12px] font-semibold text-ink">인스타그램·블로그 캡션</span>
-                <CopyButton text={kit.social.long} label="캡션 복사" className="btn btn-ghost ml-auto h-6 px-1 text-[11.5px]" />
+                <span className="text-[12.5px] font-semibold text-ink">인스타그램·블로그 캡션</span>
+                <CopyButton text={kit.social.long} label="캡션 복사" className="btn btn-ghost ml-auto h-6 px-1 text-[12px]" />
               </div>
-              <div className="mt-1 whitespace-pre-wrap text-[12px] leading-relaxed text-ink-2">{kit.social.long}</div>
+              <div className="mt-1 whitespace-pre-wrap text-[12.5px] leading-relaxed text-ink-2">{kit.social.long}</div>
             </div>
             <div className="rounded-xl border border-line bg-white px-3 py-2.5">
               <div className="flex items-center gap-1.5">
-                <span className="text-[12px] font-semibold text-ink">고정 댓글</span>
-                <CopyButton text={kit.social.pinned} label="복사" className="btn btn-ghost ml-auto h-6 px-1 text-[11.5px]" />
+                <span className="text-[12.5px] font-semibold text-ink">고정 댓글</span>
+                <CopyButton text={kit.social.pinned} label="복사" className="btn btn-ghost ml-auto h-6 px-1 text-[12px]" />
               </div>
-              <p className="mt-1 text-[12px] leading-relaxed text-ink-2">{kit.social.pinned}</p>
+              <p className="mt-1 text-[12.5px] leading-relaxed text-ink-2">{kit.social.pinned}</p>
               <div className="mt-2 border-t border-line pt-2">
-                <span className="text-[11.5px] font-semibold text-muted">카드뉴스 4장</span>
+                <span className="text-[12px] font-semibold text-muted">카드뉴스 4장</span>
                 <ol className="mt-1 space-y-0.5">
                   {kit.social.cards.map((c, i) => (
-                    <li key={c.head} className="text-[11.5px] leading-snug text-muted">
+                    <li key={c.head} className="text-[12px] leading-snug text-muted">
                       {i + 1}. <span className="font-medium text-ink-2">{c.head}</span> — {c.body}
                     </li>
                   ))}
@@ -433,28 +425,28 @@ export function ChannelsBlock({ pkg, kit }: { pkg: ResponsePackage; kit: Channel
             </div>
           </div>
 
-          <div className="mt-2 rounded-xl border border-line bg-[#fcfcfa] px-3 py-2.5">
+          <div className="mt-2 rounded-xl border border-line bg-tint px-3 py-2.5">
             <div className="flex items-center gap-1.5">
               <MessagesSquare size={12} className="text-muted" />
-              <span className="text-[12.5px] font-semibold text-ink">예상 댓글 · 그대로 다는 답글</span>
-              <CopyButton text={socialToText(kit.social)} label="전체 복사" className="btn btn-outline ml-auto h-6 px-1.5 text-[11.5px]" />
+              <span className="text-[13px] font-semibold text-ink">예상 댓글 · 그대로 다는 답글</span>
+              <CopyButton text={socialToText(kit.social)} label="전체 복사" className="btn btn-outline ml-auto h-6 px-1.5 text-[12px]" />
             </div>
             <div className="mt-1.5 space-y-1.5">
               {kit.social.commentGuide.map((row) => (
                 <div key={row.pattern} className="rounded-lg border border-line bg-white px-2.5 py-1.5">
                   <div className="flex flex-wrap items-center gap-1.5">
-                    <span className={cx("chip px-1.5 py-0 text-[11px]", TAG_CLS[row.tag])}>{row.tag}</span>
-                    <span className="text-[12px] font-medium text-ink-2">{row.pattern}</span>
+                    <span className={cx("chip px-1.5 py-0 text-[11.5px]", TAG_CLS[row.tag])}>{row.tag}</span>
+                    <span className="text-[12.5px] font-medium text-ink-2">{row.pattern}</span>
                   </div>
-                  <p className="mt-0.5 text-[12px] leading-relaxed text-muted">→ {row.reply}</p>
+                  <p className="mt-0.5 text-[12.5px] leading-relaxed text-muted">→ {row.reply}</p>
                 </div>
               ))}
             </div>
             <div className="mt-2 border-t border-line pt-2">
-              <span className="text-[11.5px] font-semibold text-ink">악화 시 운영 원칙</span>
+              <span className="text-[12px] font-semibold text-ink">악화 시 운영 원칙</span>
               <ul className="mt-1 space-y-0.5">
                 {kit.social.escalation.map((e, i) => (
-                  <li key={e} className="text-[11.5px] leading-relaxed text-muted">
+                  <li key={e} className="text-[12px] leading-relaxed text-muted">
                     {i + 1}. {e}
                   </li>
                 ))}
@@ -465,7 +457,7 @@ export function ChannelsBlock({ pkg, kit }: { pkg: ResponsePackage; kit: Channel
         )}
       </div>
 
-      <div className="flex items-center gap-2 border-t border-line bg-paper/60 px-4 py-2 text-[11.5px] text-faint sm:px-5">
+      <div className="flex items-center gap-2 border-t border-line bg-paper/60 px-4 py-2 text-[12px] text-faint sm:px-5">
         <ActiveIcon size={11} />
         <span>
           지금 보고 있는 채널 — {active.label} · {active.short}

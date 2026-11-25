@@ -49,8 +49,60 @@ export function SectionHead({
   );
 }
 
+/**
+ * 섹션 헤더 — 결과 화면 모든 블록이 같은 위치·같은 모양의 띠를 씁니다.
+ * dark: 핵심 섹션(사건 조사·4채널 문안)용. 나머지는 밝은 띠.
+ */
+export function BlockHead({
+  n,
+  title,
+  desc,
+  meta,
+  icon: Icon,
+  action,
+  dark,
+  id,
+}: {
+  n: string;
+  title: ReactNode;
+  desc?: ReactNode;
+  meta?: ReactNode;
+  icon?: typeof Check;
+  action?: ReactNode;
+  dark?: boolean;
+  id?: string;
+}) {
+  return (
+    <header id={id} className={dark ? "sheet-head-dark" : "sheet-head"}>
+      <span className={cx("blk-no", dark && "blk-no-light")}>{n}</span>
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          {Icon && (
+            <Icon size={13} className={dark ? "text-white/60" : "text-muted"} />
+          )}
+          <h2 className={cx("text-[14px] font-bold tracking-[-0.01em]", dark ? "text-white" : "text-ink")}>
+            {title}
+          </h2>
+          {meta}
+        </div>
+        {desc && (
+          <p
+            className={cx(
+              "mt-0.5 text-[12px] leading-relaxed",
+              dark ? "text-white/60" : "text-muted",
+            )}
+          >
+            {desc}
+          </p>
+        )}
+      </div>
+      {action && <div className="ml-auto hidden shrink-0 sm:block">{action}</div>}
+    </header>
+  );
+}
+
 const SEVERITY_LABEL = ["참고", "주의", "심각"] as const;
-const SEVERITY_COLOR = ["#2f5f8a", "#96620d", "#b02a22"] as const;
+const SEVERITY_COLOR = ["#2563eb", "#d97706", "#dc2626"] as const;
 
 export function SeverityTag({ level, label }: { level: 1 | 2 | 3; label?: string }) {
   const color = SEVERITY_COLOR[level - 1];
@@ -69,7 +121,7 @@ export function SeverityTag({ level, label }: { level: 1 | 2 | 3; label?: string
 export function ToneTag({ tone }: { tone: "분노" | "냉소" | "질문" | "연대" | "지지" | "우려" }) {
   const map: Record<string, string> = {
     분노: "bg-risk-soft text-risk",
-    냉소: "bg-[#f1f0ec] text-ink-2",
+    냉소: "bg-[#f1f5f9] text-ink-2",
     질문: "bg-accent-soft text-accent-deep",
     연대: "bg-ok-soft text-ok",
     지지: "bg-ok-soft text-ok",
@@ -79,10 +131,10 @@ export function ToneTag({ tone }: { tone: "분노" | "냉소" | "질문" | "연�
 }
 
 export function scoreColor(score: number): string {
-  if (score <= 24) return "#17694c";
-  if (score <= 44) return "#2f5f8a";
-  if (score <= 64) return "#96620d";
-  return "#b02a22";
+  if (score <= 24) return "#059669";
+  if (score <= 44) return "#2563eb";
+  if (score <= 64) return "#d97706";
+  return "#dc2626";
 }
 
 export function ScoreBadge({ score, size = "md" }: { score: number; size?: "sm" | "md" | "lg" }) {
@@ -98,7 +150,7 @@ export function ScoreBadge({ score, size = "md" }: { score: number; size?: "sm" 
       style={{ color, background: `${color}0f`, border: `1px solid ${color}26` }}
     >
       {score}
-      <span className="text-[11.5px] font-medium opacity-60">/100</span>
+      <span className="text-[12px] font-medium opacity-60">/100</span>
     </span>
   );
 }
@@ -107,7 +159,7 @@ export function Meter({
   value,
   color,
   height = 4,
-  track = "#ecece7",
+  track = "#eef2f8",
 }: {
   value: number;
   color?: string;
@@ -211,7 +263,7 @@ export function DeltaChip({
   suffix?: string;
 }) {
   if (delta === 0) {
-    return <span className="chip bg-[#f1f0ec] text-muted">변화 없음</span>;
+    return <span className="chip bg-[#f1f5f9] text-muted">변화 없음</span>;
   }
   const good = invert ? delta > 0 : delta < 0;
   return (

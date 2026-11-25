@@ -4,10 +4,10 @@ import { countPlaceholders, type ReviewResult } from "../lib/package";
 import { CopyButton, cx } from "./ui";
 
 const scoreStyle = (score: number) => {
-  if (score <= 34) return { color: "#17694c", label: "낮음", bg: "#e8f4ee" };
-  if (score <= 59) return { color: "#2f5f8a", label: "관리 가능", bg: "#eef2f6" };
-  if (score <= 79) return { color: "#96620d", label: "주의", bg: "#fbf2df" };
-  return { color: "#b02a22", label: "위험", bg: "#fbedea" };
+  if (score <= 34) return { color: "#059669", label: "낮음", bg: "#ecfdf5" };
+  if (score <= 59) return { color: "#2563eb", label: "관리 가능", bg: "#eef4ff" };
+  if (score <= 79) return { color: "#d97706", label: "주의", bg: "#fff8eb" };
+  return { color: "#dc2626", label: "위험", bg: "#fef2f2" };
 };
 
 export function ReviewView({
@@ -31,15 +31,15 @@ export function ReviewView({
           <ArrowLeft size={13} /> 새 검수
         </button>
         <span className="ml-auto flex items-center gap-1">
-          <button type="button" onClick={onRetry} className="btn btn-ghost h-8 px-2 text-[12.5px] text-muted hover:text-ink">
+          <button type="button" onClick={onRetry} className="btn btn-ghost h-8 px-2 text-[13px] text-muted hover:text-ink">
             <RotateCcw size={12} /> 다시 검수
           </button>
           <CopyButton
             text={review.rewrite}
             label="리라이트 복사"
-            className="btn btn-outline h-8 px-2 text-[12.5px]"
+            className="btn btn-outline h-8 px-2 text-[13px]"
           />
-          <button type="button" onClick={() => window.print()} className="btn btn-outline h-8 px-2 text-[12.5px]">
+          <button type="button" onClick={() => window.print()} className="btn btn-outline h-8 px-2 text-[13px]">
             <Printer size={12} /> <span className="hidden sm:inline">인쇄</span>
           </button>
         </span>
@@ -51,7 +51,7 @@ export function ReviewView({
           <span className={cx("chip", review.mode === "ai" ? "bg-ok-soft text-ok" : "bg-paper-deep text-muted")}>
             {review.mode === "ai" ? `실시간 AI${review.ai?.model ? ` · ${review.ai.model}` : ""}` : "매뉴얼 엔진"}
           </span>
-          <span className="text-[12px] text-faint">{review.brand}</span>
+          <span className="text-[12.5px] text-faint">{review.brand}</span>
         </div>
 
         <div className="card mt-2.5 overflow-hidden">
@@ -62,15 +62,15 @@ export function ReviewView({
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5">
-                <span className="text-[12px] font-semibold" style={{ color: style.color }}>
+                <span className="text-[12.5px] font-semibold" style={{ color: style.color }}>
                   위험도 {style.label}
                 </span>
-                <span className="text-[12px] text-faint">· 이 상태로 배포했을 때</span>
+                <span className="text-[12.5px] text-faint">· 이 상태로 배포했을 때</span>
               </div>
               <p className="mt-1 text-[14px] font-medium leading-relaxed text-ink">{review.summary}</p>
             </div>
           </div>
-          <div className="grid gap-1.5 border-t border-line bg-[#fcfcfa] px-4 py-3 sm:grid-cols-2 sm:px-5 lg:grid-cols-5">
+          <div className="grid gap-1.5 border-t border-line bg-tint px-4 py-3 sm:grid-cols-2 sm:px-5 lg:grid-cols-5">
             {review.checklist.slice(0, 5).map((c) => (
               <div key={c.label} className="flex items-start gap-1.5">
                 <span
@@ -82,8 +82,8 @@ export function ReviewView({
                   {c.ok ? <Check size={9} strokeWidth={3.5} /> : <X size={9} strokeWidth={3.5} />}
                 </span>
                 <div className="min-w-0">
-                  <div className="text-[12px] font-semibold leading-snug text-ink-2">{c.label}</div>
-                  {!c.ok && c.hint && <div className="mt-0.5 text-[11.5px] leading-snug text-muted">{c.hint}</div>}
+                  <div className="text-[12.5px] font-semibold leading-snug text-ink-2">{c.label}</div>
+                  {!c.ok && c.hint && <div className="mt-0.5 text-[12px] leading-snug text-muted">{c.hint}</div>}
                 </div>
               </div>
             ))}
@@ -94,7 +94,7 @@ export function ReviewView({
           <div className="flex items-center gap-2 border-b border-line px-4 py-3 sm:px-5">
             <ShieldCheck size={13} className="text-risk" />
             <span className="text-[13px] font-semibold">위험 표현 {review.findings.length}곳</span>
-            <span className="ml-auto text-[12px] text-faint">인용 → 고칠 문장 순서</span>
+            <span className="ml-auto text-[12.5px] text-faint">인용 → 고칠 문장 순서</span>
           </div>
           {review.findings.length === 0 ? (
             <div className="flex items-start gap-2 px-4 py-4 text-[13px] text-muted sm:px-5">
@@ -109,20 +109,20 @@ export function ReviewView({
                     onClick={() => setOpenIndex(openIndex === i ? -1 : i)}
                     className="flex w-full items-start gap-2 text-left"
                   >
-                    <span className="num mt-[1px] text-[12px] text-faint">{i + 1}</span>
+                    <span className="num mt-[1px] text-[12.5px] text-faint">{i + 1}</span>
                     <span className="min-w-0 flex-1">
                       <span className="text-[13px] font-semibold text-risk">“{f.quote}”</span>
-                      <span className="ml-1.5 rounded bg-paper-deep px-1 py-[1px] text-[11px] text-muted">{f.label}</span>
+                      <span className="ml-1.5 rounded bg-paper-deep px-1 py-[1px] text-[11.5px] text-muted">{f.label}</span>
                     </span>
-                    <span className="shrink-0 text-[11.5px] text-faint">{openIndex === i ? "접기" : "자세히"}</span>
+                    <span className="shrink-0 text-[12px] text-faint">{openIndex === i ? "접기" : "자세히"}</span>
                   </button>
                   {openIndex === i && (
                     <div className="mt-2 space-y-1.5 pl-5">
-                      <p className="text-[12.5px] leading-relaxed text-muted">{f.why}</p>
+                      <p className="text-[13px] leading-relaxed text-muted">{f.why}</p>
                       <div className="flex items-start gap-2 rounded-lg border border-ok/20 bg-ok-soft px-2.5 py-1.5">
-                        <span className="mt-[2px] text-[11.5px] font-semibold text-ok">이렇게</span>
-                        <span className="min-w-0 flex-1 text-[12.5px] leading-relaxed text-ink-2">{f.fix}</span>
-                        <CopyButton text={f.fix} label="복사" className="btn btn-ghost h-6 px-1 text-[11.5px]" />
+                        <span className="mt-[2px] text-[12px] font-semibold text-ok">이렇게</span>
+                        <span className="min-w-0 flex-1 text-[13px] leading-relaxed text-ink-2">{f.fix}</span>
+                        <CopyButton text={f.fix} label="복사" className="btn btn-ghost h-6 px-1 text-[12px]" />
                       </div>
                     </div>
                   )}
@@ -136,14 +136,14 @@ export function ReviewView({
           <div className="flex flex-wrap items-center gap-2 border-b border-line px-4 py-3 sm:px-5">
             <FileText size={13} className="text-ok" />
             <span className="text-[13px] font-semibold">바로 배포 가능한 리라이트</span>
-            <span className="text-[12px] text-faint">대괄호 {countPlaceholders(review.rewrite)}곳</span>
-            <CopyButton text={review.rewrite} label="전체 복사" className="btn btn-outline ml-auto h-7 px-2 text-[12.5px]" />
+            <span className="text-[12.5px] text-faint">대괄호 {countPlaceholders(review.rewrite)}곳</span>
+            <CopyButton text={review.rewrite} label="전체 복사" className="btn btn-outline ml-auto h-7 px-2 text-[13px]" />
           </div>
           <div className="whitespace-pre-wrap px-4 py-4 text-[13px] leading-[1.8] text-ink-2 sm:px-5">{review.rewrite}</div>
         </section>
 
         {review.modeNote && (
-          <div className="mt-2 flex items-start gap-2 rounded-xl border border-warn/25 bg-warn-soft px-3 py-2 text-[12.5px] leading-relaxed text-warn">
+          <div className="mt-2 flex items-start gap-2 rounded-xl border border-warn/25 bg-warn-soft px-3 py-2 text-[13px] leading-relaxed text-warn">
             <AlertTriangle size={12} className="mt-[2px] shrink-0" />
             <span>{review.modeNote}</span>
           </div>
@@ -165,7 +165,7 @@ export function ReviewView({
           >
             <Sparkles size={12} /> 리라이트 복사
           </button>
-          <span className="ml-auto text-[12px] text-faint">검수 결과는 저장되지 않습니다.</span>
+          <span className="ml-auto text-[12.5px] text-faint">검수 결과는 저장되지 않습니다.</span>
         </div>
       </div>
     </div>

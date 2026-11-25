@@ -39,8 +39,8 @@ export function RadarChart({
         <polygon
           key={ratio}
           points={ring(ratio / 100)}
-          fill={ratio === 100 ? "#fbfbf8" : "none"}
-          stroke={ratio === 100 ? "#d9d8d0" : "#e9e8e2"}
+          fill={ratio === 100 ? "#f8fafc" : "none"}
+          stroke={ratio === 100 ? "#cbd5e1" : "#e2e8f0"}
           strokeWidth={1}
         />
       ))}
@@ -50,14 +50,14 @@ export function RadarChart({
         const anchor = Math.abs(lx - CX) < 8 ? "middle" : lx > CX ? "start" : "end";
         return (
           <g key={axis.label}>
-            <line x1={CX} y1={CY} x2={x} y2={y} stroke="#e9e8e2" strokeWidth={1} />
+            <line x1={CX} y1={CY} x2={x} y2={y} stroke="#e2e8f0" strokeWidth={1} />
             <text
               x={lx}
               y={ly + 3}
               textAnchor={anchor}
               fontSize={11.5}
               fontWeight={600}
-              fill="#6d7380"
+              fill="#64748b"
             >
               {axis.short}
             </text>
@@ -87,7 +87,7 @@ export function RadarChart({
           })}
         </g>
       ))}
-      <circle cx={CX} cy={CY} r={2} fill="#c9c8c0" />
+      <circle cx={CX} cy={CY} r={2} fill="#94a3b8" />
     </svg>
   );
 }
@@ -104,10 +104,10 @@ export function MiniBars({
   return (
     <div className="flex w-full flex-col gap-1">
       {values.map((value, i) => (
-        <div key={i} className="w-full overflow-hidden rounded-full" style={{ height, background: "#ecece7" }}>
+        <div key={i} className="w-full overflow-hidden rounded-full" style={{ height, background: "#eef2f8" }}>
           <div
             className="h-full rounded-full transition-[width] duration-700 ease-out"
-            style={{ width: `${Math.max(2, Math.min(100, value))}%`, background: colors[i] ?? "#1e3a5f" }}
+            style={{ width: `${Math.max(2, Math.min(100, value))}%`, background: colors[i] ?? "#1d4ed8" }}
           />
         </div>
       ))}
